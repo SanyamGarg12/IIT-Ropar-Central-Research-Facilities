@@ -1,0 +1,54 @@
+.horizontal-scroll {
+    position: relative;
+    width: 100%;
+    margin: 2rem auto;
+    overflow: hidden;
+  }
+  
+  .scroll-container {
+    display: flex;
+    overflow-x: auto;
+    scroll-behavior: smooth; /* Enables smooth scrolling */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+  }
+  
+  .scroll-container::-webkit-scrollbar {
+    display: none; /* Hides scrollbar */
+  }
+  
+  .scroll-item {
+    min-width: 300px; /* Adjust image size */
+    height: 200px;
+    margin-right: 1rem;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  }
+  
+  .scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    font-size: 2rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    z-index: 10;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+  }
+  
+  .scroll-button.left {
+    left: 10px;
+  }
+  
+  .scroll-button.right {
+    right: 10px;
+  }
+  
+  .scroll-button:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+  

@@ -1,0 +1,26 @@
+.videos {
+    padding: 4rem 2rem;
+    text-align: center;
+    background-color: #ffffff;
+  }
+  
+  .videos h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: #333;
+  }
+  
+  .video-container {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  
+  .video-container iframe {
+    width: 400px;
+    height: 225px;
+    border: none;
+    border-radius: 8px;
+  }
+  

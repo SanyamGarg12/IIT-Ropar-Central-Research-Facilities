@@ -1,0 +1,18 @@
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+section {
+  margin-bottom: 4rem;
+}
+
+#hero,
+#about,
+#videos {
+  padding-top: 80px; /* Prevents content from hiding under fixed header */
+}

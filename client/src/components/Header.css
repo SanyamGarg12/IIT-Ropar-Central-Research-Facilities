@@ -1,0 +1,52 @@
+.header {
+  position: fixed; /* Fixes the navigation bar at the top */
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #4b4e57; /* Match the background color */
+  color: white;
+  display: flex;
+  justify-content: center; /* Centers the navigation horizontally */
+  align-items: center;
+  padding: 0.5rem 2rem;
+  z-index: 1000; /* Ensures it stays on top of other content */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header .logo img {
+  height: 50px;
+  margin-right: auto; /* Keeps logo on the far left */
+}
+
+.header nav {
+  flex-grow: 1; /* Ensures the nav bar expands and centers */
+  display: flex;
+  justify-content: center; /* Centers the links horizontally */
+}
+
+.header nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.header nav ul li {
+  margin: 0 1rem; /* Adds space between the headings */
+}
+
+.header nav ul li a {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.header nav ul li a:hover {
+  color: #f0a500; /* Highlight on hover */
+}
+
+.book-slot {
+  color: #f0a500;
+}
