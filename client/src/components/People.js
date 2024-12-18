@@ -1,40 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import './People.css';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import "./People.css";
 
-function People() {
+const People = () => {
   const [members, setMembers] = useState([]);
 
-  // Fetch the list of members from the server
+  // Fetch members on component mount
   useEffect(() => {
-    fetch('/api/members')
-      .then((res) => res.json())
-      .then((data) => setMembers(data))
-      .catch((err) => console.error('Error fetching members:', err));
+    axios
+      .get("/api/members")
+      .then((response) => setMembers(response.data))
+      .catch((error) => console.error("Error fetching members:", error));
   }, []);
 
   return (
-    <div className="people-container">
-      <h2>Core Committee Members</h2>
+    <div className="people-page">
+      <h1>Core Committee Members</h1>
       <div className="members-grid">
-        {members.map((member, index) => (
-          <div key={index} className="member-card">
-            <img src={member.photo} alt={member.name} className="member-photo" />
-            <h3>{member.name}</h3>
-            <p>{member.position}</p>
-            <p>{member.intro}</p>
-            <a
-              href={member.profileLink}
-              target="_blank"
-              rel="noreferrer"
-              className="profile-link"
-            >
-              View Profile
-            </a>
+        {members.map((member) => (
+          <div key={member._id} className="member-card">
+            <img
+              src={`/uploads/${member.photo}`}
+              alt={`${member.name}'s photo`}
+              className="member-photo"
+            />
+            <h2>{member.name}</h2>
+            <p>{member.designation}</p>
+            {member.profileLink && (
+              <a href={member.profileLink} target="_blank" rel="noreferrer">
+                View Profile
+              </a>
+            )}
           </div>
         ))}
       </div>
     </div>
   );
-}
+};
 
 export default People;
