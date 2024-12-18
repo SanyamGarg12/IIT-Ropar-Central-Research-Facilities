@@ -8,6 +8,7 @@ import Booking from "./components/Booking";
 import Forms from "./components/Forms";
 import Publications from "./components/Publications";
 import ContactUs from "./components/ContactUs";
+import AdminPanel from "./components/AdminPanel";
 import "./App.css";
 
 const App = () => {
@@ -58,6 +59,7 @@ const App = () => {
           <Route path="/forms" element={<Forms />} />
           <Route path="/publications" element={<Publications />} />
           <Route path="/contact-us" element={<ContactUs />} />
+          <Route path="/admin" element={<AdminPanel />} />
         </Routes>
       </div>
     </Router>
