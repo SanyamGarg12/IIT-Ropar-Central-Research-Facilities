@@ -1,163 +1,212 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import "./AdminPanel.css";
+import React, { useState, useEffect } from 'react';
+import './AdminPanel.css';
+import axios from 'axios';
 
 const AdminPanel = () => {
-  const [members, setMembers] = useState([]);
-  const [newMember, setNewMember] = useState({
-    name: "",
-    designation: "",
-    profileLink: "",
-    photo: null,
-  });
+    const [authenticated, setAuthenticated] = useState(false);
+    const [credentials, setCredentials] = useState({ id: '', password: '' });
+    const [activeTab, setActiveTab] = useState('home');
+    const [members, setMembers] = useState([]);
+    const [newMember, setNewMember] = useState({ name: '', description: '', image: null });
+    const [editMember, setEditMember] = useState(null);
 
-  // Fetch members from backend on page load
-  useEffect(() => {
-    axios
-      .get("/api/members")
-      .then((response) => setMembers(response.data))
-      .catch((error) => console.error("Error fetching members:", error));
-  }, []);
+    // Fetch members from the backend on login or load
+    const fetchMembers = async () => {
+        try {
+            const response = await axios.get('http://localhost:3001/members');
+            setMembers(response.data);
+        } catch (error) {
+            console.error('Error fetching members:', error);
+        }
+    };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewMember({ ...newMember, [name]: value });
-  };
+    // Handle Login
+    const handleLogin = () => {
+        if (credentials.id === 'admin' && credentials.password === 'admin123') {
+            setAuthenticated(true);
+            fetchMembers(); // Fetch members after authentication
+        } else {
+            alert('Invalid ID or password');
+        }
+    };
 
-  const handlePhotoChange = (e) => {
-    setNewMember({ ...newMember, photo: e.target.files[0] });
-  };
+    // Handle Add Member
+    const handleAddMember = async () => {
+        try {
+            const formData = new FormData();
+            formData.append('name', newMember.name);
+            formData.append('description', newMember.description);
+            formData.append('image', newMember.image); // Send the image file
 
-  const addMember = () => {
-    if (!newMember.name || !newMember.designation || !newMember.photo) {
-      alert("Please fill in all required fields.");
-      return;
+            await axios.post('http://localhost:3001/insert-member', formData); // Ensure this matches the backend route
+            setNewMember({ name: '', description: '', image: null }); // Reset new member state
+            fetchMembers(); // Refresh members list
+        } catch (error) {
+            console.error('Error adding new member:', error);
+        }
+    };
+
+    // Handle Edit Member
+    const handleEditMember = async () => {
+        try {
+            const formData = new FormData();
+            formData.append('name', editMember.name);
+            formData.append('description', editMember.description);
+            if (editMember.image) {
+                formData.append('image', editMember.image); // Send the new image if uploaded
+            }
+
+            await axios.put(`http://localhost:3001/update-member/${editMember.id}`, formData); // Ensure this matches the backend route
+            setEditMember(null); // Reset edit member state
+            fetchMembers(); // Refresh members list
+        } catch (error) {
+            console.error('Error editing member:', error);
+        }
+    };
+
+    // Handle Remove Member
+    const handleRemoveMember = async (id) => {
+        try {
+            await axios.delete(`http://localhost:3001/delete-member/${id}`);
+            fetchMembers(); // Refresh members list
+        } catch (error) {
+            console.error('Error removing member:', error);
+        }
+    };
+
+    // Handle Image Upload
+    const handleImageUpload = (e, setter) => {
+        const file = e.target.files[0];
+        setter(file);
+    };
+
+    // Render Content based on active tab
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'home':
+                return <div className="editor-content">Edit Home Page Content Here</div>;
+            case 'about':
+                return <div className="editor-content">Edit About Page Content Here</div>;
+            case 'people':
+                return (
+                    <div className="editor-content">
+                        <h2>Manage Members</h2>
+                        <div className="member-list">
+                            {members.map((member) => (
+                                <div key={member.id} className="member-item">
+                                    <h3>{member.name}</h3>
+                                    <p>{member.description}</p>
+                                    {member.image && (
+                                        <img
+                                            src={`data:image/jpeg;base64,${Buffer.from(member.image).toString('base64')}`}
+                                            alt={member.name}
+                                            className="member-image"
+                                        />
+                                    )}
+                                    <button onClick={() => handleRemoveMember(member.id)}>Remove</button>
+                                    <button onClick={() => setEditMember(member)}>Edit</button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <h3>Add New Member</h3>
+                        <input
+                            type="text"
+                            placeholder="Name"
+                            value={newMember.name}
+                            onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            placeholder="Description"
+                            value={newMember.description}
+                            onChange={(e) => setNewMember({ ...newMember, description: e.target.value })}
+                        />
+                        <input type="file" onChange={(e) => handleImageUpload(e, (file) => setNewMember({ ...newMember, image: file }))} />
+                        <button onClick={handleAddMember}>Add Member</button>
+
+                        {editMember && (
+                            <div>
+                                <h3>Edit Member</h3>
+                                <input
+                                    type="text"
+                                    placeholder="Name"
+                                    value={editMember.name}
+                                    onChange={(e) => setEditMember({ ...editMember, name: e.target.value })}
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Description"
+                                    value={editMember.description}
+                                    onChange={(e) => setEditMember({ ...editMember, description: e.target.value })}
+                                />
+                                <input type="file" onChange={(e) => handleImageUpload(e, (file) => setEditMember({ ...editMember, image: file }))} />
+                                <button onClick={handleEditMember}>Save Changes</button>
+                                <button onClick={() => setEditMember(null)}>Cancel</button>
+                            </div>
+                        )}
+                    </div>
+                );
+            default:
+                return <div>Welcome to the Admin Panel</div>;
+        }
+    };
+
+    // If not authenticated, show the login form
+    if (!authenticated) {
+        return (
+            <div className="login-screen">
+                <h1>Admin Panel Login</h1>
+                <div className="login-form">
+                    <input
+                        type="text"
+                        placeholder="Enter ID"
+                        value={credentials.id}
+                        onChange={(e) => setCredentials({ ...credentials, id: e.target.value })}
+                    />
+                    <input
+                        type="password"
+                        placeholder="Enter Password"
+                        value={credentials.password}
+                        onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                    />
+                    <button onClick={handleLogin}>Login</button>
+                </div>
+            </div>
+        );
     }
 
-    // Create FormData to handle file upload
-    const formData = new FormData();
-    formData.append("name", newMember.name);
-    formData.append("designation", newMember.designation);
-    formData.append("profileLink", newMember.profileLink);
-    formData.append("photo", newMember.photo);
-
-    axios
-      .post("/api/members", formData)
-      .then((response) => {
-        setMembers([...members, response.data]); // Update local state
-        setNewMember({ name: "", designation: "", profileLink: "", photo: null }); // Reset form
-      })
-      .catch((error) => console.error("Error adding member:", error));
-  };
-
-  const deleteMember = (id) => {
-    axios
-      .delete(`/api/members/${id}`)
-      .then(() => {
-        const updatedMembers = members.filter((member) => member._id !== id);
-        setMembers(updatedMembers);
-      })
-      .catch((error) => console.error("Error deleting member:", error));
-  };
-
-  return (
-    <div className="admin-panel">
-      <h1>Admin Panel - Add Core Committee Members</h1>
-      
-      <div className="form-container">
-        <h2>Add Member</h2>
-        <form>
-          <label>Name:</label>
-          <input
-            type="text"
-            name="name"
-            value={newMember.name}
-            onChange={handleInputChange}
-            placeholder="Enter member's name"
-            required
-          />
-
-          <label>Designation:</label>
-          <input
-            type="text"
-            name="designation"
-            value={newMember.designation}
-            onChange={handleInputChange}
-            placeholder="Enter designation"
-            required
-          />
-
-          <label>Profile Link (optional):</label>
-          <input
-            type="url"
-            name="profileLink"
-            value={newMember.profileLink}
-            onChange={handleInputChange}
-            placeholder="Enter profile link (if any)"
-          />
-
-          <label>Upload Photo:</label>
-          <input
-            type="file"
-            name="photo"
-            onChange={handlePhotoChange}
-            accept="image/*"
-            required
-          />
-
-          <button type="button" onClick={addMember}>
-            Add Member
-          </button>
-        </form>
-      </div>
-
-      <div className="members-list">
-        <h2>Current Members</h2>
-        {members.length === 0 ? (
-          <p>No members added yet.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Photo</th>
-                <th>Name</th>
-                <th>Designation</th>
-                <th>Profile Link</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member) => (
-                <tr key={member._id}>
-                  <td>
-                    <img
-                      src={`/uploads/${member.photo}`}
-                      alt={`${member.name}'s photo`}
-                      className="thumbnail"
-                    />
-                  </td>
-                  <td>{member.name}</td>
-                  <td>{member.designation}</td>
-                  <td>
-                    {member.profileLink ? (
-                      <a href={member.profileLink} target="_blank" rel="noreferrer">
-                        Visit Profile
-                      </a>
-                    ) : (
-                      "N/A"
-                    )}
-                  </td>
-                  <td>
-                    <button onClick={() => deleteMember(member._id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  );
+    return (
+        <div className="admin-panel">
+            <header className="admin-header">
+                <h1>Admin Panel</h1>
+                <button onClick={() => setAuthenticated(false)} className="logout-button">Logout</button>
+            </header>
+            <nav className="admin-tabs">
+                <ul>
+                    <li
+                        className={activeTab === 'home' ? 'active' : ''}
+                        onClick={() => setActiveTab('home')}
+                    >
+                        Home
+                    </li>
+                    <li
+                        className={activeTab === 'about' ? 'active' : ''}
+                        onClick={() => setActiveTab('about')}
+                    >
+                        About
+                    </li>
+                    <li
+                        className={activeTab === 'people' ? 'active' : ''}
+                        onClick={() => setActiveTab('people')}
+                    >
+                        People
+                    </li>
+                </ul>
+            </nav>
+            <div className="tab-content">{renderContent()}</div>
+        </div>
+    );
 };
 
 export default AdminPanel;
