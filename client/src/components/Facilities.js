@@ -1,83 +1,72 @@
-// facilities.js
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import "./Facilities.css";  // Import the CSS for facilities page
 
-import React, { useState } from 'react';
-import './Facilities.css';
-
-const facilitiesData = [
-    {
-        category: "Structural Techniques",
-        facilities: [
-            { name: "ISGXRD", description: "In-Situ Grazing X-Ray Diffraction", image: "/assets/sample.jpeg" },
-            { name: "PXRD", description: "Powder X-Ray Diffraction", image: "/assets/sample.jpeg" }
-        ]
-    },
-    {
-        category: "Microscopic Techniques",
-        facilities: [
-            { name: "SEM", description: "Scanning Electron Microscope", image: "/assets/sample.jpeg" },
-            { name: "FESEM", description: "Field Emission Scanning Electron Microscope", image: "/assets/sample.jpeg" },
-            { name: "TEM 120", description: "Transmission Electron Microscope 120kV", image: "/assets/sample.jpeg" },
-            { name: "TEM 300", description: "Transmission Electron Microscope 300kV", image: "/assets/sample.jpeg" },
-            { name: "SPM", description: "Scanning Probe Microscope", image: "/assets/sample.jpeg" },
-            { name: "LSCM", description: "Laser Scanning Confocal Microscope", image: "/assets/sample.jpeg" }
-        ]
-    },
-    {
-        category: "Spectroscopic Techniques",
-        facilities: [
-            { name: "XPS", description: "X-Ray Photoelectron Spectroscopy", image: "/assets/sample.jpeg" }
-        ]
-    },
-    {
-        category: "Miscellaneous",
-        facilities: [
-            { name: "HRMS", description: "High Resolution Mass Spectrometry", image: "/assets/sample.jpeg" },
-            { name: "NMR 400", description: "Nuclear Magnetic Resonance Spectroscopy 400 MHz", image: "/assets/sample.jpeg" },
-            { name: "NMR 600", description: "Nuclear Magnetic Resonance Spectroscopy 600 MHz", image: "/assets/sample.jpeg" },
-            { name: "UV VIS", description: "Ultraviolet-Visible Spectroscopy", image: "/assets/sample.jpeg" },
-            { name: "Raman", description: "Raman Spectroscopy", image: "/assets/raman.jpg" },
-            { name: "Nano Indenter", description: "Nano Indentation Tester", image: "/assets/sample.jpeg" },
-            { name: "3-D Printer", description: "Three-Dimensional Printer", image: "/assets/" }
-        ]
-    }
-];
 const Facilities = () => {
-  const [selectedFacility, setSelectedFacility] = useState(null);
+  const [facilities, setFacilities] = useState({});
 
-  const handleFacilityHover = (facility) => {
-      setSelectedFacility(facility);
-  };
+  useEffect(() => {
+    axios
+      .get('http://localhost:5000/api/facilities')
+      .then((response) => {
+        setFacilities(response.data); 
+      })
+      .catch((error) => {
+        console.error('Error fetching facilities:', error);
+      });
+  }, []);
 
   return (
-      <section className="facilities">
-          <h1>Facilities Available</h1>
-          <div className="facilities-content">
-              {facilitiesData.map((cat) => (
-                  <div key={cat.category} className="facility-category">
-                      <h2>{cat.category}</h2>
-                      <ul>
-                          {cat.facilities.map((facility) => (
-                              <li 
-                                  key={facility.name} 
-                                  onMouseEnter={() => handleFacilityHover(facility)} 
-                                  onMouseLeave={() => setSelectedFacility(null)}
-                                  className="facility-item"
-                              >
-                                  {facility.name}
-                                  {selectedFacility === facility && (
-                                      <div className="facility-details-popup">
-                                          <h3>{facility.name}</h3>
-                                          <p>{facility.description}</p>
-                                          <img src={facility.image} alt={facility.name} />
-                                      </div>
-                                  )}
-                              </li>
-                          ))}
-                      </ul>
-                  </div>
+    <div className="facilities-container">
+      <h2>Our Facilities</h2>
+      {Object.keys(facilities).length === 0 ? (
+        <div>Loading...</div>
+      ) : (
+        Object.keys(facilities).map((category) => (
+          <div key={category}>
+            <h3>{category}</h3>
+            <div className="facility-list">
+              {facilities[category].map((facility) => (
+                <div key={facility.facility_id} className="facility-item">
+                  <h4>{facility.facility_name}</h4>
+                  <img src={facility.image_url} alt={facility.facility_name} />
+                  <p>{facility.description}</p>
+                  <Link to={`/facility/${facility.facility_id}`}>View Details</Link>
+                </div>
               ))}
+            </div>
           </div>
-      </section>
+        ))
+      )}
+      <footer className="footer">
+        <div className="footer-content">
+          <div className="footer-links">
+            <h4>Quick Links</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About</a></li>
+              <li><a href="/contact-us">Contact Us</a></li>
+              <li><a href="/publications">Publications</a></li>
+            </ul>
+          </div>
+          <div className="footer-contact">
+            <h4>Contact</h4>
+            <p>Email: info@iitrpr.ac.in</p>
+            <p>Phone: +91-12345-67890</p>
+          </div>
+          <div className="footer-social">
+            <h4>Follow Us</h4>
+            <div className="social-icons">
+              <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
+              <a href="https://twitter.com" target="_blank" rel="noreferrer">Twitter</a>
+              <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+    
   );
 };
 
