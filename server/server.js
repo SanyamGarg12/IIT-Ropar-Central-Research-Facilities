@@ -3,10 +3,12 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = 5000;
-
+const JWT_SECRET = 'abcd';
 // Enable CORS for cross-origin requests
 app.use(cors());
 
@@ -111,6 +113,114 @@ app.delete('/api/facilities/:id', (req, res) => {
       res.json({ message: 'Facility deleted successfully' });
     }
   });
+});
+
+// Helper function to authenticate user
+function authenticateToken(req, res, next) {
+  const token = req.header('Authorization')?.split(' ')[1];
+  if (!token) return res.status(401).send('Access Denied');
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) return res.status(403).send('Invalid Token');
+      req.user = user;
+      next();
+  });
+}
+
+app.post('/register', async (req, res) => {
+  const { userType, fullName, email, password, contactNumber } = req.body;
+
+  if (!userType || !fullName || !email || !password) {
+      return res.status(400).send('All fields are required.');
+  }
+
+  try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      db.query(
+          `INSERT INTO Users (user_type, full_name, email, password_hash, contact_number) 
+           VALUES (?, ?, ?, ?, ?)`,
+          [userType, fullName, email, hashedPassword, contactNumber],
+          (err, result) => {
+              if (err) {
+                  console.error(err);
+                  return res.status(500).send('Error registering user.');
+              }
+              res.status(201).send('User registered successfully.');
+          }
+      );
+  } catch (error) {
+      res.status(500).send('Internal server error.');
+  }
+});
+
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+      return res.status(400).send('Email and password are required.');
+  }
+
+  db.query(`SELECT * FROM Users WHERE email = ?`, [email], async (err, results) => {
+      if (err) {
+          console.error(err);
+          return res.status(500).send('Error fetching user.');
+      }
+
+      if (results.length === 0) {
+          return res.status(400).send('Invalid email or password.');
+      }
+
+      const user = results[0];
+      console.log('User:', user);
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      console.log(isPasswordValid);
+      if (!isPasswordValid) {
+          return res.status(400).send('Invalid email or password.');
+      }
+
+      const token = jwt.sign({ userId: user.user_id, userType: user.user_type }, JWT_SECRET, {
+          expiresIn: '1h'
+      });
+
+      res.status(200).json({ token, userType: user.user_type, userId: user.user_id });
+  });
+});
+
+app.post('/book', authenticateToken, (req, res) => {
+  const { facilityName, bookingDate, bookingTime, cost } = req.body;
+
+  if (!facilityName || !bookingDate || !bookingTime) {
+      return res.status(400).send('All fields are required.');
+  }
+
+  db.query(
+      `INSERT INTO BookingHistory (user_id, facility_name, booking_date, booking_time, cost) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [req.user.userId, facilityName, bookingDate, bookingTime, cost || 0],
+      (err, result) => {
+          if (err) {
+              console.error(err);
+              return res.status(500).send('Error creating booking.');
+          }
+          res.status(201).send('Booking successful.');
+      }
+  );
+});
+
+// Get booking history
+app.get('/booking-history', authenticateToken, (req, res) => {
+  db.query(
+      `SELECT * FROM BookingHistory WHERE user_id = ?`,
+      [req.user.userId],
+      (err, results) => {
+          if (err) {
+              console.error(err);
+              return res.status(500).send('Error fetching booking history.');
+          }
+          res.status(200).json(results);
+      }
+  );
 });
 
 const storage = multer.diskStorage({
