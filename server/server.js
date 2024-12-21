@@ -320,11 +320,19 @@ app.get('/api/facility/:id', (req, res) => {
       f.specifications,
       f.usage_details,
       f.image_url,
-      c.name AS category_name
+      f.make_year,
+      f.model,
+      f.faculty_in_charge,
+      f.contact_person_contact,
+      c.name AS category_name,
+      p.title AS publication_title,
+      p.link AS publication_link
     FROM 
       Facilities f
-    JOIN 
+    LEFT JOIN 
       Categories c ON f.category_id = c.id
+    LEFT JOIN 
+      Publications p ON f.id = p.facility_id
     WHERE 
       f.id = ?;
   `;
@@ -334,10 +342,33 @@ app.get('/api/facility/:id', (req, res) => {
       console.error('Error fetching facility details:', err);
       res.status(500).send('Error fetching facility details');
     } else {
-      res.json(results); // Send back a single facility's data
+      res.json(results); // Send back the facility details
     }
   });
 });
+
+
+// API endpoint to fetch all publications
+app.get('/api/publications', (req, res) => {
+  const query = `
+    SELECT 
+      id, title, link 
+    FROM 
+      Publications
+    ORDER BY 
+      id DESC;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching publications:', err);
+      res.status(500).send('Error fetching publications');
+    } else {
+      res.json(results); // Send the publications data
+    }
+  });
+});
+
 
 // Start the server
 app.listen(port, () => {

@@ -19,7 +19,7 @@ function FacilityDetail() {
           setFacility(data[0]); // Set the first (and only) facility's details
         } else {
           // Handle the case where no facility was found
-          alert("Facility not found");
+          alert('Facility not found');
           navigate('/'); // Redirect to home page if facility not found
         }
       } catch (error) {
@@ -54,6 +54,14 @@ function FacilityDetail() {
         <p>{facility.usage_details}</p>
         <h2>Category:</h2>
         <p>{facility.category_name}</p>
+        <h2>Make Year:</h2>
+        <p>{facility.make_year}</p>
+        <h2>Model:</h2>
+        <p>{facility.model}</p>
+        <h2>Faculty In-Charge:</h2>
+        <p>{facility.faculty_in_charge}</p>
+        <h2>Contact:</h2>
+        <p>{facility.contact_person_contact}</p>
         {facility.publication_title && (
           <>
             <h2>Publications:</h2>
@@ -65,32 +73,6 @@ function FacilityDetail() {
           </>
         )}
       </div>
-      <footer className="footer">
-        <div className="footer-content">
-          <div className="footer-links">
-            <h4>Quick Links</h4>
-            <ul>
-              <li><a href="/">Home</a></li>
-              <li><a href="/about">About</a></li>
-              <li><a href="/contact-us">Contact Us</a></li>
-              <li><a href="/publications">Publications</a></li>
-            </ul>
-          </div>
-          <div className="footer-contact">
-            <h4>Contact</h4>
-            <p>Email: info@iitrpr.ac.in</p>
-            <p>Phone: +91-12345-67890</p>
-          </div>
-          <div className="footer-social">
-            <h4>Follow Us</h4>
-            <div className="social-icons">
-              <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
-              <a href="https://twitter.com" target="_blank" rel="noreferrer">Twitter</a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
