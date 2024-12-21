@@ -55,3 +55,21 @@ VALUES
   ('3D Printing in Modern Engineering', 'https://example.com/publication2', 2),
   ('Research Trends in Scientific Libraries', 'https://example.com/publication3', 3),
   ('Innovation through Engineering Workshops', 'https://example.com/publication4', 4);
+
+  -- Create the Members table
+  CREATE TABLE IF NOT EXISTS Members (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    designation VARCHAR(255) NOT NULL,
+    profile_link VARCHAR(255),
+    image_path VARCHAR(255)
+  );
+
+  -- Insert data into Members table
+  INSERT INTO Members (name, designation, profile_link, image_path)
+  VALUES
+    ('John Doe', 'Software Engineer', 'https://example.com/profile/johndoe', '/images/johndoe.jpg'),
+    ('Jane Smith', 'Project Manager', 'https://example.com/profile/janesmith', '/images/janesmith.jpg'),
+    ('Sanyam', 'Chairman', 'https://example.com/profile/janesmith', '/images/janesmith.jpg'),
+    ('garg', 'Vice Chairman', 'https://example.com/profile/janesmith', '/images/janesmith.jpg'),
+    ('Alice Brown', 'Data Scientist', 'https://example.com/profile/alicebrown', '/images/alicebrown.jpg');

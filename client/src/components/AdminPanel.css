@@ -1,76 +1,25 @@
 .admin-panel {
-  font-family: Arial, sans-serif;
-  color: #333;
-  background-color: #f4f4f4;
   padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.admin-header {
-  background-color: #007bff;
-  color: white;
-  padding: 10px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logout-button {
-  background-color: white;
-  color: #007bff;
-  border: none;
-  padding: 5px 10px;
-  cursor: pointer;
-  border-radius: 5px;
-}
-
-.admin-tabs ul {
+.admin-links {
   list-style: none;
   padding: 0;
-  display: flex;
-  border-bottom: 2px solid #ddd;
-  margin-bottom: 20px;
 }
 
-.admin-tabs ul li {
-  padding: 10px 20px;
-  cursor: pointer;
-  background-color: #f9f9f9;
-  margin-right: 5px;
-  border-radius: 5px 5px 0 0;
-}
-
-.admin-tabs ul li.active {
-  background-color: #007bff;
-  color: white;
-  border: 1px solid #ddd;
-  border-bottom: none;
-}
-
-.tab-content {
-  padding: 20px;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-}
-
-.login-screen {
-  text-align: center;
-  margin-top: 100px;
-}
-
-.login-form input {
+.admin-links li {
   margin: 10px 0;
-  padding: 10px;
-  width: 200px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
 }
 
-.login-form button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  cursor: pointer;
-  border-radius: 5px;
+.admin-links a {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: bold;
+}
+
+.admin-links a:hover {
+  text-decoration: underline;
 }

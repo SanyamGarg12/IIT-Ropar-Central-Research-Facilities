@@ -1,0 +1,106 @@
+.manage-facilities-container {
+    padding: 40px;
+    background-color: #f4f7fc;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    max-width: 1200px;
+    margin: 40px auto;
+  }
+  
+  .manage-facilities-container h2 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    text-align: center;
+    color: #3a3a3a;
+    margin-bottom: 30px;
+  }
+  
+  .facility-form-container {
+    margin-bottom: 40px;
+  }
+  
+  .facility-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .facility-form input,
+  .facility-form textarea {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 1rem;
+    width: 100%;
+    transition: border-color 0.3s ease;
+  }
+  
+  .facility-form input:focus,
+  .facility-form textarea:focus {
+    border-color: #007bff;
+    outline: none;
+  }
+  
+  .facility-form button {
+    padding: 15px 25px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .facility-form button:hover {
+    background-color: #0056b3;
+  }
+  
+  .existing-facilities-container {
+    margin-top: 40px;
+  }
+  
+  .existing-facilities-container ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .existing-facilities-container li {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+  }
+  
+  .existing-facilities-container li img {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    object-fit: cover;
+    margin-left: 20px;
+  }
+  
+  .existing-facilities-container button {
+    padding: 8px 16px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .existing-facilities-container button:hover {
+    background-color: #c82333;
+  }
+  

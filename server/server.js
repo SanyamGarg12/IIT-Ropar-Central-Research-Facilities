@@ -1,6 +1,8 @@
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 
 const app = express();
 const port = 5000;
@@ -77,6 +79,123 @@ app.get('/api/facilities', (req, res) => {
     }
   });
 });
+
+app.post('/api/facilities', (req, res) => {
+  const { name, description, specifications, usage_details, category_id, image_url } = req.body;
+  
+  const query = `
+    INSERT INTO Facilities (name, description, specifications, usage_details, category_id, image_url)
+    VALUES (?, ?, ?, ?, ?, ?);
+  `;
+
+  db.query(query, [name, description, specifications, usage_details, category_id, image_url], (err, result) => {
+    if (err) {
+      console.error('Error adding facility:', err);
+      res.status(500).send('Error adding facility');
+    } else {
+      res.json({ message: 'Facility added successfully' });
+    }
+  });
+});
+
+app.delete('/api/facilities/:id', (req, res) => {
+  const facilityId = req.params.id;
+
+  const query = `DELETE FROM Facilities WHERE id = ?`;
+
+  db.query(query, [facilityId], (err, result) => {
+    if (err) {
+      console.error('Error deleting facility:', err);
+      res.status(500).send('Error deleting facility');
+    } else {
+      res.json({ message: 'Facility deleted successfully' });
+    }
+  });
+});
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const fileName = Date.now() + path.extname(file.originalname);
+    cb(null, fileName);
+  },
+});
+const upload = multer({ storage });
+
+app.get('/api/members', (req, res) => {
+  const query = `
+    SELECT 
+      id,
+      name,
+      designation,
+      profile_link,
+      image_path
+    FROM 
+      Members
+    ORDER BY 
+      name;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching members:', err);
+      res.status(500).send('Error fetching members');
+    } else {
+      // Transform image path to direct link if necessary
+      const members = results.map((member) => {
+        if (member.image_path) {
+          // Assuming the images are stored in a publicly accessible directory
+          member.image_url = `http://localhost:5000/uploads/${member.image_path}`;
+        } else {
+          member.image_url = null; // Handle missing images gracefully
+        }
+        delete member.image_path; // Remove the raw path for cleaner response
+        return member;
+      });
+      res.json(members); // Send the transformed data
+    }
+  });
+});
+
+app.post('/api/members', (req, res) => {
+  const { name, designation, imageLink } = req.body;
+
+  // Extract the Google Drive image ID from the provided URL
+  const regex = /\/d\/(.*?)\//;
+  const match = imageLink.match(regex);
+  const imageId = match ? match[1] : null;
+
+  if (imageId) {
+    const query = 'INSERT INTO Members (name, designation, image_path) VALUES (?, ?, ?)';
+    db.query(query, [name, designation, imageId], (err, results) => {
+      if (err) {
+        console.error('Error adding member:', err);
+        res.status(500).send('Error adding member');
+      } else {
+        res.status(200).send('Member added successfully');
+      }
+    });
+  } else {
+    res.status(400).send('Invalid Google Drive image URL');
+  }
+});
+
+app.delete('/api/members/:id', (req, res) => {
+  const memberId = req.params.id;
+
+  const query = 'DELETE FROM Members WHERE id = ?';
+  db.query(query, [memberId], (err, results) => {
+    if (err) {
+      console.error('Error deleting member:', err);
+      res.status(500).send('Error deleting member');
+    } else {
+      res.status(200).send('Member deleted successfully');
+    }
+  });
+});
+
 
 // API endpoint to get details of a single facility
 app.get('/api/facility/:id', (req, res) => {

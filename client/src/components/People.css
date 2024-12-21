@@ -1,41 +1,87 @@
 .people-container {
   padding: 20px;
   text-align: center;
-  margin-top: 70px;
 }
 
-.people-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-  justify-content: center;
-  padding: 20px;
+.hierarchy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+.chairman,
+.vice-chairman,
+.other-members {
+  width: 100%;
+  max-width: 800px;
+}
+
+.chairman h2,
+.vice-chairman h2,
+.other-members h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  color: #333;
 }
 
 .person-card {
-  background: #f9f9f9;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 15px;
+  max-width: 300px;
   text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+}
+
+.people-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
 }
 
 .person-image img {
-  max-width: 150px;
+  width: 100%;
   height: auto;
   border-radius: 50%;
 }
 
-.person-info {
-  margin-top: 10px;
+.person-image .placeholder {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #999;
 }
 
 .person-info h3 {
-  font-size: 20px;
-  font-weight: bold;
+  margin: 10px 0 5px;
+  font-size: 18px;
 }
 
 .person-info p {
+  margin: 5px 0;
   font-size: 14px;
   color: #555;
+}
+
+.person-info a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.person-info a:hover {
+  text-decoration: underline;
+}
+
+.error-message {
+  color: red;
+  font-weight: bold;
 }
