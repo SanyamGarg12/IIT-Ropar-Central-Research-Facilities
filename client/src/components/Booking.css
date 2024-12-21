@@ -1,46 +1,29 @@
 .booking-container {
-  max-width: 600px;
-  margin: 0 auto;
+  margin: 20px auto;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  max-width: 500px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
 }
-
-.login-register,
-.booking-actions {
-  margin-top: 20px;
+.booking-container form label {
+  display: block;
+  margin-bottom: 10px;
 }
-
-h2 {
-  text-align: center;
-  margin-bottom: 20px;
+.booking-container form input,
+.booking-container form select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
-
-input,
-select,
-button {
+.booking-container button {
   width: 100%;
   padding: 10px;
-  margin: 10px 0;
-  box-sizing: border-box;
-}
-
-button {
-  background-color: #4caf50;
+  background-color: #007bff;
   color: white;
   border: none;
+  border-radius: 5px;
   cursor: pointer;
-}
-
-button:hover {
-  background-color: #45a049;
-}
-
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-ul li {
-  padding: 5px 0;
-  border-bottom: 1px solid #ccc;
 }

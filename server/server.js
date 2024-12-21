@@ -127,85 +127,86 @@ function authenticateToken(req, res, next) {
   });
 }
 
-app.post('/register', async (req, res) => {
-  const { userType, fullName, email, password, contactNumber } = req.body;
+app.post('/api/register', async (req, res) => {
+  const { fullName, email, password, userType, contactNumber } = req.body;
 
-  if (!userType || !fullName || !email || !password) {
-      return res.status(400).send('All fields are required.');
+  // Input validation
+  if (!fullName || !email || !password || !userType) {
+    return res.status(400).json({ message: 'All required fields must be provided.' });
   }
 
   try {
-      const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
-      db.query(
-          `INSERT INTO Users (user_type, full_name, email, password_hash, contact_number) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [userType, fullName, email, hashedPassword, contactNumber],
-          (err, result) => {
-              if (err) {
-                  console.error(err);
-                  return res.status(500).send('Error registering user.');
-              }
-              res.status(201).send('User registered successfully.');
-          }
-      );
+    // SQL query for inserting a new user
+    const query = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number) VALUES (?, ?, ?, ?, ?)`;
+
+    // Execute the query
+    db.query(query, [fullName, email, passwordHash, userType, contactNumber || null], (err, result) => {
+      if (err) {
+        console.error(err);
+        if (err.code === 'ER_DUP_ENTRY') {
+          return res.status(400).json({ message: 'Email already exists.' });
+        }
+        return res.status(500).json({ message: 'Registration failed.' });
+      }
+
+      res.status(201).json({ message: 'User registered successfully.' });
+    });
   } catch (error) {
-      res.status(500).send('Internal server error.');
+    console.error(error);
+    res.status(500).json({ message: 'An error occurred during registration.' });
   }
 });
 
-app.post('/login', (req, res) => {
-  const { email, password } = req.body;
 
-  if (!email || !password) {
-      return res.status(400).send('Email and password are required.');
+app.post("/login", (req, res) => {
+  const { email, password, userType } = req.body;
+
+  if (!email || !password || !userType) {
+    return res.status(400).json({ message: "All fields are required." });
   }
 
-  db.query(`SELECT * FROM Users WHERE email = ?`, [email], async (err, results) => {
-      if (err) {
-          console.error(err);
-          return res.status(500).send('Error fetching user.');
-      }
+  const query = "SELECT * FROM Users WHERE email = ? AND user_type = ?";
+  db.query(query, [email, userType], async (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Server error." });
+    }
 
-      if (results.length === 0) {
-          return res.status(400).send('Invalid email or password.');
-      }
+    if (results.length === 0) {
+      return res.status(401).json({ message: "Invalid credentials or user type." });
+    }
 
-      const user = results[0];
-      console.log('User:', user);
-      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-      console.log(isPasswordValid);
-      if (!isPasswordValid) {
-          return res.status(400).send('Invalid email or password.');
-      }
+    const user = results[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
-      const token = jwt.sign({ userId: user.user_id, userType: user.user_type }, JWT_SECRET, {
-          expiresIn: '1h'
-      });
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
 
-      res.status(200).json({ token, userType: user.user_type, userId: user.user_id });
+    const token = jwt.sign(
+      { userId: user.user_id, userType: user.user_type },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.status(200).json({ token });
   });
 });
 
-app.post('/book', authenticateToken, (req, res) => {
-  const { facilityName, bookingDate, bookingTime, cost } = req.body;
 
-  if (!facilityName || !bookingDate || !bookingTime) {
-      return res.status(400).send('All fields are required.');
-  }
+app.post('/api/booking', authenticateToken, (req, res) => {
+  const { facility, date, time } = req.body;
+  const userId = req.user.userId;
 
-  db.query(
-      `INSERT INTO BookingHistory (user_id, facility_name, booking_date, booking_time, cost) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [req.user.userId, facilityName, bookingDate, bookingTime, cost || 0],
-      (err, result) => {
-          if (err) {
-              console.error(err);
-              return res.status(500).send('Error creating booking.');
-          }
-          res.status(201).send('Booking successful.');
-      }
-  );
+  const query = `INSERT INTO booking_history (user_id, facility, date, time) VALUES (?, ?, ?, ?)`;
+  db.query(query, [userId, facility, date, time], (err, result) => {
+    if (err) return res.status(500).json({ message: 'Booking failed' });
+    res.json({ message: 'Booking successful' });
+  });
 });
 
 // Get booking history
