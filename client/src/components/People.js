@@ -28,6 +28,22 @@ const People = () => {
       member.designation.toLowerCase() !== 'vice chairman'
   );
 
+  // Function to construct image URL dynamically
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null; // No image available
+
+    // If image is from the public/assets folder
+    const assetImagePath = `${imagePath}`;
+
+    // Check if the image exists in the assets folder first
+    if (imagePath.startsWith('assets/')) {
+      return assetImagePath; // Return path if found in assets folder
+    }
+
+    // Otherwise, return the URL pointing to the server's uploads folder
+    return `http://localhost:5000/uploads/${imagePath}`;
+  };
+
   return (
     <div className="people-container">
       <h1>Core Committee Members</h1>
@@ -40,8 +56,11 @@ const People = () => {
               <h2>Chairman</h2>
               <div className="person-card">
                 <div className="person-image">
-                  {chairman.image_url ? (
-                    <img src={chairman.image_url} alt={chairman.name} />
+                  {chairman.image_path ? (
+                    <img
+                      src={getImageUrl(chairman.image_path)} // Use dynamic image URL function
+                      alt={chairman.name}
+                    />
                   ) : (
                     <div className="placeholder">No Image Available</div>
                   )}
@@ -68,8 +87,11 @@ const People = () => {
               <h2>Vice Chairman</h2>
               <div className="person-card">
                 <div className="person-image">
-                  {viceChairman.image_url ? (
-                    <img src={viceChairman.image_url} alt={viceChairman.name} />
+                  {viceChairman.image_path ? (
+                    <img
+                      src={getImageUrl(viceChairman.image_path)} // Use dynamic image URL function
+                      alt={viceChairman.name}
+                    />
                   ) : (
                     <div className="placeholder">No Image Available</div>
                   )}
@@ -98,8 +120,11 @@ const People = () => {
                 {others.map((member) => (
                   <div className="person-card" key={member.id}>
                     <div className="person-image">
-                      {member.image_url ? (
-                        <img src={member.image_url} alt={member.name} />
+                      {member.image_path ? (
+                        <img
+                          src={getImageUrl(member.image_path)} // Use dynamic image URL function
+                          alt={member.name}
+                        />
                       ) : (
                         <div className="placeholder">No Image Available</div>
                       )}
@@ -124,7 +149,8 @@ const People = () => {
           )}
         </div>
       )}
-            <footer className="footer">
+
+      <footer className="footer">
         <div className="footer-content">
           <div className="footer-links">
             <h4>Quick Links</h4>

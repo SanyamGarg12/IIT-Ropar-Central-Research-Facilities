@@ -4,26 +4,43 @@ import './ManageFacilities.css';
 
 const ManageFacilities = () => {
   const [facilities, setFacilities] = useState([]);
+  const [publications, setPublications] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [specifications, setSpecifications] = useState('');
   const [usageDetails, setUsageDetails] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [selectedPublications, setSelectedPublications] = useState([]); // Array to hold selected publication IDs
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     // Fetch existing facilities
     axios.get('http://localhost:5000/api/facilities')
       .then((response) => {
-        // Ensure that the response is an array before updating state
         if (Array.isArray(response.data)) {
           setFacilities(response.data);
         } else {
-          console.error('Invalid response format:', response.data);
+          setError('Failed to fetch facilities: Invalid data format.');
         }
       })
       .catch((error) => {
-        console.error('Error fetching facilities:', error);
+        setError('Error fetching facilities.');
+        console.error(error);
+      });
+
+    // Fetch existing publications
+    axios.get('http://localhost:5000/api/publications')
+      .then((response) => {
+        if (Array.isArray(response.data)) {
+          setPublications(response.data);
+        } else {
+          setError('Failed to fetch publications: Invalid data format.');
+        }
+      })
+      .catch((error) => {
+        setError('Error fetching publications.');
+        console.error(error);
       });
   }, []);
 
@@ -39,29 +56,45 @@ const ManageFacilities = () => {
       image_url: imageUrl
     };
 
+    // Send POST request to add a new facility
     axios.post('http://localhost:5000/api/facilities', newFacility)
-      .then(() => {
-        setFacilities([...facilities, newFacility]);
-        // Clear form after submission
+      .then((response) => {
+        const facilityId = response.data.facility_id;
+        setFacilities([...facilities, response.data]);
+        
+        // Now associate the new facility with selected publications
+        selectedPublications.forEach((publicationId) => {
+          axios.post('http://localhost:5000/api/facility-publications', {
+            facility_id: facilityId,
+            publication_id: publicationId
+          }).catch((error) => {
+            setError('Error associating facility with publication.');
+            console.error(error);
+          });
+        });
+
         setName('');
         setDescription('');
         setSpecifications('');
         setUsageDetails('');
         setCategoryId('');
         setImageUrl('');
+        setSelectedPublications([]);
       })
       .catch((error) => {
-        console.error('Error adding facility:', error);
+        setError('Error adding facility.');
+        console.error(error);
       });
   };
 
   const handleDeleteFacility = (facilityId) => {
     axios.delete(`http://localhost:5000/api/facilities/${facilityId}`)
       .then(() => {
-        setFacilities(facilities.filter(facility => facility.facility_id !== facilityId));
+        setFacilities(facilities.filter((facility) => facility.facility_id !== facilityId));
       })
       .catch((error) => {
-        console.error('Error deleting facility:', error);
+        setError('Error deleting facility.');
+        console.error(error);
       });
   };
 
@@ -69,7 +102,8 @@ const ManageFacilities = () => {
     <div className="manage-facilities-container">
       <h2>Manage Facilities</h2>
 
-      {/* Form to add new facility */}
+      {error && <p className="error-message">{error}</p>}
+
       <div className="facility-form-container">
         <h3>Add New Facility</h3>
         <form onSubmit={handleAddFacility} className="facility-form">
@@ -112,27 +146,35 @@ const ManageFacilities = () => {
             onChange={(e) => setImageUrl(e.target.value)} 
             required 
           />
+          <select 
+            multiple 
+            value={selectedPublications} 
+            onChange={(e) => setSelectedPublications([...e.target.selectedOptions].map(option => option.value))}
+          >
+            {publications.map(pub => (
+              <option key={pub.publication_id} value={pub.publication_id}>
+                {pub.title} {/* Assume 'title' is the property in the publication */}
+              </option>
+            ))}
+          </select>
           <button type="submit">Add Facility</button>
         </form>
       </div>
 
-      {/* Existing facilities list */}
       <div className="existing-facilities-container">
         <h3>Existing Facilities</h3>
         <ul>
-          {facilities && facilities.length > 0 ? (
+          {facilities.length > 0 ? (
             facilities.map(facility => (
               <li key={facility.facility_id}>
                 <div>
-                  <h4>{facility.facility_name}</h4>
+                  <h4>{facility.name}</h4>
                   <p>{facility.description}</p>
-                  <p>{facility.specifications}</p>
-                  <p>{facility.usage_details}</p>
-                  <img src={facility.image_url} alt={facility.facility_name} />
+                  <p><strong>Specifications:</strong> {facility.specifications}</p>
+                  <p><strong>Usage Details:</strong> {facility.usage_details}</p>
+                  {facility.image_url && <img src={facility.image_url} alt={facility.name} />}
                 </div>
-                <button onClick={() => handleDeleteFacility(facility.facility_id)}>
-                  Delete
-                </button>
+                <button onClick={() => handleDeleteFacility(facility.facility_id)}>Delete</button>
               </li>
             ))
           ) : (

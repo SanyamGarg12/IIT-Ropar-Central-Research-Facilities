@@ -31,75 +31,33 @@ db.getConnection((err) => {
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // API endpoint to get all facilities
 app.get('/api/facilities', (req, res) => {
-  const query = `
-    SELECT 
-      f.id AS facility_id,
-      f.name AS facility_name,
-      f.description,
-      f.specifications,
-      f.usage_details,
-      f.image_url,
-      c.name AS category_name
-    FROM 
-      Facilities f
-    JOIN 
-      Categories c ON f.category_id = c.id
-    ORDER BY 
-      c.name, f.name;
-  `;
-
-  db.query(query, (err, results) => {
+  const query = 'SELECT * FROM Facilities'; // Adjust with your query
+  db.query(query, (err, result) => {
     if (err) {
-      console.error('Error fetching facilities:', err);
-      res.status(500).send('Error fetching facilities');
+      res.status(500).json({ error: 'Error fetching facilities' });
     } else {
-      const facilities = {};
-
-      // Group facilities by category
-      results.forEach((facility) => {
-        if (!facilities[facility.category_name]) {
-          facilities[facility.category_name] = [];
-        }
-
-        // Convert Google Drive link to direct image URL
-        if (facility.image_url) {
-          const imageIdMatch = facility.image_url.match(/\/d\/(.*?)\//);
-          if (imageIdMatch) {
-            const transformedUrl = `https://drive.google.com/uc?export=view&id=${imageIdMatch[1]}`;
-            // console.log('Transformed Image URL:', transformedUrl);  // Log the transformed URL
-            facility.image_url = transformedUrl;
-          }
-        }
-
-        facilities[facility.category_name].push(facility);
-      });
-
-      res.json(facilities);
+      res.json(result);
     }
   });
 });
 
 app.post('/api/facilities', (req, res) => {
   const { name, description, specifications, usage_details, category_id, image_url } = req.body;
+  const query = 'INSERT INTO Facilities (name, description, specifications, usage_details, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?)';
   
-  const query = `
-    INSERT INTO Facilities (name, description, specifications, usage_details, category_id, image_url)
-    VALUES (?, ?, ?, ?, ?, ?);
-  `;
-
   db.query(query, [name, description, specifications, usage_details, category_id, image_url], (err, result) => {
     if (err) {
-      console.error('Error adding facility:', err);
-      res.status(500).send('Error adding facility');
+      res.status(500).json({ error: 'Error adding facility' });
     } else {
-      res.json({ message: 'Facility added successfully' });
+      const facilityId = result.insertId;
+      res.json({ facility_id: facilityId, ...req.body });
     }
   });
 });
-
 app.delete('/api/facilities/:id', (req, res) => {
   const facilityId = req.params.id;
 
@@ -115,6 +73,16 @@ app.delete('/api/facilities/:id', (req, res) => {
   });
 });
 
+app.get('/api/publications', (req, res) => {
+  const query = 'SELECT * FROM Publications'; // Adjust with your query
+  db.query(query, (err, result) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching publications' });
+    } else {
+      res.json(result);
+    }
+  });
+});
 // Helper function to authenticate user
 function authenticateToken(req, res, next) {
   const token = req.header('Authorization')?.split(' ')[1];
@@ -226,71 +194,71 @@ app.get('/booking-history', authenticateToken, (req, res) => {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    const uploadPath = path.join(__dirname, 'uploads'); // Ensure this is the correct path
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     const fileName = Date.now() + path.extname(file.originalname);
     cb(null, fileName);
   },
 });
+
 const upload = multer({ storage });
 
-app.get('/api/members', (req, res) => {
-  const query = `
-    SELECT 
-      id,
-      name,
-      designation,
-      profile_link,
-      image_path
-    FROM 
-      Members
-    ORDER BY 
-      name;
-  `;
+// app.get('/api/members', (req, res) => {
+//   const query = `
+//     SELECT 
+//       id,
+//       name,
+//       designation,
+//       profile_link,
+//       image_path
+//     FROM 
+//       Members
+//     ORDER BY 
+//       name;
+//   `;
 
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching members:', err);
-      res.status(500).send('Error fetching members');
-    } else {
-      // Transform image path to direct link if necessary
-      const members = results.map((member) => {
-        if (member.image_path) {
-          // Assuming the images are stored in a publicly accessible directory
-          member.image_url = `http://localhost:5000/uploads/${member.image_path}`;
-        } else {
-          member.image_url = null; // Handle missing images gracefully
-        }
-        delete member.image_path; // Remove the raw path for cleaner response
-        return member;
-      });
-      res.json(members); // Send the transformed data
-    }
+//   db.query(query, (err, results) => {
+//     if (err) {
+//       console.error('Error fetching members:', err);
+//       res.status(500).send('Error fetching members');
+//     } else {
+//       // Transform image path to direct link if necessary
+//       const members = results.map((member) => {
+//         if (member.image_path) {
+//           // Assuming the images are stored in a publicly accessible directory
+//           member.image_url = `http://localhost:5000/uploads/${member.image_path}`;
+//         } else {
+//           member.image_url = null; // Handle missing images gracefully
+//         }
+//         delete member.image_path; // Remove the raw path for cleaner response
+//         return member;
+//       });
+//       res.json(members); // Send the transformed data
+//     }
+//   });
+// });
+
+app.get("/api/members", (req, res) => {
+  db.query("SELECT * FROM Members", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
   });
 });
 
-app.post('/api/members', (req, res) => {
-  const { name, designation, imageLink } = req.body;
+app.post("/api/members", upload.single("image"), (req, res) => {
+  const { name, designation, profileLink } = req.body;
+  const imagePath = req.file ? req.file.filename : null;
 
-  // Extract the Google Drive image ID from the provided URL
-  const regex = /\/d\/(.*?)\//;
-  const match = imageLink.match(regex);
-  const imageId = match ? match[1] : null;
-
-  if (imageId) {
-    const query = 'INSERT INTO Members (name, designation, image_path) VALUES (?, ?, ?)';
-    db.query(query, [name, designation, imageId], (err, results) => {
-      if (err) {
-        console.error('Error adding member:', err);
-        res.status(500).send('Error adding member');
-      } else {
-        res.status(200).send('Member added successfully');
-      }
-    });
-  } else {
-    res.status(400).send('Invalid Google Drive image URL');
-  }
+  db.query(
+    "INSERT INTO Members (name, designation, profile_link, image_path) VALUES (?, ?, ?, ?)",
+    [name, designation, profileLink, imagePath],
+    (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.status(201).send("Member added successfully.");
+    }
+  );
 });
 
 app.delete('/api/members/:id', (req, res) => {
@@ -369,6 +337,7 @@ app.get('/api/publications', (req, res) => {
   });
 });
 
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Start the server
 app.listen(port, () => {

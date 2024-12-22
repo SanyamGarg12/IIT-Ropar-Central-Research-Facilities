@@ -43,7 +43,7 @@ VALUES
 -- Insert data into Facilities table
 INSERT INTO Facilities (name, description, specifications, usage_details, image_url, category_id, make_year, model, faculty_in_charge, contact_person_contact)
 VALUES 
-  ('Electron Microscope', 'A high-resolution electron microscope for imaging.', 'Resolution: 1nm', 'Available for biological and material research.', 'https://drive.google.com/uc?id=example_id_1', 1, 2020, 'EM-2020', 'Dr. Alice Johnson', '+1234567890'),
+  ('Electron Microscope', 'A high-resolution electron microscope for imaging.', 'Resolution: 1nm', 'Available for biological and material research.', 'https://imgur.com/a/GWMS84J', 1, 2020, 'EM-2020', 'Dr. Alice Johnson', '+1234567890'),
   ('3D Printer', 'A state-of-the-art 3D printer for prototyping and research.', 'Resolution: 50 microns', 'Available for mechanical and electronic design projects.', 'https://drive.google.com/uc?id=example_id_2', 2, 2018, '3DP-500', 'Dr. Bob Smith', '+0987654321'),
   ('Research Library', 'A collection of scientific journals, books, and articles.', 'Over 2000 journals and books', 'Available for students and faculty for academic research.', 'https://drive.google.com/uc?id=example_id_3', 3, 2010, 'RL-01', 'Dr. Clara White', '+1122334455'),
   ('Workshop Area', 'A space for hands-on engineering projects.', 'Machines: CNC, Lathe, etc.', 'Available for student and faculty project development.', 'https://drive.google.com/uc?id=example_id_4', 4, 2015, 'WA-300', 'Dr. David Brown', '+2233445566');

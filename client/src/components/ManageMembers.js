@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./ManageMembers.css";
-// import './ManageMembers.css?v=1.0';
 
 const ManageMembers = () => {
   const [members, setMembers] = useState([]);
   const [newMember, setNewMember] = useState({
     name: "",
     designation: "",
-    imageLink: "", // For Google Drive link
+    profileLink: "",
+    image: null, // Image file
   });
 
   // Fetch existing members
@@ -25,20 +25,32 @@ const ManageMembers = () => {
 
   // Handle the addition of a new member
   const handleAddMember = () => {
-    const memberData = {
-      name: newMember.name,
-      designation: newMember.designation,
-      imageLink: newMember.imageLink, // Send the image URL
-    };
-
+    const formData = new FormData();
+    formData.append("name", newMember.name);
+    formData.append("designation", newMember.designation);
+    formData.append("profileLink", newMember.profileLink);
+    formData.append("image", newMember.image); // File is added here
+  
     axios
-      .post("http://localhost:5000/api/members", memberData)
+      .post("http://localhost:5000/api/members", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
       .then(() => {
         fetchMembers();
-        setNewMember({ name: "", designation: "", imageLink: "" });
+        setNewMember({ name: "", designation: "", profileLink: "", image: null });
       })
       .catch((error) => console.error("Error adding member:", error));
   };
+  
+  // Input for file
+  <input
+    type="file"
+    accept="image/*"
+    onChange={(e) =>
+      setNewMember({ ...newMember, image: e.target.files[0] })
+    }
+  />;
+  
 
   const handleDeleteMember = (id) => {
     axios
@@ -70,10 +82,17 @@ const ManageMembers = () => {
         />
         <input
           type="text"
-          placeholder="Google Drive Image URL"
-          value={newMember.imageLink}
+          placeholder="Profile Link"
+          value={newMember.profileLink}
           onChange={(e) =>
-            setNewMember({ ...newMember, imageLink: e.target.value })
+            setNewMember({ ...newMember, profileLink: e.target.value })
+          }
+        />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) =>
+            setNewMember({ ...newMember, image: e.target.files[0] })
           }
         />
         <button onClick={handleAddMember}>Add Member</button>
@@ -88,7 +107,7 @@ const ManageMembers = () => {
             <p>{member.designation}</p>
             {member.image_path && (
               <img
-                src={`https://drive.google.com/uc?export=view&id=${member.image_path}`}
+                src={`/assets/${member.image_path}`}
                 alt={member.name}
                 width="100"
               />
