@@ -35,12 +35,49 @@ app.use(express.urlencoded({ extended: true }));
 
 // API endpoint to get all facilities
 app.get('/api/facilities', (req, res) => {
-  const query = 'SELECT * FROM Facilities'; // Adjust with your query
-  db.query(query, (err, result) => {
+  const query = `
+    SELECT 
+      f.id AS facility_id,
+      f.name AS facility_name,
+      f.description,
+      f.specifications,
+      f.usage_details,
+      f.image_url,
+      c.name AS category_name
+    FROM 
+      Facilities f
+    JOIN 
+      Categories c ON f.category_id = c.id
+    ORDER BY 
+      c.name, f.name;
+  `;
+
+  db.query(query, (err, results) => {
     if (err) {
-      res.status(500).json({ error: 'Error fetching facilities' });
+      console.error('Error fetching facilities:', err);
+      res.status(500).send('Error fetching facilities');
     } else {
-      res.json(result);
+      const facilities = {};
+
+      // Group facilities by category
+      results.forEach((facility) => {
+        if (!facilities[facility.category_name]) {
+          facilities[facility.category_name] = [];
+        }
+
+        // Convert Google Drive link to direct image URL
+        if (facility.image_url) {
+          const imageIdMatch = facility.image_url.match(/\/d\/(.*?)\//);
+          if (imageIdMatch) {
+            const transformedUrl = `https://drive.google.com/uc?export=view&id=${imageIdMatch[1]}`;
+            facility.image_url = transformedUrl;
+          }
+        }
+
+        facilities[facility.category_name].push(facility);
+      });
+
+      res.json(facilities);
     }
   });
 });
@@ -310,11 +347,24 @@ app.get('/api/facility/:id', (req, res) => {
       console.error('Error fetching facility details:', err);
       res.status(500).send('Error fetching facility details');
     } else {
-      res.json(results); // Send back the facility details
+      if (results.length > 0) {
+        const facility = results[0];
+
+        // Convert Google Drive link to direct image URL
+        if (facility.image_url) {
+          const imageIdMatch = facility.image_url.match(/\/d\/(.*?)\//);
+          if (imageIdMatch) {
+            facility.image_url = `https://drive.google.com/uc?export=view&id=${imageIdMatch[1]}`;
+          }
+        }
+
+        res.json(facility);
+      } else {
+        res.status(404).send('Facility not found');
+      }
     }
   });
 });
-
 
 // API endpoint to fetch all publications
 app.get('/api/publications', (req, res) => {

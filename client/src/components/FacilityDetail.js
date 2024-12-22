@@ -15,8 +15,8 @@ function FacilityDetail() {
         const response = await fetch(`http://localhost:5000/api/facility/${id}`);
         const data = await response.json();
 
-        if (data.length > 0) {
-          setFacility(data[0]); // Set the first (and only) facility's details
+        if (data) {
+          setFacility(data); // Set the facility's details
         } else {
           // Handle the case where no facility was found
           alert('Facility not found');
