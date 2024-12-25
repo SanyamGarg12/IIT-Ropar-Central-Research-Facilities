@@ -15,8 +15,8 @@ app.use(cors());
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
   host: 'localhost', // Replace with your MySQL host
-  user: 'sanyam_iitrpr', // Replace with your MySQL username
-  password: 'new_password', // Replace with your MySQL password
+  user: 'root', // Replace with your MySQL username
+  password:'12345678', // Replace with your MySQL password
   database: 'iitrpr', // Replace with your database name
 });
 
@@ -122,7 +122,10 @@ app.get('/api/publications', (req, res) => {
 });
 // Helper function to authenticate user
 function authenticateToken(req, res, next) {
-  const token = req.header('Authorization')?.split(' ')[1];
+  console.log(req.body)
+  console.log(req.headers)
+  const token = req.headers.authorization;
+  console.log(token);
   if (!token) return res.status(401).send('Access Denied');
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -204,14 +207,26 @@ app.post("/login", (req, res) => {
 
 
 app.post('/api/booking', authenticateToken, (req, res) => {
+  console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+  console.log(req.body)
   const { facility, date, time } = req.body;
   const userId = req.user.userId;
-
-  const query = `INSERT INTO booking_history (user_id, facility, date, time) VALUES (?, ?, ?, ?)`;
-  db.query(query, [userId, facility, date, time], (err, result) => {
-    if (err) return res.status(500).json({ message: 'Booking failed' });
-    res.json({ message: 'Booking successful' });
-  });
+  
+  const query = `INSERT INTO bookinghistory (user_id, facility_name, booking_date, booking_time) VALUES (?, ?, ?, ?)`;
+  try {
+    db.query(query, [userId, facility, date, time], (err, result) => {
+      console.log("result",result);
+      console.log("err",err);
+      if (err) return res.status(500).json({ message: "Booking failed" });
+      res.json({ message: "Booking successful" });
+    });
+    
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Booking failed' });
+    
+  }
+  
 });
 
 // Get booking history
