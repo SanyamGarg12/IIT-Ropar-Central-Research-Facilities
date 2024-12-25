@@ -1,3 +1,5 @@
+drop database iitrpr;
+
 -- Create the database if it doesn't exist
 CREATE DATABASE IF NOT EXISTS iitrpr;
 
@@ -40,6 +42,13 @@ VALUES
   ('Library', 'Collection of academic and research resources'),
   ('Workshop', 'Facilities for hands-on project development');
 
+
+ALTER TABLE Facilities
+ADD COLUMN make_year INT AFTER name, -- Adding make_year column (integer for the year)
+ADD COLUMN model VARCHAR(255) AFTER make_year, -- Adding model column (string for the model)
+ADD COLUMN faculty_in_charge VARCHAR(255) AFTER model, -- Adding faculty-in-charge name (string)
+ADD COLUMN contact_person_contact VARCHAR(15) AFTER faculty_in_charge; -- Adding contact number (string to accommodate formatting)
+
 -- Insert data into Facilities table
 INSERT INTO Facilities (name, description, specifications, usage_details, image_url, category_id, make_year, model, faculty_in_charge, contact_person_contact)
 VALUES 
@@ -48,11 +57,7 @@ VALUES
   ('Research Library', 'A collection of scientific journals, books, and articles.', 'Over 2000 journals and books', 'Available for students and faculty for academic research.', 'https://drive.google.com/uc?id=example_id_3', 3, 2010, 'RL-01', 'Dr. Clara White', '+1122334455'),
   ('Workshop Area', 'A space for hands-on engineering projects.', 'Machines: CNC, Lathe, etc.', 'Available for student and faculty project development.', 'https://drive.google.com/uc?id=example_id_4', 4, 2015, 'WA-300', 'Dr. David Brown', '+2233445566');
 
-ALTER TABLE Facilities
-ADD COLUMN make_year INT AFTER name, -- Adding make_year column (integer for the year)
-ADD COLUMN model VARCHAR(255) AFTER make_year, -- Adding model column (string for the model)
-ADD COLUMN faculty_in_charge VARCHAR(255) AFTER model, -- Adding faculty-in-charge name (string)
-ADD COLUMN contact_person_contact VARCHAR(15) AFTER faculty_in_charge; -- Adding contact number (string to accommodate formatting)
+
 
 -- Insert data into Publications table
 INSERT INTO Publications (title, link, facility_id)
