@@ -44,14 +44,14 @@ const App = () => {
         <Route
           path="/*"
           element={
-            <div className="app-container">
+            <div className="app-container ">
               {/* Main Navbar */}
-              <nav className="navbar">
+              <nav className="navbar flex">
                 <div className="navbar-logo">
                   <img src="/assets/logo.jpg" alt="College Logo" className="navbar-logo-img" />
                   <h1>IIT Ropar Central Research Facility</h1>
                 </div>
-                <ul className="nav-links">
+                <ul className="nav-links flex-wrap">
                   <li>
                     <Link to="/">Home</Link>
                   </li>

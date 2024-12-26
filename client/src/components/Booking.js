@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from "react-router-dom";
 import './Booking.css';
 
-function Booking({ authToken }) {
+function Booking({ authToken1 }) {
+  const navigate = useNavigate();
+  const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
   const [bookingDetails, setBookingDetails] = useState({
     facility: '',
     date: '',
@@ -14,6 +17,7 @@ function Booking({ authToken }) {
   };
 
   const handleSubmit = async (e) => {
+    console.log("authtoken",authToken);
     e.preventDefault();
     try {
       const response = await axios.post(
@@ -21,15 +25,23 @@ function Booking({ authToken }) {
         bookingDetails,
         { headers: { Authorization: authToken } } // Pass token in headers
       );
+
       alert(response.data.message);
+      setBookingDetails({
+        facility: '',
+        date: '',
+        time: '',
+      });
+      navigate('/');
     } catch (err) {
-      alert('Booking failed');
+      console.log("error",err);
+      alert('Booking failed',err);
     }
   };
 
   return (
     <div className="booking-container">
-      <h1>Facility Booking</h1>
+      <h1 className='text-2xl text-center font-bold'>Facility Booking</h1>
       <form onSubmit={handleSubmit}>
         <label>
           Facility:
