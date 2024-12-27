@@ -16,6 +16,7 @@ import ManagePublications from "./components/ManagePublications";
 import FacilityDetail from "./components/FacilityDetail";
 import Register from "./components/Register";
 import Login from "./components/Login";  
+import ManageAbout from "./components/ManageAbout";
 import "./App.css";
 
 const App = () => {
@@ -116,6 +117,7 @@ const App = () => {
                 <Route path="/facilities" element={<ManageFacilities />} />
                 <Route path="/forms" element={<ManageForms />} />
                 <Route path="/publications" element={<ManagePublications />} />
+                <Route path="/about" element={<ManageAbout />} />
               </Routes>
             </div>
           }

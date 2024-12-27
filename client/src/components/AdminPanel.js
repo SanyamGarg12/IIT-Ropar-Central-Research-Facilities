@@ -19,6 +19,9 @@ const AdminPanel = () => {
         <li>
           <Link to="/admin/publications">Manage Publications</Link>
         </li>
+        <li>
+          <Link to="/admin/about">Manage About Page</Link>
+        </li>
       </ul>
     </div>
   );

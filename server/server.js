@@ -5,18 +5,19 @@ const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const fs = require('fs');
 const app = express();
 const port = 5000;
 const JWT_SECRET = 'abcd';
+
 // Enable CORS for cross-origin requests
 app.use(cors());
 
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
   host: 'localhost', // Replace with your MySQL host
-  user: 'root', // Replace with your MySQL username
-  password:'12345678', // Replace with your MySQL password
+  user: 'sanyam_iitrpr', // Replace with your MySQL username
+  password:'new_password', // Replace with your MySQL password
   database: 'iitrpr', // Replace with your database name
 });
 
@@ -399,6 +400,41 @@ app.get('/api/publications', (req, res) => {
     } else {
       res.json(results); // Send the publications data
     }
+  });
+});
+
+app.get('/api/aboutContent', (req, res) => {
+  const filePath = path.join(__dirname, 'aboutContent.json'); // Path to the aboutContent.json file
+
+  // Read the JSON file
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading about content file:', err);
+      res.status(500).json({ message: 'Error reading about content file' });
+      return;
+    }
+
+    try {
+      const aboutContent = JSON.parse(data); // Parse the JSON data
+      res.json(aboutContent); // Send the JSON data as the response
+    } catch (parseError) {
+      console.error('Error parsing JSON content:', parseError);
+      res.status(500).json({ message: 'Error parsing about content file' });
+    }
+  });
+});
+
+app.post('/api/saveAboutContent', (req, res) => {
+  const filePath = path.join(__dirname, 'aboutContent.json');
+  const updatedContent = req.body;
+
+  fs.writeFile(filePath, JSON.stringify(updatedContent, null, 2), 'utf8', (err) => {
+    if (err) {
+      console.error('Error saving about content:', err);
+      res.status(500).json({ message: 'Error saving about content' });
+      return;
+    }
+    res.json({ message: 'Content saved successfully' });
   });
 });
 

@@ -1,50 +1,70 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './About.css';
+import axios from 'axios';
 
 function About() {
+  const [aboutContent, setAboutContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Fetch the about content from the backend API
+    axios.get('http://localhost:5000/api/aboutContent')
+      .then((response) => {
+        setAboutContent(response.data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching about content:', error);
+        setError('Failed to load about content');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>{error}</div>;
+  }
+
+  if (!aboutContent) {
+    return <div>No content available</div>;
+  }
+
   return (
     <section className="about">
-      <h2>Message from the Director</h2>
+      {/* Message from the Director */}
+      <h2>{aboutContent.messageFromDirector.title}</h2>
       <div className="about-content">
         <img src="/assets/director.jpg" alt="Director" className="director-image" />
         <div className="about-text">
-          <p>
-            Welcome to the IITRPR Central Research Facility, a premier research hub dedicated to fostering innovation 
-            and cutting-edge technological advancements. Our facility serves as a platform for students, researchers, 
-            and professionals to collaborate and achieve excellence in their respective fields.
-          </p>
-          <p>
-            Under the leadership of our esteemed Director, we strive to empower the research community 
-            with state-of-the-art infrastructure and facilities. Together, we are committed to advancing 
-            knowledge and contributing to the growth of society.
-          </p>
+          {aboutContent.messageFromDirector.content.map((para, index) => (
+            <p key={index}>{para}</p>
+          ))}
         </div>
       </div>
 
       {/* Department Introduction */}
       <section className="department-intro">
-        <h3>About the Department</h3>
+        <h3>{aboutContent.departmentIntro.title}</h3>
         <div className="intro-content">
           <div className="intro-text">
-            <p>
-              The Department of Computer Science and Engineering at NITK is committed to providing an innovative 
-              learning environment, fostering research, and preparing students for the challenges of the future. 
-              Our department is at the forefront of technological advancements, offering cutting-edge education 
-              and conducting impactful research in various domains of computer science.
-            </p>
+            <p>{aboutContent.departmentIntro.content}</p>
           </div>
-          <img src="/assets/department-building.jpg" alt="Department Building" className="department-image" />
+        <img src="/assets/DepartmentImage.jpg" alt="Department Building" className="department-image" />
+
         </div>
       </section>
 
       {/* Objectives of the Lab */}
       <section className="lab-objectives">
-        <h3>Objectives of the Lab</h3>
+        <h3>{aboutContent.labObjectives.title}</h3>
         <ul>
-          <li>To conduct high-quality research in the fields of AI, Machine Learning, and Data Science.</li>
-          <li>To promote interdisciplinary research and collaboration with industry partners.</li>
-          <li>To provide students with hands-on experience in real-world applications of computer science.</li>
-          <li>To develop innovative solutions that address current societal and technological challenges.</li>
+          {aboutContent.labObjectives.items.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
         </ul>
       </section>
 
@@ -52,18 +72,11 @@ function About() {
       <section className="vision-mission">
         <div className="vision">
           <h3>Vision</h3>
-          <p>
-            Our vision is to be a global leader in computer science education and research, producing innovative 
-            solutions that drive societal progress and technological transformation.
-          </p>
+          <p>{aboutContent.visionMission.vision}</p>
         </div>
         <div className="mission">
           <h3>Mission</h3>
-          <p>
-            Our mission is to foster a creative and collaborative research environment that encourages intellectual 
-            curiosity, develops cutting-edge technologies, and produces well-rounded professionals who are ready 
-            to meet the challenges of the modern world.
-          </p>
+          <p>{aboutContent.visionMission.mission}</p>
         </div>
       </section>
 
