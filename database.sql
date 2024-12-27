@@ -162,3 +162,11 @@ VALUES
     (2, 'AI Research Facility', '2024-02-10 11:45:00', '/results/ml_algorithm_2024.zip'),
     (3, 'Nanotechnology Lab', '2023-12-15 10:00:00', '/results/nanobot_prototype_2023.zip'),
     (4, 'Data Analysis Center', '2023-11-30 17:15:00', '/results/industrial_ai_system_2023.zip');
+
+CREATE TABLE facility_publications (
+  facility_id INT,
+  publication_id INT,
+  PRIMARY KEY (facility_id, publication_id),
+  FOREIGN KEY (facility_id) REFERENCES facilities(facility_id),
+  FOREIGN KEY (publication_id) REFERENCES publications(publication_id)
+);
