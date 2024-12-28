@@ -22,21 +22,21 @@ const Facilities = () => {
     fetchFacilities();
   }, []);
 
-  const getFacilityImageUrl = (imageUrl) => {
-    // If no image URL is provided or the image does not exist in the assets, fallback to localhost/uploads
-    if (!imageUrl) return null;
+  // const getFacilityImageUrl = (imageUrl) => {
+  //   // If no image URL is provided or the image does not exist in the assets, fallback to localhost/uploads
+  //   if (!imageUrl) return null;
 
-    // Check if the image exists in the assets folder, otherwise fall back to localhost/uploads
-    const image = new Image();
-    image.src = imageUrl;
+  //   // Check if the image exists in the assets folder, otherwise fall back to localhost/uploads
+  //   const image = new Image();
+  //   image.src = imageUrl;
 
-    // Check if the image fails to load from the asset folder, fallback to the server URL
-    image.onerror = () => {
-      image.src = `http://localhost:5000/uploads/${imageUrl}`;
-    };
+  //   // Check if the image fails to load from the asset folder, fallback to the server URL
+  //   image.onerror = () => {
+  //     image.src = `http://localhost:5000/uploads/${imageUrl}`;
+  //   };
 
-    return image.src;
-  };
+  //   return image.src;
+  // };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -55,11 +55,11 @@ const Facilities = () => {
                 </h3>
                 <p>{facility.description}</p>
                 {facility.image_url ? (
-                  <img 
+                  {/* <img 
                     src={getFacilityImageUrl(facility.image_url)} 
                     alt={facility.facility_name} 
                     className="facility-image" 
-                  />
+                  /> */}
                 ) : (
                   <p>No image available</p>
                 )}

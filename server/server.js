@@ -15,8 +15,8 @@ app.use(cors());
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
   host: 'localhost', // Replace with your MySQL host
-  user: 'sanyam_iitrpr', // Replace with your MySQL username
-  password:'new_password', // Replace with your MySQL password
+  user: 'root', // Replace with your MySQL username
+  password:'12345678', // Replace with your MySQL password
   database: 'iitrpr', // Replace with your database name
 });
 
@@ -37,8 +37,8 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/facilities', (req, res) => {
   const query = `
     SELECT 
-      f.id AS facility_id,
-      f.name AS facility_name,
+      f.id ,
+      f.name,
       f.description,
       f.specifications,
       f.usage_details,
@@ -84,9 +84,11 @@ app.get('/api/facilities', (req, res) => {
 
 app.post('/api/facilities', (req, res) => {
   const { name, description, specifications, usage_details, category_id, image_url } = req.body;
+  console.log(name)
   const query = 'INSERT INTO Facilities (name, description, specifications, usage_details, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?)';
   
   db.query(query, [name, description, specifications, usage_details, category_id, image_url], (err, result) => {
+    console.log(err, result);
     if (err) {
       res.status(500).json({ error: 'Error adding facility' });
     } else {
@@ -179,6 +181,7 @@ app.post("/login", (req, res) => {
 
   const query = "SELECT * FROM Users WHERE email = ? AND user_type = ?";
   db.query(query, [email, userType], async (err, results) => {
+    console.log(err, results);
     if (err) {
       console.error(err);
       return res.status(500).json({ message: "Server error." });

@@ -21,8 +21,9 @@ import "./App.css";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
-
   // Function to handle token storage
+
+ 
   const handleLogin = (token) => {
     localStorage.setItem("authToken", token);
     setAuthToken(token);
@@ -48,7 +49,9 @@ const App = () => {
             <div className="app-container ">
               {/* Main Navbar */}
               <nav className="navbar flex">
-                <div className="navbar-logo">
+                <div className="navbar-logo hover:cursor-pointer" onClick={()=>{
+                  window.location.href="/";
+                }}>
                   <img src="/assets/logo.jpg" alt="College Logo" className="navbar-logo-img" />
                   <h1>IIT Ropar Central Research Facility</h1>
                 </div>
