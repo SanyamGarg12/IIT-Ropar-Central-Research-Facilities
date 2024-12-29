@@ -1,52 +1,75 @@
-/* Facilities Page */
-.facilities {
+.facilities-container {
+  max-width: 800px;
+  margin: 0 auto;
   padding: 20px;
-  font-family: 'Arial', sans-serif;
-  margin-top: 70px;
+  font-family: Arial, sans-serif;
 }
 
-.facility-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-}
-
-.facility-card {
-  border: 1px solid #ccc;
-  padding: 20px;
-  border-radius: 8px;
+h2 {
   text-align: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  color: #333;
 }
 
-.facility-image {
-  width: 100%;
-  height: auto;
-  max-height: 200px;
-  object-fit: cover;
+.category-section {
+  margin-bottom: 30px;
+  padding: 15px;
+  border: 1px solid #ddd;
   border-radius: 8px;
+  background-color: #f9f9f9;
 }
 
-.facility-card h3 {
-  font-size: 1.5rem;
-  margin: 10px 0;
+.category-section h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #007bff;
 }
 
-.facility-card p {
-  font-size: 1rem;
-  color: #555;
+.category-description {
+  font-size: 14px;
+  color: #666;
+  margin: 5px 0 15px;
 }
 
-.detail-link {
-  display: inline-block;
-  margin-top: 10px;
-  padding: 10px 15px;
-  background-color: #007bff;
-  color: #fff;
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+ul li {
+  margin-bottom: 8px;
+}
+
+ul li a {
   text-decoration: none;
-  border-radius: 5px;
+  color: #007bff;
+  font-weight: bold;
 }
 
-.detail-link:hover {
-  background-color: #0056b3;
+ul li a:hover {
+  text-decoration: underline;
+  color: #0056b3;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .facilities-container {
+    padding: 10px;
+  }
+
+  .category-section {
+    padding: 10px;
+  }
+
+  h2 {
+    font-size: 24px;
+  }
+
+  ul li {
+    font-size: 14px;
+  }
 }
