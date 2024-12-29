@@ -3,25 +3,34 @@ import axios from 'axios';
 import './ManageFacilities.css';
 
 const ManageFacilities = () => {
+  // State for facilities and publications
   const [facilities, setFacilities] = useState([]);
   const [publications, setPublications] = useState([]);
+
+  // State for form inputs
   const [name, setName] = useState('');
+  const [makeYear, setMakeYear] = useState('');
+  const [model, setModel] = useState('');
+  const [facultyInCharge, setFacultyInCharge] = useState('');
+  const [contactPersonContact, setContactPersonContact] = useState('');
   const [description, setDescription] = useState('');
   const [specifications, setSpecifications] = useState('');
   const [usageDetails, setUsageDetails] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [selectedPublications, setSelectedPublications] = useState([]);
+
+  // Error handling
   const [error, setError] = useState(null);
 
+  // Fetch facilities and publications on component mount
   useEffect(() => {
-    // Fetch and normalize facilities
+    // Fetch facilities
     axios.get('http://localhost:5000/api/facilities')
       .then((response) => {
         const facilitiesData = response.data;
 
         if (facilitiesData && typeof facilitiesData === 'object') {
-          // Flatten the facilities grouped by categories
           const normalizedFacilities = Object.values(facilitiesData).flat();
           setFacilities(normalizedFacilities);
         } else {
@@ -38,7 +47,7 @@ const ManageFacilities = () => {
       .then((response) => {
         const publicationsData = response.data;
         if (Array.isArray(publicationsData)) {
-          setPublications(publicationsData); // Set publications directly
+          setPublications(publicationsData);
         } else {
           setError('Invalid publications data format.');
         }
@@ -49,11 +58,16 @@ const ManageFacilities = () => {
       });
   }, []);
 
+  // Add a new facility
   const handleAddFacility = (e) => {
     e.preventDefault();
 
     const formData = new FormData();
     formData.append('name', name);
+    formData.append('make_year', makeYear);
+    formData.append('model', model);
+    formData.append('faculty_in_charge', facultyInCharge);
+    formData.append('contact_person_contact', contactPersonContact);
     formData.append('description', description);
     formData.append('specifications', specifications);
     formData.append('usage_details', usageDetails);
@@ -68,7 +82,7 @@ const ManageFacilities = () => {
       },
     })
       .then((response) => {
-        const facilityId = response.data.facility_id;
+        const facilityId = response.data.id;
         setFacilities([...facilities, response.data]);
 
         const associations = selectedPublications.map((publicationId) =>
@@ -81,6 +95,10 @@ const ManageFacilities = () => {
         Promise.all(associations)
           .then(() => {
             setName('');
+            setMakeYear('');
+            setModel('');
+            setFacultyInCharge('');
+            setContactPersonContact('');
             setDescription('');
             setSpecifications('');
             setUsageDetails('');
@@ -99,10 +117,11 @@ const ManageFacilities = () => {
       });
   };
 
-  const handleDeleteFacility = (facilityId) => {
-    axios.delete(`http://localhost:5000/api/facilities/${facilityId}`)
+  // Delete a facility
+  const handleDeleteFacility = (id) => {
+    axios.delete(`http://localhost:5000/api/facilities/${id}`)
       .then(() => {
-        setFacilities(facilities.filter((facility) => facility.facility_id !== facilityId));
+        setFacilities(facilities.filter((facility) => facility.id !== id));
       })
       .catch((error) => {
         setError('Error deleting facility.');
@@ -124,6 +143,34 @@ const ManageFacilities = () => {
             placeholder="Facility Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Make Year"
+            value={makeYear}
+            onChange={(e) => setMakeYear(e.target.value)}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Model"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Faculty In Charge"
+            value={facultyInCharge}
+            onChange={(e) => setFacultyInCharge(e.target.value)}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Contact Person Contact"
+            value={contactPersonContact}
+            onChange={(e) => setContactPersonContact(e.target.value)}
             required
           />
           <textarea
@@ -179,15 +226,19 @@ const ManageFacilities = () => {
         <ul>
           {facilities.length > 0 ? (
             facilities.map((facility) => (
-              <li key={facility.facility_id}>
+              <li key={facility.id}>
                 <div>
-                  <h4>{facility.facility_name}</h4>
-                  <p>{facility.description}</p>
+                  <h4>{facility.name}</h4>
+                  <p><strong>Make Year:</strong> {facility.make_year}</p>
+                  <p><strong>Model:</strong> {facility.model}</p>
+                  <p><strong>Faculty In Charge:</strong> {facility.faculty_in_charge}</p>
+                  <p><strong>Contact:</strong> {facility.contact_person_contact}</p>
+                  <p><strong>Description:</strong> {facility.description}</p>
                   <p><strong>Specifications:</strong> {facility.specifications}</p>
                   <p><strong>Usage Details:</strong> {facility.usage_details}</p>
-                  {facility.image_url && <img src={facility.image_url} alt={facility.facility_name} />}
+                  {facility.image_url && <img src={facility.image_url} alt={facility.name} />}
                 </div>
-                <button onClick={() => handleDeleteFacility(facility.facility_id)}>Delete</button>
+                <button onClick={() => handleDeleteFacility(facility.id)}>Delete</button>
               </li>
             ))
           ) : (

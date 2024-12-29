@@ -3,52 +3,66 @@ import axios from 'axios';
 import './ManageAbout.css';
 
 const ManageAbout = () => {
-  const [aboutContent, setAboutContent] = useState({
-    messageFromDirector: { heading: '', content: '' },
-    departmentIntro: { heading: '', content: '' },
-    labObjectives: [],  // Default to an empty array to avoid errors
-    vision: '',
-    mission: ''
-  });
+  const [aboutContent, setAboutContent] = useState(null);
 
   useEffect(() => {
     // Fetch the current about content from the backend
     axios.get('http://localhost:5000/api/aboutContent')
       .then(response => {
-        setAboutContent(prevContent => ({
-          ...prevContent,
-          ...response.data,
-          labObjectives: Array.isArray(response.data.labObjectives) ? response.data.labObjectives : []  // Ensure it's an array
-        }));
+        setAboutContent(response.data);
       })
       .catch(error => {
         console.error('Error fetching about content:', error);
       });
   }, []);
 
-  const handleInputChange = (section, field, value) => {
+  const handleInputChange = (key, subKey, value) => {
     setAboutContent(prevContent => ({
       ...prevContent,
-      [section]: {
-        ...prevContent[section],
-        [field]: value
+      [key]: subKey
+        ? { ...prevContent[key], [subKey]: value }
+        : value
+    }));
+  };
+
+  const handleArrayChange = (key, subKey, index, value) => {
+    const updatedArray = [...aboutContent[key][subKey]];
+    updatedArray[index] = value;
+    setAboutContent(prevContent => ({
+      ...prevContent,
+      [key]: {
+        ...prevContent[key],
+        [subKey]: updatedArray
       }
     }));
   };
 
-  const handleLabObjectivesChange = (index, value) => {
-    const updatedLabObjectives = [...aboutContent.labObjectives];
-    updatedLabObjectives[index] = value;
+  const addArrayItem = (key, subKey) => {
     setAboutContent(prevContent => ({
       ...prevContent,
-      labObjectives: updatedLabObjectives
+      [key]: {
+        ...prevContent[key],
+        [subKey]: [...prevContent[key][subKey], '']
+      }
+    }));
+  };
+
+  const removeArrayItem = (key, subKey, index) => {
+    const updatedArray = [...aboutContent[key][subKey]];
+    updatedArray.splice(index, 1);
+    setAboutContent(prevContent => ({
+      ...prevContent,
+      [key]: {
+        ...prevContent[key],
+        [subKey]: updatedArray
+      }
     }));
   };
 
   const handleSaveChanges = () => {
     // Send the updated about content to the server to save it
     axios.post('http://localhost:5000/api/saveAboutContent', aboutContent)
-      .then(response => {
+      .then(() => {
         alert('Changes saved successfully');
       })
       .catch(error => {
@@ -57,74 +71,67 @@ const ManageAbout = () => {
       });
   };
 
+  if (!aboutContent) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div className="manage-about">
       <h2>Manage About Page Content</h2>
 
-      {/* Message from the Director */}
+      {/* Message from Director */}
       <div className="section">
-        <h3>Edit Message from Director</h3>
-        <input
-          type="text"
-          value={aboutContent.messageFromDirector.heading}
-          onChange={(e) => handleInputChange('messageFromDirector', 'heading', e.target.value)}
-          placeholder="Heading"
-        />
-        <textarea
-          value={aboutContent.messageFromDirector.content}
-          onChange={(e) => handleInputChange('messageFromDirector', 'content', e.target.value)}
-          placeholder="Content"
-        />
+        <h3>{aboutContent.messageFromDirector.title}</h3>
+        {aboutContent.messageFromDirector.content.map((message, index) => (
+          <div key={index} className="array-item">
+            <textarea
+              value={message}
+              onChange={(e) => handleArrayChange('messageFromDirector', 'content', index, e.target.value)}
+              placeholder={`Message ${index + 1}`}
+            />
+            <button onClick={() => removeArrayItem('messageFromDirector', 'content', index)}>Remove</button>
+          </div>
+        ))}
+        <button onClick={() => addArrayItem('messageFromDirector', 'content')}>Add Message</button>
       </div>
 
       {/* Department Introduction */}
       <div className="section">
-        <h3>Edit Department Introduction</h3>
-        <input
-          type="text"
-          value={aboutContent.departmentIntro.heading}
-          onChange={(e) => handleInputChange('departmentIntro', 'heading', e.target.value)}
-          placeholder="Heading"
-        />
+        <h3>{aboutContent.departmentIntro.title}</h3>
         <textarea
           value={aboutContent.departmentIntro.content}
           onChange={(e) => handleInputChange('departmentIntro', 'content', e.target.value)}
-          placeholder="Content"
+          placeholder="Introduction Content"
         />
       </div>
 
       {/* Lab Objectives */}
       <div className="section">
-        <h3>Edit Lab Objectives</h3>
-        {aboutContent.labObjectives.map((objective, index) => (
-          <div key={index} className="lab-objective">
+        <h3>{aboutContent.labObjectives.title}</h3>
+        {aboutContent.labObjectives.items.map((item, index) => (
+          <div key={index} className="array-item">
             <textarea
-              value={objective}
-              onChange={(e) => handleLabObjectivesChange(index, e.target.value)}
+              value={item}
+              onChange={(e) => handleArrayChange('labObjectives', 'items', index, e.target.value)}
               placeholder={`Objective ${index + 1}`}
             />
+            <button onClick={() => removeArrayItem('labObjectives', 'items', index)}>Remove</button>
           </div>
         ))}
-        <button onClick={() => setAboutContent(prevContent => ({
-          ...prevContent,
-          labObjectives: [...prevContent.labObjectives, '']  // Add a new objective
-        }))}>
-          Add New Objective
-        </button>
+        <button onClick={() => addArrayItem('labObjectives', 'items')}>Add Objective</button>
       </div>
 
       {/* Vision and Mission */}
       <div className="section">
-        <h3>Edit Vision</h3>
+        <h3>Edit Vision and Mission</h3>
         <textarea
-          value={aboutContent.vision}
-          onChange={(e) => handleInputChange('vision', '', e.target.value)}
+          value={aboutContent.visionMission.vision}
+          onChange={(e) => handleInputChange('visionMission', 'vision', e.target.value)}
           placeholder="Vision"
         />
-        <h3>Edit Mission</h3>
         <textarea
-          value={aboutContent.mission}
-          onChange={(e) => handleInputChange('mission', '', e.target.value)}
+          value={aboutContent.visionMission.mission}
+          onChange={(e) => handleInputChange('visionMission', 'mission', e.target.value)}
           placeholder="Mission"
         />
       </div>

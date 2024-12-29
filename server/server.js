@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
@@ -15,8 +16,8 @@ app.use(cors());
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
   host: 'localhost', // Replace with your MySQL host
-  user: 'root', // Replace with your MySQL username
-  password:'12345678', // Replace with your MySQL password
+  user: '', // Replace with your MySQL username
+  password:'', // Replace with your MySQL password
   database: 'iitrpr', // Replace with your database name
 });
 
@@ -33,70 +34,133 @@ db.getConnection((err) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'uploads'); // Ensure this is the correct path
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const fileName = Date.now() + path.extname(file.originalname);
+    cb(null, fileName);
+  },
+});
+
+const upload = multer({ storage });
+
 // API endpoint to get all facilities
 app.get('/api/facilities', (req, res) => {
   const query = `
     SELECT 
-      f.id ,
-      f.name,
-      f.description,
-      f.specifications,
-      f.usage_details,
-      f.image_url,
-      c.name AS category_name
+      f.id, 
+      f.name, 
+      f.make_year, 
+      f.model, 
+      f.faculty_in_charge, 
+      f.contact_person_contact, 
+      f.description, 
+      f.specifications, 
+      f.usage_details, 
+      f.image_url, 
+      f.category_id,
+      c.name AS category_name, 
+      c.description AS category_description
     FROM 
       Facilities f
-    JOIN 
-      Categories c ON f.category_id = c.id
-    ORDER BY 
-      c.name, f.name;
+    INNER JOIN 
+      Categories c
+    ON 
+      f.category_id = c.id
   `;
 
   db.query(query, (err, results) => {
     if (err) {
-      console.error('Error fetching facilities:', err);
-      res.status(500).send('Error fetching facilities');
+      console.error(err);
+      res.status(500).json({ error: 'Error fetching facilities with categories' });
     } else {
-      const facilities = {};
-
-      // Group facilities by category
-      results.forEach((facility) => {
-        if (!facilities[facility.category_name]) {
-          facilities[facility.category_name] = [];
-        }
-
-        // Convert Google Drive link to direct image URL
-        if (facility.image_url) {
-          const imageIdMatch = facility.image_url.match(/\/d\/(.*?)\//);
-          if (imageIdMatch) {
-            const transformedUrl = `https://drive.google.com/uc?export=view&id=${imageIdMatch[1]}`;
-            facility.image_url = transformedUrl;
-          }
-        }
-
-        facilities[facility.category_name].push(facility);
-      });
-
-      res.json(facilities);
+      res.json(results);
     }
   });
 });
 
 app.post('/api/facilities', (req, res) => {
-  const { name, description, specifications, usage_details, category_id, image_url } = req.body;
-  console.log(name)
-  const query = 'INSERT INTO Facilities (name, description, specifications, usage_details, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?)';
-  
-  db.query(query, [name, description, specifications, usage_details, category_id, image_url], (err, result) => {
-    console.log(err, result);
+  const {
+    name,
+    make_year,
+    model,
+    faculty_in_charge,
+    contact_person_contact,
+    description,
+    specifications,
+    usage_details,
+    image_url,
+    category_id,
+    publications, // This should be an array of publication IDs
+  } = req.body;
+
+  const query = `
+    INSERT INTO Facilities (
+      name, 
+      make_year, 
+      model, 
+      faculty_in_charge, 
+      contact_person_contact, 
+      description, 
+      specifications, 
+      usage_details, 
+      image_url, 
+      category_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    name,
+    make_year,
+    model,
+    faculty_in_charge,
+    contact_person_contact,
+    description,
+    specifications,
+    usage_details,
+    image_url,
+    category_id,
+  ];
+
+  // Insert into Facilities table
+  db.query(query, values, (err, result) => {
     if (err) {
-      res.status(500).json({ error: 'Error adding facility' });
+      console.error('Error inserting into Facilities:', err);
+      return res.status(500).json({ error: 'Error adding facility' });
+    }
+
+    const facilityId = result.insertId;
+
+    // If publications are provided, insert into Facilities_Publications table
+    if (publications && publications.length > 0) {
+      const publicationQuery = `
+        INSERT INTO Facilities_Publications (facility_id, publication_id)
+        VALUES ?
+      `;
+
+      // Create values array for bulk insertion
+      const publicationValues = publications.map((publicationId) => [facilityId, publicationId]);
+
+      db.query(publicationQuery, [publicationValues], (pubErr) => {
+        if (pubErr) {
+          console.error('Error inserting into Facilities_Publications:', pubErr);
+          return res.status(500).json({ error: 'Error associating facility with publications' });
+        }
+
+        return res.status(201).json({ message: 'Facility and publications added successfully' });
+      });
     } else {
-      const facilityId = result.insertId;
-      res.json({ facility_id: facilityId, ...req.body });
+      // No publications, just return success for the facility insertion
+      return res.status(201).json({ message: 'Facility added successfully' });
     }
   });
 });
+
+
+
 app.delete('/api/facilities/:id', (req, res) => {
   const facilityId = req.params.id;
 
@@ -247,19 +311,6 @@ app.get('/booking-history', authenticateToken, (req, res) => {
   );
 });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, 'uploads'); // Ensure this is the correct path
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const fileName = Date.now() + path.extname(file.originalname);
-    cb(null, fileName);
-  },
-});
-
-const upload = multer({ storage });
-
 // app.get('/api/members', (req, res) => {
 //   const query = `
 //     SELECT 
@@ -337,8 +388,8 @@ app.get('/api/facility/:id', (req, res) => {
 
   const query = `
     SELECT 
-      f.id AS facility_id,
-      f.name AS facility_name,
+      f.id,
+      f.name,
       f.description,
       f.specifications,
       f.usage_details,
@@ -401,6 +452,24 @@ app.get('/api/publications', (req, res) => {
       res.status(500).send('Error fetching publications');
     } else {
       res.json(results); // Send the publications data
+    }
+  });
+});
+
+app.get('/api/aboutContent', (req, res) => {
+  res.sendFile(path.join(__dirname, 'aboutContent.json'));
+});
+
+app.post('/api/saveAboutContent', (req, res) => {
+  const aboutContent = req.body;
+
+  // Save the updated about content to a JSON file
+  fs.writeFile(path.join(__dirname, 'aboutContent.json'), JSON.stringify(aboutContent, null, 2), (err) => {
+    if (err) {
+      console.error('Error saving about content:', err);
+      res.status(500).send('Error saving about content');
+    } else {
+      res.send('About content saved successfully');
     }
   });
 });

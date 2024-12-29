@@ -24,16 +24,17 @@ function About() {
   if (loading) {
     return <div>Loading...</div>;
   }
-
+  
   if (error) {
     return <div>{error}</div>;
   }
-
+  
   if (!aboutContent) {
     return <div>No content available</div>;
   }
 
   return (
+    // console.log(aboutContent),
     <section className="about">
       {/* Message from the Director */}
       <h2>{aboutContent.messageFromDirector.title}</h2>

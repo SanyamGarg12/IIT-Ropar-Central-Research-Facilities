@@ -8,7 +8,8 @@ const People = () => {
 
   useEffect(() => {
     // Fetch members from the backend
-    axios.get('http://localhost:5000/api/members')
+    axios
+      .get('http://localhost:5000/api/members')
       .then((response) => {
         console.log('Fetched members:', response.data);
         setMembers(response.data);
@@ -20,29 +21,23 @@ const People = () => {
   }, []);
 
   // Group members by designation
-  const chairman = members.find((member) => member.designation.toLowerCase() === 'chairman');
-  const viceChairman = members.find((member) => member.designation.toLowerCase() === 'vice chairman');
+  const chairman = members.find(
+    (member) => member.designation.toLowerCase() === 'chairman'
+  );
+  const viceChairman = members.find(
+    (member) => member.designation.toLowerCase() === 'vice chairman'
+  );
   const others = members.filter(
     (member) =>
       member.designation.toLowerCase() !== 'chairman' &&
       member.designation.toLowerCase() !== 'vice chairman'
   );
 
-  // // Function to construct image URL dynamically
-  // const getImageUrl = (imagePath) => {
-  //   if (!imagePath) return null; // No image available
-
-  //   // If image is from the public/assets folder
-  //   const assetImagePath = `${imagePath}`;
-
-  //   // Check if the image exists in the assets folder first
-  //   if (imagePath.startsWith('assets/')) {
-  //     return assetImagePath; // Return path if found in assets folder
-  //   }
-
-  //   // Otherwise, return the URL pointing to the server's uploads folder
-  //   return `http://localhost:5000/uploads/${imagePath}`;
-  // };
+  // Function to construct image URL dynamically
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null; // No image available
+    return `http://localhost:5000/uploads/${imagePath}`; // URL for the server's uploads folder
+  };
 
   return (
     <div className="people-container">
@@ -57,10 +52,10 @@ const People = () => {
               <div className="person-card">
                 <div className="person-image">
                   {chairman.image_path ? (
-                    {/* <img
+                    <img
                       src={getImageUrl(chairman.image_path)} // Use dynamic image URL function
                       alt={chairman.name}
-                    /> */}
+                    />
                   ) : (
                     <div className="placeholder">No Image Available</div>
                   )}
@@ -69,9 +64,9 @@ const People = () => {
                   <h3>{chairman.name}</h3>
                   <p>{chairman.designation}</p>
                   {chairman.profile_link && (
-                    <a 
-                      href={chairman.profile_link} 
-                      target="_blank" 
+                    <a
+                      href={chairman.profile_link}
+                      target="_blank"
                       rel="noopener noreferrer"
                     >
                       View Profile
@@ -88,10 +83,10 @@ const People = () => {
               <div className="person-card">
                 <div className="person-image">
                   {viceChairman.image_path ? (
-                    {/* <img
+                    <img
                       src={getImageUrl(viceChairman.image_path)} // Use dynamic image URL function
                       alt={viceChairman.name}
-                    /> */}
+                    />
                   ) : (
                     <div className="placeholder">No Image Available</div>
                   )}
@@ -100,9 +95,9 @@ const People = () => {
                   <h3>{viceChairman.name}</h3>
                   <p>{viceChairman.designation}</p>
                   {viceChairman.profile_link && (
-                    <a 
-                      href={viceChairman.profile_link} 
-                      target="_blank" 
+                    <a
+                      href={viceChairman.profile_link}
+                      target="_blank"
                       rel="noopener noreferrer"
                     >
                       View Profile
@@ -121,10 +116,10 @@ const People = () => {
                   <div className="person-card" key={member.id}>
                     <div className="person-image">
                       {member.image_path ? (
-                        {/* <img
+                        <img
                           src={getImageUrl(member.image_path)} // Use dynamic image URL function
                           alt={member.name}
-                        /> */}
+                        />
                       ) : (
                         <div className="placeholder">No Image Available</div>
                       )}
@@ -133,9 +128,9 @@ const People = () => {
                       <h3>{member.name}</h3>
                       <p>{member.designation}</p>
                       {member.profile_link && (
-                        <a 
-                          href={member.profile_link} 
-                          target="_blank" 
+                        <a
+                          href={member.profile_link}
+                          target="_blank"
                           rel="noopener noreferrer"
                         >
                           View Profile

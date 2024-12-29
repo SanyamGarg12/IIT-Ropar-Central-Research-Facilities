@@ -1,19 +1,25 @@
 {
   "messageFromDirector": {
     "title": "Message from the Director",
-    "content": ["Welcome to our department!", "We focus on cutting-edge research."]
+    "content": [
+      "hello",
+      "hello"
+    ]
   },
   "departmentIntro": {
     "title": "Department Introduction",
-    "content": "Our department is one of the best in the field.",
+    "content": "hello",
     "image": "/assets/department-building.jpg"
   },
   "labObjectives": {
     "title": "Lab Objectives",
-    "items": ["Innovative Research", "Collaboration with Industry"]
+    "items": [
+      "hello",
+      "hello"
+    ]
   },
   "visionMission": {
-    "vision": "To be a global leader in research.",
-    "mission": "To provide high-quality education."
+    "vision": "hello",
+    "mission": "Hello"
   }
 }
