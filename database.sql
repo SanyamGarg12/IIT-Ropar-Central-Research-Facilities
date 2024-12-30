@@ -167,6 +167,6 @@ CREATE TABLE facility_publications (
   facility_id INT,
   publication_id INT,
   PRIMARY KEY (facility_id, publication_id),
-  FOREIGN KEY (facility_id) REFERENCES facilities(facility_id),
-  FOREIGN KEY (publication_id) REFERENCES publications(publication_id)
+  FOREIGN KEY (facility_id) REFERENCES facilities(id),
+  FOREIGN KEY (publication_id) REFERENCES publications(id)
 );
