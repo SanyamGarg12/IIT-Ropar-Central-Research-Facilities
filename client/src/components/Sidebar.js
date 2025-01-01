@@ -1,18 +1,6 @@
 import React, { useState } from "react";
 
-const navItems = [
-  "User Profile",
-  "Change Password",
-  "Booking History",
-  "Publications",
-  "Results",
-  "Booking Facility",
-];
-
-
-
-
-function Sidebar({setActiveOption, activeOption}) {
+function Sidebar({ setActiveOption, activeOption, navItems }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleOptionClick = (option) => {
@@ -63,7 +51,7 @@ function Sidebar({setActiveOption, activeOption}) {
           <div className="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-6">
             <h2 className="text-2xl font-bold mb-4">{activeOption}</h2>
             <p className="text-gray-600">
-              {`You are viewing the ${activeOption} section.`}
+              You are viewing the {activeOption} section.
             </p>
           </div>
         </main>

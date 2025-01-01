@@ -15,15 +15,19 @@ import ManageForms from "./components/ManageForms";
 import ManagePublications from "./components/ManagePublications";
 import FacilityDetail from "./components/FacilityDetail";
 import Register from "./components/Register";
-import Login from "./components/Login";  
+import Login from "./components/Login";
 import ManageAbout from "./components/ManageAbout";
+import UserProfile from "./components/UserProfile";
+import ChangePassword from "./components/ChangePassword";
+import BookingHistory from "./components/BookingHistory";
+import UserPublications from "./components/UserPublications";
+import Results from "./components/Results";
 import "./App.css";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
   // Function to handle token storage
 
- 
   const handleLogin = (token) => {
     localStorage.setItem("authToken", token);
     setAuthToken(token);
@@ -49,8 +53,8 @@ const App = () => {
             <div className="app-container ">
               {/* Main Navbar */}
               <nav className="navbar flex">
-                <div className="navbar-logo hover:cursor-pointer" onClick={()=>{
-                  window.location.href="/";
+                <div className="navbar-logo hover:cursor-pointer" onClick={() => {
+                  window.location.href = "/";
                 }}>
                   <img src="/assets/logo.jpg" alt="College Logo" className="navbar-logo-img" />
                   <h1>IIT Ropar Central Research Facility</h1>

@@ -23,6 +23,7 @@ const Login = ({ onLogin }) => {
       const data = await response.json();
       if (response.ok) {
         // Successful login
+        localStorage.setItem('token', data.token); // Store the token in localStorage
         onLogin(data.token); // Pass the token to App.js
         navigate("/booking"); // Redirect to Booking page
       } else {

@@ -16,8 +16,8 @@ app.use(cors());
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
   host: 'localhost', // Replace with your MySQL host
-  user: '', // Replace with your MySQL username
-  password:'', // Replace with your MySQL password
+  user: 'sanyam_iitrpr', // Replace with your MySQL username
+  password:'new_password', // Replace with your MySQL password
   database: 'iitrpr', // Replace with your database name
 });
 
@@ -83,6 +83,7 @@ app.get('/api/facilities', (req, res) => {
 });
 
 app.post('/api/facilities', (req, res) => {
+  // TODO : fix it in ManageFacilities.js. Unable to add facilities.
   const {
     name,
     make_year,
@@ -270,6 +271,20 @@ app.post("/login", (req, res) => {
 
     res.status(200).json({ token });
   });
+});
+
+
+app.post('/api/logout', (req, res) => {
+  // TODO
+  // Note : table named LoginLogoutHistory has to be created in the database(query is already written in the sql file). We will store past 2 days entry and please code to delete oldeer entreis automatically!
+  // Also, during logging in, make entry in this table too!.
+}
+);
+
+app.post('/api/change-password', authenticateToken, async (req, res) => {
+  // change password logic here , refer to table named users to edit password all 4 kind of users are there!.
+  // Note : users table will be modified later(4-5 Columns add honge), for now, just change password of the user who is logged in.
+  // TODO
 });
 
 

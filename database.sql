@@ -170,3 +170,12 @@ CREATE TABLE facility_publications (
   FOREIGN KEY (facility_id) REFERENCES facilities(id),
   FOREIGN KEY (publication_id) REFERENCES publications(id)
 );
+
+-- Create the LoginLogoutHistory table
+CREATE TABLE LoginLogoutHistory (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  login_time DATETIME NOT NULL,
+  logout_time DATETIME,
+  FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+);
