@@ -5,8 +5,6 @@ import "./ManageFacilities.css";
 const ManageFacilities = () => {
   const [facilities, setFacilities] = useState([]);
   const [publications, setPublications] = useState([]);
-
-  // State for form inputs
   const [name, setName] = useState("");
   const [makeYear, setMakeYear] = useState("");
   const [model, setModel] = useState("");
@@ -19,18 +17,17 @@ const ManageFacilities = () => {
   const [description, setDescription] = useState("");
   const [specifications, setSpecifications] = useState("");
   const [usageDetails, setUsageDetails] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(""); // Category name instead of ID
   const [priceInternal, setPriceInternal] = useState("0.00");
   const [priceExternal, setPriceExternal] = useState("0.00");
   const [priceRandD, setPriceRandD] = useState("0.00");
   const [priceIndustry, setPriceIndustry] = useState("0.00");
   const [imageFile, setImageFile] = useState(null);
   const [selectedPublications, setSelectedPublications] = useState([]);
-
   const [error, setError] = useState(null);
 
-  // Fetch facilities and publications
   useEffect(() => {
+    // Fetch existing facilities
     axios
       .get("http://localhost:5000/api/facilities")
       .then((response) => {
@@ -41,6 +38,7 @@ const ManageFacilities = () => {
         console.error(error);
       });
 
+    // Fetch publications for linking to facilities
     axios
       .get("http://localhost:5000/api/publications")
       .then((response) => {
@@ -52,10 +50,10 @@ const ManageFacilities = () => {
       });
   }, []);
 
-  // Add a new facility
   const handleAddFacility = (e) => {
     e.preventDefault();
 
+    console.log("Hello from handleAddFacility");
     const formData = new FormData();
     formData.append("name", name);
     formData.append("make_year", makeYear);
@@ -69,7 +67,17 @@ const ManageFacilities = () => {
     formData.append("description", description);
     formData.append("specifications", specifications);
     formData.append("usage_details", usageDetails);
-    formData.append("category_id", categoryId);
+
+    // Map category name to category_id (if necessary)
+    const categoryIdMapping = {
+      Laboratory: 1,
+      Equipment: 2,
+      Library: 3,
+      Workshop: 4,
+    };
+    const categoryMappedId = categoryIdMapping[categoryId] || null;
+    formData.append("category_id", categoryMappedId);
+
     formData.append("price_internal", priceInternal);
     formData.append("price_external", priceExternal);
     formData.append("price_r_and_d", priceRandD);
@@ -88,6 +96,7 @@ const ManageFacilities = () => {
         const facilityId = response.data.id;
         setFacilities([...facilities, response.data]);
 
+        // Associate the new facility with selected publications
         const associations = selectedPublications.map((publicationId) =>
           axios.post("http://localhost:5000/api/facility-publications", {
             facility_id: facilityId,
@@ -97,7 +106,7 @@ const ManageFacilities = () => {
 
         Promise.all(associations)
           .then(() => {
-            // Clear the form
+            // Clear the form after successful submission
             setName("");
             setMakeYear("");
             setModel("");
@@ -129,12 +138,11 @@ const ManageFacilities = () => {
       });
   };
 
-  // Delete a facility
-  const handleDeleteFacility = (id) => {
+  const handleDeleteFacility = (facilityId) => {
     axios
-      .delete(`http://localhost:5000/api/facilities/${id}`)
+      .delete(`http://localhost:5000/api/facilities/${facilityId}`)
       .then(() => {
-        setFacilities(facilities.filter((facility) => facility.id !== id));
+        setFacilities(facilities.filter((facility) => facility.id !== facilityId));
       })
       .catch((error) => {
         setError("Error deleting facility.");
@@ -222,66 +230,81 @@ const ManageFacilities = () => {
             value={usageDetails}
             onChange={(e) => setUsageDetails(e.target.value)}
           />
-          <input
-            type="text"
-            placeholder="Category ID"
+
+          {/* Category Selection */}
+          <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-          />
+            required
+          >
+            <option value="">Select Category</option>
+            <option value="Laboratory">Laboratory</option>
+            <option value="Equipment">Equipment</option>
+            <option value="Library">Library</option>
+            <option value="Workshop">Workshop</option>
+          </select>
+
+          {/* Price Fields */}
           <input
             type="number"
-            placeholder="Price (Internal)"
+            step="0.01"
+            placeholder="Price for Internal Users"
             value={priceInternal}
             onChange={(e) => setPriceInternal(e.target.value)}
           />
           <input
             type="number"
-            placeholder="Price (External)"
+            step="0.01"
+            placeholder="Price for External Users"
             value={priceExternal}
             onChange={(e) => setPriceExternal(e.target.value)}
           />
           <input
             type="number"
-            placeholder="Price (R&D)"
+            step="0.01"
+            placeholder="Price for R&D"
             value={priceRandD}
             onChange={(e) => setPriceRandD(e.target.value)}
           />
           <input
             type="number"
-            placeholder="Price (Industry)"
+            step="0.01"
+            placeholder="Price for Industry"
             value={priceIndustry}
             onChange={(e) => setPriceIndustry(e.target.value)}
           />
+
+          {/* Image Upload */}
           <input
             type="file"
             onChange={(e) => setImageFile(e.target.files[0])}
-            accept="image/*"
           />
+
+          {/* Publications */}
           <select
             multiple
             value={selectedPublications}
             onChange={(e) =>
-              setSelectedPublications(
-                [...e.target.selectedOptions].map((option) => option.value)
-              )
+              setSelectedPublications(Array.from(e.target.selectedOptions, (option) => option.value))
             }
           >
-            {publications.map((pub) => (
-              <option key={pub.id} value={pub.id}>
-                {pub.title}
+            {publications.map((publication) => (
+              <option key={publication.id} value={publication.id}>
+                {publication.title}
               </option>
             ))}
           </select>
+
           <button type="submit">Add Facility</button>
         </form>
       </div>
 
-      <div className="existing-facilities-container">
+      <div className="facility-list">
         <h3>Existing Facilities</h3>
         <ul>
           {facilities.map((facility) => (
             <li key={facility.id}>
-              <h4>{facility.name}</h4>
+              <span>{facility.name}</span>
               <button onClick={() => handleDeleteFacility(facility.id)}>
                 Delete
               </button>
