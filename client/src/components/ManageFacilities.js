@@ -53,7 +53,6 @@ const ManageFacilities = () => {
   const handleAddFacility = (e) => {
     e.preventDefault();
 
-    console.log("Hello from handleAddFacility");
     const formData = new FormData();
     formData.append("name", name);
     formData.append("make_year", makeYear);
@@ -67,7 +66,6 @@ const ManageFacilities = () => {
     formData.append("description", description);
     formData.append("specifications", specifications);
     formData.append("usage_details", usageDetails);
-
     // Map category name to category_id (if necessary)
     const categoryIdMapping = {
       Laboratory: 1,
@@ -93,19 +91,20 @@ const ManageFacilities = () => {
         },
       })
       .then((response) => {
-        const facilityId = response.data.id;
+        // const facilityId = response.data.id;
         setFacilities([...facilities, response.data]);
-
+        // console.log("facilityId", facilityId);
+        // console.log("publication_id", publicationId);
         // Associate the new facility with selected publications
-        const associations = selectedPublications.map((publicationId) =>
-          axios.post("http://localhost:5000/api/facility-publications", {
-            facility_id: facilityId,
-            publication_id: publicationId,
-          })
-        );
+        // const associations = selectedPublications.map((publicationId) =>
+        //   axios.post("http://localhost:5000/api/facility-publications", {
+        //     facility_id: facilityId,
+        //     publication_id: publicationId,
+        //   })
+        // );
 
-        Promise.all(associations)
-          .then(() => {
+        // Promise.all(associations)
+          // .then(() => {
             // Clear the form after successful submission
             setName("");
             setMakeYear("");
@@ -126,11 +125,12 @@ const ManageFacilities = () => {
             setPriceIndustry("0.00");
             setImageFile(null);
             setSelectedPublications([]);
-          })
-          .catch((error) => {
-            setError("Error associating facility with publications.");
-            console.error(error);
-          });
+          // })
+          // .catch((error) => {
+          //   setError("Error associating facility with publications.");
+          //   console.error(error);
+          // });
+          alert("Facility added successfully");
       })
       .catch((error) => {
         setError("Error adding facility.");

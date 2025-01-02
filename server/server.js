@@ -6,7 +6,7 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
-
+require("dotenv").config();
 const app = express();
 const port = 5000;
 const JWT_SECRET = 'abcd';
@@ -15,10 +15,10 @@ app.use(cors());
 
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
-  host: 'localhost', // Replace with your MySQL host
-  user: 'sanyam_iitrpr', // Replace with your MySQL username
-  password:'new_password', // Replace with your MySQL password
-  database: 'iitrpr', // Replace with your database name
+  host: process.env.DB_HOST, // Replace with your MySQL host
+  user: process.env.DB_USER, // Replace with your MySQL username
+  password:process.env.DB_PASSWORD, // Replace with your MySQL password
+  database: process.env.DB_NAME, // Replace with your database name
 });
 
 // Test the database connection
@@ -91,7 +91,7 @@ app.get('/api/facilities', (req, res) => {
 });
 
 
-app.post('/api/facilities', (req, res) => {
+app.post('/api/facilities', upload.single("image"),(req, res) => {
   const {
     name,
     make_year,
@@ -113,7 +113,9 @@ app.post('/api/facilities', (req, res) => {
     price_industry,
     publications, // This should be an array of publication IDs
   } = req.body;
+  
 
+  // console.log(req);
   const query = `
     INSERT INTO Facilities (
       name, 
@@ -384,6 +386,7 @@ app.post('/api/logout', (req, res) => {
   // TODO
   // Note : table named LoginLogoutHistory has to be created in the database(query is already written in the sql file). We will store past 2 days entry and please code to delete oldeer entreis automatically!
   // Also, during logging in, make entry in this table too!.
+
 }
 );
 
@@ -395,8 +398,6 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
 
 app.post('/api/booking', authenticateToken, (req, res) => {
-  console.log("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-  console.log(req.body)
   const { facility, date, time } = req.body;
   const userId = req.user.userId;
   
@@ -506,7 +507,7 @@ app.delete('/api/members/:id', (req, res) => {
 // API endpoint to get details of a single facility
 app.get('/api/facility/:id', (req, res) => {
   const facilityId = req.params.id;
-
+  console.log(facilityId);
   const query = `
     SELECT 
       f.id,
@@ -553,6 +554,95 @@ app.get('/api/facility/:id', (req, res) => {
         res.status(404).send('Facility not found');
       }
     }
+  });
+});
+
+
+app.put("/api/facilities/:id", (req, res) => {
+  const facilityId = req.params.id;
+  const {
+    name,
+    make_year,
+    model,
+    faculty_in_charge,
+    faculty_contact,
+    faculty_email,
+    operator_name,
+    operator_contact,
+    operator_email,
+    description,
+    specifications,
+    usage_details,
+    image_url,
+    category_id,
+    price_internal,
+    price_external,
+    price_r_and_d,
+    price_industry,
+  } = req.body;
+
+  // Corrected SQL Query
+  const query = `
+    UPDATE Facilities
+    SET 
+      name = ?, 
+      make_year = ?, 
+      model = ?, 
+      faculty_in_charge = ?, 
+      faculty_contact = ?, 
+      faculty_email = ?, 
+      operator_name = ?, 
+      operator_contact = ?, 
+      operator_email = ?, 
+      description = ?, 
+      specifications = ?, 
+      usage_details = ?, 
+      image_url = ?, 
+      category_id = ?, 
+      price_internal = ?, 
+      price_external = ?, 
+      price_r_and_d = ?, 
+      price_industry = ?
+    WHERE 
+      id = ?
+  `;
+
+  const values = [
+    name,
+    make_year,
+    model,
+    faculty_in_charge,
+    faculty_contact,
+    faculty_email,
+    operator_name,
+    operator_contact,
+    operator_email,
+    description,
+    specifications,
+    usage_details,
+    image_url,
+    category_id,
+    price_internal,
+    price_external,
+    price_r_and_d,
+    price_industry,
+    facilityId, // The last value corresponds to the `id` to match the `WHERE` clause
+  ];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error("Error updating facility:", err);
+      return res.status(500).json({ error: "Database update failed" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Facility not found" });
+    }
+
+    res.status(200).json({
+      message: "Facility updated successfully",
+      facilityId,
+    });
   });
 });
 
