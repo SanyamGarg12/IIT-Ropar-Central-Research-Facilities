@@ -56,12 +56,20 @@ app.get('/api/facilities', (req, res) => {
       f.make_year, 
       f.model, 
       f.faculty_in_charge, 
-      f.contact_person_contact, 
+      f.faculty_contact,
+      f.faculty_email,
+      f.operator_name,
+      f.operator_contact,
+      f.operator_email,
       f.description, 
       f.specifications, 
       f.usage_details, 
       f.image_url, 
-      f.category_id,
+      f.category_id, 
+      f.price_internal,
+      f.price_external,
+      f.price_r_and_d,
+      f.price_industry,
       c.name AS category_name, 
       c.description AS category_description
     FROM 
@@ -82,19 +90,27 @@ app.get('/api/facilities', (req, res) => {
   });
 });
 
+
 app.post('/api/facilities', (req, res) => {
-  // TODO : fix it in ManageFacilities.js. Unable to add facilities.
   const {
     name,
     make_year,
     model,
     faculty_in_charge,
-    contact_person_contact,
+    faculty_contact,
+    faculty_email,
+    operator_name,
+    operator_contact,
+    operator_email,
     description,
     specifications,
     usage_details,
     image_url,
     category_id,
+    price_internal,
+    price_external,
+    price_r_and_d,
+    price_industry,
     publications, // This should be an array of publication IDs
   } = req.body;
 
@@ -104,13 +120,21 @@ app.post('/api/facilities', (req, res) => {
       make_year, 
       model, 
       faculty_in_charge, 
-      contact_person_contact, 
+      faculty_contact,
+      faculty_email,
+      operator_name,
+      operator_contact,
+      operator_email,
       description, 
       specifications, 
       usage_details, 
       image_url, 
-      category_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      category_id, 
+      price_internal,
+      price_external,
+      price_r_and_d,
+      price_industry
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -118,12 +142,20 @@ app.post('/api/facilities', (req, res) => {
     make_year,
     model,
     faculty_in_charge,
-    contact_person_contact,
+    faculty_contact,
+    faculty_email,
+    operator_name,
+    operator_contact,
+    operator_email,
     description,
     specifications,
     usage_details,
     image_url,
     category_id,
+    price_internal,
+    price_external,
+    price_r_and_d,
+    price_industry,
   ];
 
   // Insert into Facilities table
@@ -151,11 +183,11 @@ app.post('/api/facilities', (req, res) => {
           return res.status(500).json({ error: 'Error associating facility with publications' });
         }
 
-        return res.status(201).json({ message: 'Facility and publications added successfully' });
+        return res.status(201).json({ message: 'Facility and publications added successfully', id: facilityId });
       });
     } else {
       // No publications, just return success for the facility insertion
-      return res.status(201).json({ message: 'Facility added successfully' });
+      return res.status(201).json({ message: 'Facility added successfully', id: facilityId });
     }
   });
 });
@@ -234,6 +266,80 @@ app.post('/api/register', async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'An error occurred during registration.' });
   }
+});
+
+app.get('/api/facility/:id', (req, res) => {
+  const facilityId = req.params.id;
+
+  const facilityQuery = `
+    SELECT 
+      f.id, 
+      f.name, 
+      f.make_year, 
+      f.model, 
+      f.faculty_in_charge, 
+      f.faculty_contact, 
+      f.faculty_email, 
+      f.operator_name, 
+      f.operator_contact, 
+      f.operator_email, 
+      f.description, 
+      f.specifications, 
+      f.usage_details, 
+      f.image_url, 
+      f.price_internal, 
+      f.price_external, 
+      f.price_r_and_d, 
+      f.price_industry, 
+      c.name AS category_name
+    FROM 
+      Facilities f
+    INNER JOIN 
+      Categories c
+    ON 
+      f.category_id = c.id
+  `;
+
+  const publicationsQuery = `
+    SELECT 
+      p.id, 
+      p.title AS publication_title, 
+      p.link AS publication_link
+    FROM 
+      Publications p
+    INNER JOIN 
+      Facility_Publications fp
+    ON 
+      p.id = fp.publication_id
+    WHERE 
+      fp.facility_id = ?
+  `;
+
+  // Fetch facility details
+  db.query(facilityQuery, [facilityId], (facilityErr, facilityResults) => {
+    if (facilityErr) {
+      console.error('Error fetching facility:', facilityErr);
+      return res.status(500).json({ error: 'Error fetching facility' });
+    }
+
+    if (facilityResults.length === 0) {
+      return res.status(404).json({ error: 'Facility not found' });
+    }
+
+    const facility = facilityResults[0];
+
+    // Fetch publications mapped to the facility
+    db.query(publicationsQuery, [facilityId], (pubErr, publicationResults) => {
+      if (pubErr) {
+        console.error('Error fetching publications:', pubErr);
+        return res.status(500).json({ error: 'Error fetching publications' });
+      }
+
+      // Attach publications to the facility object
+      facility.publications = publicationResults;
+      res.json(facility);
+    });
+  });
 });
 
 

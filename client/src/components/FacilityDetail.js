@@ -6,7 +6,7 @@ function FacilityDetail() {
   const { id } = useParams(); // Get facility ID from the URL
   const [facility, setFacility] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // useNavigate hook instead of useHistory
+  const navigate = useNavigate(); // useNavigate hook
 
   // Fetch facility details from the API
   useEffect(() => {
@@ -43,8 +43,8 @@ function FacilityDetail() {
 
   return (
     <div className="facility-detail">
-      <h1>{facility.facility_name}</h1>
-      <img src={facility.image_url} alt={facility.facility_name} className="facility-image" />
+      <h1>{facility.name}</h1>
+      <img src={facility.image_url} alt={facility.name} className="facility-image" />
       <div className="facility-info">
         <h2>Description:</h2>
         <p>{facility.description}</p>
@@ -60,16 +60,32 @@ function FacilityDetail() {
         <p>{facility.model}</p>
         <h2>Faculty In-Charge:</h2>
         <p>{facility.faculty_in_charge}</p>
-        <h2>Contact:</h2>
-        <p>{facility.contact_person_contact}</p>
-        {facility.publication_title && (
+        <h2>Faculty Contact:</h2>
+        <p>{facility.faculty_contact}</p>
+        <h2>Faculty Email:</h2>
+        <p>{facility.faculty_email}</p>
+        <h2>Operator Name:</h2>
+        <p>{facility.operator_name}</p>
+        <h2>Operator Contact:</h2>
+        <p>{facility.operator_contact}</p>
+        <h2>Operator Email:</h2>
+        <p>{facility.operator_email}</p>
+        {facility.publications && facility.publications.length > 0 && (
           <>
             <h2>Publications:</h2>
-            <p>
-              <a href={facility.publication_link} target="_blank" rel="noopener noreferrer">
-                {facility.publication_title}
-              </a>
-            </p>
+            <ul>
+              {facility.publications.map((publication, index) => (
+                <li key={index}>
+                  <a
+                    href={publication.publication_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {publication.publication_title}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </>
         )}
       </div>

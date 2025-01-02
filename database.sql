@@ -179,3 +179,14 @@ CREATE TABLE LoginLogoutHistory (
   logout_time DATETIME,
   FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
+
+
+ALTER TABLE facilities ADD COLUMN price_industry DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+ALTER TABLE facilities ADD COLUMN price_internal DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+ALTER TABLE facilities ADD COLUMN price_external DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+ALTER TABLE facilities ADD COLUMN price_r_and_d DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+ALTER TABLE facilities ADD COLUMN Faculty_contact VARCHAR(15);
+ALTER TABLE facilities ADD COLUMN Faculty_email VARCHAR(255);
+ALTER TABLE facilities ADD COLUMN operator_name VARCHAR(255);
+ALTER TABLE facilities CHANGE COLUMN contact_person_contact operator_contact VARCHAR(15);
+ALTER TABLE facilities ADD COLUMN operator_email VARCHAR(255);
