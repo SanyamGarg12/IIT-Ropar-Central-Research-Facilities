@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './FacilityDetail.css';
 
+
+// Function to construct image URL dynamically
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null; // No image available
+  return `http://localhost:5000/uploads/${imagePath}`; // URL for the server's uploads folder
+};
+
+
 function FacilityDetail() {
   const { id } = useParams(); // Get facility ID from the URL
   const [facility, setFacility] = useState(null);
@@ -44,7 +52,7 @@ function FacilityDetail() {
   return (
     <div className="facility-detail">
       <h1>{facility.name}</h1>
-      <img src={facility.image_url} alt={facility.name} className="facility-image" />
+      <img src={getImageUrl(facility.image_url)} alt={facility.name} className="facility-image" />
       <div className="facility-info">
         <h2>Description:</h2>
         <p>{facility.description}</p>

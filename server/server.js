@@ -90,7 +90,7 @@ app.get('/api/facilities', (req, res) => {
   });
 });
 
-
+  
 app.post('/api/facilities', upload.single("image"),(req, res) => {
   const {
     name,
@@ -105,7 +105,6 @@ app.post('/api/facilities', upload.single("image"),(req, res) => {
     description,
     specifications,
     usage_details,
-    image_url,
     category_id,
     price_internal,
     price_external,
@@ -114,8 +113,9 @@ app.post('/api/facilities', upload.single("image"),(req, res) => {
     publications, // This should be an array of publication IDs
   } = req.body;
   
+  // Get the uploaded image filename from req.file
+  const image_url = req.file ? req.file.filename : null;
 
-  // console.log(req);
   const query = `
     INSERT INTO Facilities (
       name, 
@@ -300,6 +300,8 @@ app.get('/api/facility/:id', (req, res) => {
       Categories c
     ON 
       f.category_id = c.id
+    where 
+      f.id = ?;
   `;
 
   const publicationsQuery = `
