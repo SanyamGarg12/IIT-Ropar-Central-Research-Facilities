@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import './FacilityDetail.css';
-
+import { Card, CardContent, CardHeader, CardTitle } from "./Card";
+import { PrinterIcon as Printer3d, Info, Settings, User, Mail, Phone, ExternalLink } from 'lucide-react';
 
 // Function to construct image URL dynamically
 const getImageUrl = (imagePath) => {
@@ -9,14 +9,12 @@ const getImageUrl = (imagePath) => {
   return `http://localhost:5000/uploads/${imagePath}`; // URL for the server's uploads folder
 };
 
-
-function FacilityDetail() {
-  const { id } = useParams(); // Get facility ID from the URL
+export default function FacilityDetail() {
+  const { id } = useParams();
   const [facility, setFacility] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // useNavigate hook
+  const navigate = useNavigate();
 
-  // Fetch facility details from the API
   useEffect(() => {
     const fetchFacilityDetails = async () => {
       try {
@@ -24,81 +22,156 @@ function FacilityDetail() {
         const data = await response.json();
 
         if (data) {
-          setFacility(data); // Set the facility's details
+          setFacility(data);
         } else {
-          // Handle the case where no facility was found
           alert('Facility not found');
-          navigate('/'); // Redirect to home page if facility not found
+          navigate('/');
         }
       } catch (error) {
         console.error('Error fetching facility details:', error);
       } finally {
-        setLoading(false); // Stop loading
+        setLoading(false);
       }
     };
 
     fetchFacilityDetails();
   }, [id, navigate]);
 
-  // Handle loading state
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
   if (!facility) {
-    return <div>No facility data available.</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-2xl font-semibold text-gray-600">No facility data available.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="facility-detail">
-      <h1>{facility.name}</h1>
-      <img src={getImageUrl(facility.image_url)} alt={facility.name} className="facility-image" />
-      <div className="facility-info">
-        <h2>Description:</h2>
-        <p>{facility.description}</p>
-        <h2>Specifications:</h2>
-        <p>{facility.specifications}</p>
-        <h2>Usage Details:</h2>
-        <p>{facility.usage_details}</p>
-        <h2>Category:</h2>
-        <p>{facility.category_name}</p>
-        <h2>Make Year:</h2>
-        <p>{facility.make_year}</p>
-        <h2>Model:</h2>
-        <p>{facility.model}</p>
-        <h2>Faculty In-Charge:</h2>
-        <p>{facility.faculty_in_charge}</p>
-        <h2>Faculty Contact:</h2>
-        <p>{facility.faculty_contact}</p>
-        <h2>Faculty Email:</h2>
-        <p>{facility.faculty_email}</p>
-        <h2>Operator Name:</h2>
-        <p>{facility.operator_name}</p>
-        <h2>Operator Contact:</h2>
-        <p>{facility.operator_contact}</p>
-        <h2>Operator Email:</h2>
-        <p>{facility.operator_email}</p>
-        {facility.publications && facility.publications.length > 0 && (
-          <>
-            <h2>Publications:</h2>
-            <ul>
+    <div className="container mx-auto px-4 py-12 max-w-4xl mt-8">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">{facility.name}</h1>
+        <p className="text-lg text-gray-600">{facility.category_name}</p>
+      </header>
+
+      <div className="grid md:grid-cols-2 gap-8 mb-8">
+        <img
+          src={getImageUrl(facility.image_url)}
+          alt={facility.name}
+          className="w-full h-64 object-cover rounded-lg shadow-lg"
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Key Details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="flex items-center gap-2">
+              <Printer3d className="text-blue-600" />
+              <span className="font-semibold">Model:</span> {facility.model}
+            </div>
+            <div className="flex items-center gap-2">
+              <Info className="text-blue-600" />
+              <span className="font-semibold">Make Year:</span> {facility.make_year}
+            </div>
+            <div className="flex items-center gap-2">
+              <Settings className="text-blue-600" />
+              <span className="font-semibold">Specifications:</span> {facility.specifications}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-8 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{facility.description}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Usage Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{facility.usage_details}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-8 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Faculty In-Charge</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <div className="flex items-center gap-2">
+              <User className="text-blue-600" />
+              <span>{facility.faculty_in_charge}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="text-blue-600" />
+              <span>{facility.faculty_email}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="text-blue-600" />
+              <span>{facility.faculty_contact}</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Operator Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <div className="flex items-center gap-2">
+              <User className="text-blue-600" />
+              <span>{facility.operator_name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="text-blue-600" />
+              <span>{facility.operator_contact}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="text-blue-600" />
+              <span>{facility.operator_email}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {facility.publications && facility.publications.length > 0 && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Publications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
               {facility.publications.map((publication, index) => (
-                <li key={index}>
+                <li key={index} className="flex items-center">
+                  <ExternalLink className="w-4 h-4 mr-2 text-blue-500" />
                   <a
                     href={publication.publication_link}
                     target="_blank"
                     rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
                   >
                     {publication.publication_title}
                   </a>
                 </li>
               ))}
             </ul>
-          </>
-        )}
-      </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
 
-export default FacilityDetail;
