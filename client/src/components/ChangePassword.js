@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-
+import { jwtDecode } from "jwt-decode";
 function ChangePassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,6 +23,9 @@ function ChangePassword() {
       setError('You are not logged in. Please log in and try again.');
       return;
     }
+    const decoded = jwtDecode(authToken);
+    console.log(decoded)
+    const userId = decoded.userId;
 
     try {
       // Send API request to change password
@@ -32,7 +35,7 @@ function ChangePassword() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`, // Pass the token for authentication
         },
-        body: JSON.stringify({ newPassword: password }),
+        body: JSON.stringify({ userId:userId , newPassword: password }),
       });
 
       if (!response.ok) {
@@ -45,6 +48,7 @@ function ChangePassword() {
       setPassword('');
       setConfirmPassword('');
     } catch (err) {
+      console.error('Error changing password:', err);
       setError('An error occurred. Please try again later.');
     }
   };
