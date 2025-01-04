@@ -223,16 +223,25 @@ app.get('/api/publications', (req, res) => {
 });
 // Helper function to authenticate user
 function authenticateToken(req, res, next) {
-  console.log(req.body)
-  console.log(req.headers)
-  const token = req.headers.authorization;
-  console.log(token);
-  if (!token) return res.status(401).send('Access Denied');
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).send("Access Denied");
+  }
+
+  const token = authHeader.split(" ")[1]; // Extract the token after "Bearer"
+
+  if (!token) {
+    return res.status(401).send("Access Denied");
+  }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-      if (err) return res.status(403).send('Invalid Token');
-      req.user = user;
-      next();
+    if (err) {
+      console.error("Token verification failed:", err);
+      return res.status(403).send("Invalid Token");
+    }
+    req.user = user;
+    next();
   });
 }
 
@@ -358,12 +367,13 @@ app.post("/login", (req, res) => {
   db.query(query, [email, userType], async (err, results) => {
     console.log(err, results);
     if (err) {
-      console.error(err);
       return res.status(500).json({ message: "Server error." });
     }
 
     if (results.length === 0) {
-      return res.status(401).json({ message: "Invalid credentials or user type." });
+      return res
+        .status(401)
+        .json({ message: "Invalid credentials or user type." });
     }
 
     const user = results[0];
@@ -378,6 +388,23 @@ app.post("/login", (req, res) => {
       JWT_SECRET,
       { expiresIn: "1h" }
     );
+    // Log login event with timestamp
+    const logQuery =
+      "INSERT INTO LoginLogoutHistory (user_id, login_time) VALUES (?, NOW())";
+    db.query(logQuery, [user.user_id], (err) => {
+      if (err) {
+        console.error("Failed to log login:", err);
+      }
+    });
+
+    // Delete old records (older than 2 days)
+    const deleteQuery =
+      "DELETE FROM LoginLogoutHistory WHERE login_time < NOW() - INTERVAL 2 DAY";
+    db.query(deleteQuery, (err) => {
+      if (err) {
+        console.error("Failed to delete old log entries:", err);
+      }
+    });
 
     res.status(200).json({ token });
   });
@@ -388,14 +415,76 @@ app.post('/api/logout', (req, res) => {
   // TODO
   // Note : table named LoginLogoutHistory has to be created in the database(query is already written in the sql file). We will store past 2 days entry and please code to delete oldeer entreis automatically!
   // Also, during logging in, make entry in this table too!.
+  const { userId } = req.body;
 
-}
-);
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required." });
+  }
+
+  const logQuery =
+    "UPDATE LoginLogoutHistory SET logout_time = NOW() WHERE user_id = ? AND logout_time IS NULL";
+  db.query(logQuery, [userId], (err) => {
+    if (err) {
+      return res.status(500).json({ message: "Logout failed." });
+    }
+    res.status(200).json({ message: "Logged out successfully." });
+  });
+
+  const deleteQuery =
+    "DELETE FROM LoginLogoutHistory WHERE login_time < NOW() - INTERVAL 2 DAY";
+  db.query(deleteQuery, (err) => {
+    if (err) {
+      console.error("Failed to delete old log entries:", err);
+    }
+  });
+
+});
 
 app.post('/api/change-password', authenticateToken, async (req, res) => {
   // change password logic here , refer to table named users to edit password all 4 kind of users are there!.
   // Note : users table will be modified later(4-5 Columns add honge), for now, just change password of the user who is logged in.
   // TODO
+  const { userId, newPassword } = req.body;
+
+  if (!userId || !newPassword) {
+    return res
+      .status(400)
+      .json({ message: "Email and new password are required." });
+  }
+
+  try {
+    // Check if the user exists
+    const query = "SELECT * FROM Users WHERE user_id = ?";
+    db.query(query, [userId], async (err, results) => {
+      if (err) {
+        return res
+          .status(500)
+          .json({ message: "An error occurred while searching for the user." });
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ message: "User not found." });
+      }
+
+      // Hash the new password
+      const salt = await bcrypt.genSalt(10);
+      const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+      // Update the password in the database
+      const updateQuery = "UPDATE Users SET password_hash = ? WHERE user_id = ?";
+      db.query(updateQuery, [newPasswordHash, userId], (err, result) => {
+        if (err) {
+          return res.status(500).json({ message: "Failed to reset password." });
+        }
+
+        res.status(200).json({ message: "Password reset successfully." });
+      });
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "An error occurred during password reset." });
+  }
 });
 
 
