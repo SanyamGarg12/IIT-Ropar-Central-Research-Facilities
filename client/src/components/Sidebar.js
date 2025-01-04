@@ -37,7 +37,7 @@ function Sidebar({ setActiveOption, activeOption, navItems }) {
         </ul>
       </nav>
       <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b p-4 flex items-center justify-between md:justify-end">
+        {/* <header className="bg-white border-b p-4 flex items-center justify-between md:justify-end">
           <button
             className="md:hidden text-2xl focus:outline-none"
             onClick={toggleMobileMenu}
@@ -46,15 +46,15 @@ function Sidebar({ setActiveOption, activeOption, navItems }) {
             ☰
           </button>
           <h1 className="text-xl font-semibold">{activeOption}</h1>
-        </header>
-        <main className="flex-1 p-8 overflow-auto bg-gray-100">
+        </header> */}
+        {/* <main className="flex-1 p-8 overflow-auto bg-gray-100">
           <div className="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-6">
             <h2 className="text-2xl font-bold mb-4">{activeOption}</h2>
             <p className="text-gray-600">
               You are viewing the {activeOption} section.
             </p>
           </div>
-        </main>
+        </main> */}
       </div>
     </div>
   );

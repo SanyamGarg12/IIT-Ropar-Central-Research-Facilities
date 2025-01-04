@@ -1,24 +1,45 @@
 import React, { useEffect } from 'react';
 import axios from "axios";
+import {jwtDecode} from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 
 const Logout = () => {
+    const navigate = useNavigate();
     useEffect(() => {
-        const logout = async () => {
-            try {
-                await axios.post('/api/logout', {}, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('userToken')}`
-                    }
-                });
-                // Clear user data from local storage or any other storage
-                localStorage.removeItem('userToken');
-            } catch (error) {
-                console.error('Error logging out:', error);
-            }
-        };
+    const logout = async () => {
+        
+        try {
+        const token = localStorage.getItem("authToken");
 
-        logout();
-    });
+        if (token) {
+            const decoded = jwtDecode(token);
+            const userId = decoded.userId;
+
+            await axios.post(
+            "/api/logout",
+            { userId },
+            {
+                headers: {
+                Authorization: `Bearer ${token}`,
+                },
+            }
+            );
+
+            // Clear user data from local storage
+            localStorage.removeItem("authToken");
+            navigate("/login");
+            
+            
+        }else{
+            console.log("No token found");
+        }
+        } catch (error) {
+        console.error("Error logging out:", error);
+        }
+    };
+
+    logout();
+    }, []);
 
     return (
         <div>
