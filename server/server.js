@@ -487,16 +487,17 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-
-app.post('/api/booking', authenticateToken, (req, res) => {
-  const { facility, date, time } = req.body;
-  const userId = req.user.userId;
+//removed authenticate token from this route
+app.post('/api/booking', (req, res) => {
+  const { facility, date, schedule_id, user_id} = req.body;
   
-  const query = `INSERT INTO bookinghistory (user_id, facility_name, booking_date, booking_time) VALUES (?, ?, ?, ?)`;
+  
+  
+  const query = `INSERT INTO bookinghistory (user_id, facility_id, booking_date, schedule_id) VALUES (?, ?, ?, ?)`;
   try {
-    db.query(query, [userId, facility, date, time], (err, result) => {
-      console.log("result",result);
-      console.log("err",err);
+    db.query(query, [user_id, facility, date, schedule_id], (err, result) => {
+      // console.log("result",result);
+      // console.log("err",err);
       if (err) return res.status(500).json({ message: "Booking failed" });
       res.json({ message: "Booking successful" });
     });
@@ -775,6 +776,84 @@ app.post('/api/saveAboutContent', (req, res) => {
     }
   });
 });
+
+// get available slots for a facility on a particular date
+function getWeekday(dateString) {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const date = new Date(dateString);
+    return days[date.getDay()];
+}
+
+app.get("/api/slots", async (req, res) => {
+
+  //pending according to number of people can be accomodated in a slot
+
+
+
+
+  const { facility_id, date } = req.query;
+
+  // Check if the facility can be available on that weekday and find the number of slots
+  const day = getWeekday(date);
+
+  const checkSlotsQuery = `
+    SELECT schedule_id, start_time, end_time, total_slots 
+    FROM facilityschedule 
+    WHERE facility_id = ? AND weekday = ?
+  `;
+
+  try {
+    // Using await to fetch total slots
+    const [totalSlots] = await db
+      .promise()
+      .query(checkSlotsQuery, [facility_id, day]);
+
+    if (totalSlots.length === 0) {
+      return res
+        .status(200)
+        .json({slots: []});
+    }
+
+    // console.log("totalSlots: ", totalSlots);
+
+    // Check if any slots are already booked
+    const checkBookedSlotsQuery = `
+      SELECT schedule_id, status 
+      FROM bookinghistory 
+      WHERE facility_id = ? AND booking_date = ?
+    `;
+
+    // Using await to fetch booked slots
+    const [bookedSlots] = await db
+      .promise()
+      .query(checkBookedSlotsQuery, [facility_id, date]);
+
+    // console.log("bookedSlots: ", bookedSlots);
+
+    // Extract schedule_ids of booked slots
+    const bookedSlotIds = bookedSlots
+      .filter((slot) => slot.status === "Approved")
+      .map((slot) => slot.schedule_id);
+
+    // console.log("bookedSlotIds: ", bookedSlotIds);
+    // Add 'available' field to each slot, indicating whether the slot is available for booking
+    const slotsWithAvailability = totalSlots.map((slot) => ({
+      ...slot,
+      available: !bookedSlotIds.includes(slot.schedule_id),
+    }));
+
+    // console.log("slotsWithAvailability: ", slotsWithAvailability);
+
+    // Return all slots with the 'available' field
+    return res.status(200).json({ slots: slotsWithAvailability });
+  } catch (err) {
+    console.error("Error:", err);
+    return res.status(500).send("Error fetching slots");
+  }
+});
+
+
+
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

@@ -109,18 +109,6 @@ CREATE TABLE User_Publications (
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
 
--- Create the BookingHistory table
-CREATE TABLE BookingHistory (
-    booking_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    facility_name VARCHAR(255) NOT NULL,
-    booking_date DATE NOT NULL,
-    booking_time TIME NOT NULL,
-    status ENUM('Pending', 'Approved', 'Cancelled') DEFAULT 'Pending',
-    cost DECIMAL(10, 2),
-    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
-);
-
 -- Create the Results table
 CREATE TABLE Results (
     result_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -146,14 +134,6 @@ VALUES
     (2, 'Advances in Machine Learning', '2023-05-20', 'IEEE Transactions', '10.1109/TML.2023.123456'),
     (3, 'Nanotechnology in Medicine', '2022-12-10', 'Nano Letters', '10.1021/nl1234567'),
     (4, 'AI and Industry 4.0', '2023-09-01', 'AI Journal', '10.1016/j.aij.2023.78901');
-
--- Insert sample data into BookingHistory table
-INSERT INTO BookingHistory (user_id, facility_name, booking_date, booking_time, status, cost)
-VALUES
-    (1, 'Advanced Physics Lab', '2024-01-10', '14:00:00', 'Approved', 1000.00),
-    (2, 'AI Research Facility', '2024-02-15', '10:30:00', 'Pending', 1500.00),
-    (3, 'Nanotechnology Lab', '2023-12-05', '16:00:00', 'Cancelled', 2000.00),
-    (4, 'Data Analysis Center', '2023-11-25', '09:00:00', 'Approved', 2500.00);
 
 -- Insert sample data into Results table
 INSERT INTO Results (user_id, facility_name, result_date, result_file_path)
@@ -190,3 +170,95 @@ ALTER TABLE facilities ADD COLUMN Faculty_email VARCHAR(255);
 ALTER TABLE facilities ADD COLUMN operator_name VARCHAR(255);
 ALTER TABLE facilities CHANGE COLUMN contact_person_contact operator_contact VARCHAR(15);
 ALTER TABLE facilities ADD COLUMN operator_email VARCHAR(255);
+
+
+
+
+CREATE TABLE FacilitySchedule (
+    schedule_id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    weekday ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    total_slots INT NOT NULL,
+    FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
+    UNIQUE (facility_id, weekday, start_time, end_time)
+);
+
+
+-- Electron Microscope (Monday and Wednesday, 9 AM to 11 AM, split into 1-hour slots)
+INSERT INTO FacilitySchedule (facility_id, weekday, start_time, end_time, total_slots)
+VALUES 
+  ((SELECT id FROM Facilities WHERE name = 'Electron Microscope'), 'Monday', '09:00:00', '10:00:00', 5),
+  ((SELECT id FROM Facilities WHERE name = 'Electron Microscope'), 'Monday', '10:00:00', '11:00:00', 5),
+  ((SELECT id FROM Facilities WHERE name = 'Electron Microscope'), 'Wednesday', '14:00:00', '15:00:00', 3),
+  ((SELECT id FROM Facilities WHERE name = 'Electron Microscope'), 'Wednesday', '15:00:00', '16:00:00', 3);
+
+-- 3D Printer (Tuesday and Thursday, 10 AM to 12 PM, split into 1-hour slots)
+INSERT INTO FacilitySchedule (facility_id, weekday, start_time, end_time, total_slots)
+VALUES 
+  ((SELECT id FROM Facilities WHERE name = '3D Printer'), 'Tuesday', '10:00:00', '11:00:00', 4),
+  ((SELECT id FROM Facilities WHERE name = '3D Printer'), 'Tuesday', '11:00:00', '12:00:00', 4),
+  ((SELECT id FROM Facilities WHERE name = '3D Printer'), 'Thursday', '15:00:00', '16:00:00', 6),
+  ((SELECT id FROM Facilities WHERE name = '3D Printer'), 'Thursday', '16:00:00', '17:00:00', 6);
+
+-- Research Library (Monday to Friday, 8 AM to 6 PM, hourly slots)
+INSERT INTO FacilitySchedule (facility_id, weekday, start_time, end_time, total_slots)
+VALUES
+  -- Monday to Friday, hourly slots from 8 AM to 6 PM
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '08:00:00', '09:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '09:00:00', '10:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '10:00:00', '11:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '11:00:00', '12:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '12:00:00', '13:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '13:00:00', '14:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '14:00:00', '15:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '15:00:00', '16:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '16:00:00', '17:00:00', 20),
+  ((SELECT id FROM Facilities WHERE name = 'Research Library'), 'Monday', '17:00:00', '18:00:00', 20);
+
+-- Repeat the same pattern for Tuesday to Friday...
+
+-- Workshop Area (Friday and Saturday, split hourly)
+INSERT INTO FacilitySchedule (facility_id, weekday, start_time, end_time, total_slots)
+VALUES 
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Friday', '09:00:00', '10:00:00', 8),
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Friday', '10:00:00', '11:00:00', 8),
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Friday', '11:00:00', '12:00:00', 8),
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Saturday', '13:00:00', '14:00:00', 10),
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Saturday', '14:00:00', '15:00:00', 10),
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Saturday', '15:00:00', '16:00:00', 10),
+  ((SELECT id FROM Facilities WHERE name = 'Workshop Area'), 'Saturday', '16:00:00', '17:00:00', 10);
+
+
+-- Create the BookingHistory table
+CREATE TABLE BookingHistory (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    facility_id INT NOT NULL,
+    schedule_id INT NOT NULL,
+    booking_date DATE NOT NULL,
+    status ENUM('Pending', 'Approved', 'Cancelled') DEFAULT 'Pending',
+    cost DECIMAL(10, 2),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
+    FOREIGN KEY (schedule_id) REFERENCES FacilitySchedule(schedule_id) ON DELETE CASCADE,
+    UNIQUE (facility_id, schedule_id, booking_date, user_id)
+);
+
+-- Insert dummy bookings into BookingHistory with correct schedule_id values
+INSERT INTO BookingHistory (user_id, facility_id, schedule_id, booking_date, status, cost)
+VALUES
+  (1, (SELECT id FROM Facilities WHERE name = 'Electron Microscope'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Electron Microscope') AND weekday = 'Monday' AND start_time = '09:00:00'), '2025-01-10', 'Approved', 150.00),  -- User 1 books Electron Microscope (schedule 1st slot Monday 9-10 AM)
+  
+  (2, (SELECT id FROM Facilities WHERE name = 'Electron Microscope'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Electron Microscope') AND weekday = 'Monday' AND start_time = '10:00:00'), '2025-01-10', 'Pending', 150.00),  -- User 2 books Electron Microscope (schedule 2nd slot Monday 10-11 AM)
+
+  (3, (SELECT id FROM Facilities WHERE name = '3D Printer'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = '3D Printer') AND weekday = 'Tuesday' AND start_time = '10:00:00'), '2025-01-11', 'Approved', 100.00),  -- User 3 books 3D Printer (schedule Tuesday 10-11 AM)
+  
+  (4, (SELECT id FROM Facilities WHERE name = '3D Printer'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = '3D Printer') AND weekday = 'Tuesday' AND start_time = '11:00:00'), '2025-01-11', 'Cancelled', 100.00),  -- User 4 books 3D Printer (schedule Tuesday 11-12 AM)
+
+  (1, (SELECT id FROM Facilities WHERE name = 'Research Library'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Research Library') AND weekday = 'Monday' AND start_time = '08:00:00'), '2025-01-12', 'Approved', 0.00),  -- User 1 books Research Library (schedule Monday 8-9 AM)
+  
+  (2, (SELECT id FROM Facilities WHERE name = 'Workshop Area'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Workshop Area') AND weekday = 'Friday' AND start_time = '09:00:00'), '2025-01-13', 'Approved', 200.00),  -- User 2 books Workshop Area (schedule Friday 9-10 AM)
+  
+  (3, (SELECT id FROM Facilities WHERE name = 'Workshop Area'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Workshop Area') AND weekday = 'Friday' AND start_time = '10:00:00'), '2025-01-13', 'Pending', 200.00);  -- User 3 books Workshop Area (schedule Friday 10-11 AM)
