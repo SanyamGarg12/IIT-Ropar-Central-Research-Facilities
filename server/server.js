@@ -236,6 +236,17 @@ app.post('/api/hero', (req, res) => {
   });
 });
 
+app.get('/api/forms', (req, res) => {
+  const query = 'SELECT * FROM forms';
+  db.query(query, (err, result) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching forms' });
+    } else {
+      res.json(result);
+    }
+  });
+});
+
 app.delete('/api/facilities/:id', (req, res) => {
   const facilityId = req.params.id;
 

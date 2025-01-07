@@ -262,3 +262,23 @@ VALUES
   (2, (SELECT id FROM Facilities WHERE name = 'Workshop Area'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Workshop Area') AND weekday = 'Friday' AND start_time = '09:00:00'), '2025-01-13', 'Approved', 200.00),  -- User 2 books Workshop Area (schedule Friday 9-10 AM)
   
   (3, (SELECT id FROM Facilities WHERE name = 'Workshop Area'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Workshop Area') AND weekday = 'Friday' AND start_time = '10:00:00'), '2025-01-13', 'Pending', 200.00);  -- User 3 books Workshop Area (schedule Friday 10-11 AM)
+
+
+CREATE TABLE forms (
+    id INT AUTO_INCREMENT PRIMARY KEY,       -- Unique identifier for each form
+    form_name VARCHAR(255) NOT NULL,         -- Name of the form
+    description TEXT,                        -- Description of the form
+    form_link VARCHAR(2083) NOT NULL,        -- Link to the form
+    facility_name VARCHAR(255),             -- Name of the related facility
+    facility_link VARCHAR(2083),            -- Link to the facility
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Record creation timestamp
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Last update timestamp
+);
+
+INSERT INTO forms (form_name, description, form_link, facility_name, facility_link)
+VALUES
+('Equipment Request Form', 'Form to request lab equipment for experiments', 'https://example.com/equipment-request', 'Central Lab Facility', 'https://example.com/central-lab'),
+('Room Booking Form', 'Form to book seminar and conference rooms', 'https://example.com/room-booking', 'Event Management', 'https://example.com/event-management'),
+('Research Proposal Submission', 'Form for submitting research project proposals', 'https://example.com/research-proposal', 'Research Department', 'https://example.com/research-department'),
+('Maintenance Request Form', 'Request form for facility maintenance services', 'https://example.com/maintenance-request', 'Maintenance Department', 'https://example.com/maintenance-department'),
+('Library Membership Form', 'Form to apply for library membership', 'https://example.com/library-membership', 'Library Services', 'https://example.com/library-services');
