@@ -195,7 +195,18 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
 });
 
 app.post('/api/hero', (req, res) => {
-  const { action, data } = req.body;
+  const { action} = req.body;
+  
+  if(action === 'updateSlider'){
+    const { src,title, subtitle  } = req.body;
+    var data = { src, title, subtitle };
+  }else if(action === 'updateThought'){
+    const { thought } = req.body;
+    var data = thought ;
+  }else if(action === 'addNews'){
+    const {action, title, summary, image, link } = req.body;
+    var data = { action, title, summary, image, link };
+  }
   const filePath = path.join(__dirname, 'homeContent.json');
 
   fs.readFile(filePath, 'utf-8', (readErr, fileContent) => {
