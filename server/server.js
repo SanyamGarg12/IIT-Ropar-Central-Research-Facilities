@@ -17,7 +17,7 @@ app.use(cors());
 const db = mysql.createPool({
   host: process.env.DB_HOST, // Replace with your MySQL host
   user: process.env.DB_USER, // Replace with your MySQL username
-  password:process.env.DB_PASSWORD, // Replace with your MySQL password
+  password: process.env.DB_PASSWORD, // Replace with your MySQL password
   database: process.env.DB_NAME, // Replace with your database name
 });
 
@@ -90,8 +90,8 @@ app.get('/api/facilities', (req, res) => {
   });
 });
 
-  
-app.post('/api/facilities', upload.single("image"),(req, res) => {
+
+app.post('/api/facilities', upload.single("image"), (req, res) => {
   const {
     name,
     make_year,
@@ -112,7 +112,7 @@ app.post('/api/facilities', upload.single("image"),(req, res) => {
     price_industry,
     publications, // This should be an array of publication IDs
   } = req.body;
-  
+
   // Get the uploaded image filename from req.file
   const image_url = req.file ? req.file.filename : null;
 
@@ -194,7 +194,47 @@ app.post('/api/facilities', upload.single("image"),(req, res) => {
   });
 });
 
+app.post('/api/hero', (req, res) => {
+  const { action, data } = req.body;
+  const filePath = path.join(__dirname, 'homeContent.json');
 
+  fs.readFile(filePath, 'utf-8', (readErr, fileContent) => {
+    if (readErr) {
+      console.error('Error reading hero content:', readErr);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+
+    let heroContent;
+    try {
+      heroContent = JSON.parse(fileContent);
+    } catch (parseErr) {
+      console.error('Error parsing hero content:', parseErr);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+
+    switch (action) {
+      case 'updateSlider':
+        heroContent.sliderImages.push(data);
+        break;
+      case 'updateThought':
+        heroContent.Thought = data;
+        break;
+      case 'addNews':
+        heroContent.NewsFeed.push(data);
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    fs.writeFile(filePath, JSON.stringify(heroContent, null, 2), (writeErr) => {
+      if (writeErr) {
+        console.error('Error writing hero content:', writeErr);
+        return res.status(500).json({ error: 'Internal Server Error' });
+      }
+      res.json({ message: 'Hero content updated successfully' });
+    });
+  });
+});
 
 app.delete('/api/facilities/:id', (req, res) => {
   const facilityId = req.params.id;
@@ -489,10 +529,7 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
 //removed authenticate token from this route
 app.post('/api/booking', (req, res) => {
-  const { facility, date, schedule_id, user_id} = req.body;
-  
-  
-  
+  const { facility, date, schedule_id, user_id } = req.body;
   const query = `INSERT INTO bookinghistory (user_id, facility_id, booking_date, schedule_id) VALUES (?, ?, ?, ?)`;
   try {
     db.query(query, [user_id, facility, date, schedule_id], (err, result) => {
@@ -501,27 +538,24 @@ app.post('/api/booking', (req, res) => {
       if (err) return res.status(500).json({ message: "Booking failed" });
       res.json({ message: "Booking successful" });
     });
-    
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Booking failed' });
-    
   }
-  
 });
 
 // Get booking history
 app.get('/booking-history', authenticateToken, (req, res) => {
   db.query(
-      `SELECT * FROM BookingHistory WHERE user_id = ?`,
-      [req.user.userId],
-      (err, results) => {
-          if (err) {
-              console.error(err);
-              return res.status(500).send('Error fetching booking history.');
-          }
-          res.status(200).json(results);
+    `SELECT * FROM BookingHistory WHERE user_id = ?`,
+    [req.user.userId],
+    (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send('Error fetching booking history.');
       }
+      res.status(200).json(results);
+    }
   );
 });
 
@@ -559,6 +593,10 @@ app.get('/booking-history', authenticateToken, (req, res) => {
 //     }
 //   });
 // });
+
+app.get('/api/getsliderimages', (req, res) => {
+  res.sendFile(path.join(__dirname, 'homeContent.json'));
+});
 
 app.get("/api/members", (req, res) => {
   db.query("SELECT * FROM Members", (err, results) => {
@@ -779,9 +817,9 @@ app.post('/api/saveAboutContent', (req, res) => {
 
 // get available slots for a facility on a particular date
 function getWeekday(dateString) {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const date = new Date(dateString);
-    return days[date.getDay()];
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const date = new Date(dateString);
+  return days[date.getDay()];
 }
 
 app.get("/api/slots", async (req, res) => {
@@ -811,7 +849,7 @@ app.get("/api/slots", async (req, res) => {
     if (totalSlots.length === 0) {
       return res
         .status(200)
-        .json({slots: []});
+        .json({ slots: [] });
     }
 
     // console.log("totalSlots: ", totalSlots);

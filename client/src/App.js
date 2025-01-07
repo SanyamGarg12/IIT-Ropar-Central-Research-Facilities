@@ -17,6 +17,7 @@ import FacilityDetail from "./components/FacilityDetail";
 import Register from "./components/Register";
 import Login from "./components/Login";
 import ManageAbout from "./components/ManageAbout";
+import ManageHero from "./components/ManageHero";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -160,6 +161,9 @@ const App = () => {
                         <Link to="/admin/about" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
                           Manage About
                         </Link>
+                        <Link to="/admin/hero" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
+                          Manage Home Page
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -175,6 +179,7 @@ const App = () => {
                       <Route path="/forms" element={<ManageForms />} />
                       <Route path="/publications" element={<ManagePublications />} />
                       <Route path="/about" element={<ManageAbout />} />
+                      <Route path="/hero" element={<ManageHero />} />
                     </Routes>
                   </div>
                 </main>

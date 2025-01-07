@@ -1,0 +1,24 @@
+{
+  "sliderImages": [
+    {
+      "src": "/assets/sample.jpeg",
+      "title": "Image 1",
+      "subtitle": "Subtitle 1"
+    },
+    {
+      "src": "/assets/sample.jpeg",
+      "title": "Image 2",
+      "subtitle": "Subtitle 2"
+    },
+    {
+      "src": "/assets/sample.jpeg",
+      "title": "Image 3",
+      "subtitle": "Subtitle 3"
+    }
+  ],
+  "Thought": "Hello World",
+  "NewsFeed": [
+    "news1",
+    "news2"
+  ]
+}
