@@ -2,6 +2,11 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 
+// const getImageUrl = (imagePath) => {
+//   if (!imagePath) return null;
+//   return `http://localhost:5000/uploads/${imagePath}`;
+// };
+
 export default function ManageHero() {
   const [state, setState] = useState({ message: '', error: '' })
   const [activeTab, setActiveTab] = useState('slider')
@@ -15,10 +20,7 @@ export default function ManageHero() {
     try {
       const response = await fetch('/api/hero', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(Object.fromEntries(formData)),
+        body: formData,
       })
 
       if (!response.ok) {
@@ -82,11 +84,18 @@ export default function ManageHero() {
         <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
           <h2 className="text-xl font-bold mb-2">Update Slider Image</h2>
           <p className="mb-4 text-gray-600">Add or update a slider image</p>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data">
             <input type="hidden" name="action" value="updateSlider" />
             <div>
-              <label htmlFor="src" className="block text-gray-700 text-sm font-bold mb-2">Image URL</label>
-              <input id="src" name="src" type="url" required className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+              <label htmlFor="image" className="block text-gray-700 text-sm font-bold mb-2">Image</label>
+              <input 
+                id="image" 
+                name="image" 
+                type="file" 
+                accept="image/*" 
+                required 
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+              />
             </div>
             <div>
               <label htmlFor="title" className="block text-gray-700 text-sm font-bold mb-2">Title</label>
@@ -120,7 +129,7 @@ export default function ManageHero() {
         <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
           <h2 className="text-xl font-bold mb-2">Add News Item</h2>
           <p className="mb-4 text-gray-600">Add a new item to the news feed</p>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data">
             <input type="hidden" name="action" value="addNews" />
             <div>
               <label htmlFor="newsTitle" className="block text-gray-700 text-sm font-bold mb-2">Title</label>
@@ -131,8 +140,15 @@ export default function ManageHero() {
               <textarea id="summary" name="summary" required className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32"></textarea>
             </div>
             <div>
-              <label htmlFor="image" className="block text-gray-700 text-sm font-bold mb-2">Image URL</label>
-              <input id="image" name="image" type="url" required className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+              <label htmlFor="image" className="block text-gray-700 text-sm font-bold mb-2">Image</label>
+              <input 
+                id="image" 
+                name="image" 
+                type="file" 
+                accept="image/*" 
+                required 
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+              />
             </div>
             <div>
               <label htmlFor="link" className="block text-gray-700 text-sm font-bold mb-2">Link</label>

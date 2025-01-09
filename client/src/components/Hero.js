@@ -3,12 +3,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import Videos from "./Videos";
 import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  return `http://localhost:5000/uploads/${imagePath}`;
+};
+
 const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [images, setImages] = useState([]);
   const [thought, setThought] = useState('');
   const [newsFeed, setNewsFeed] = useState([]);
-  
+
   useEffect(() => {
     const fetchContent = async () => {
       try {
@@ -17,7 +22,7 @@ const Hero = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const { sliderImages, Thought, NewsFeed } = await response.json();
-  
+
         // Update states
         setImages(sliderImages);
         setThought(Thought);
@@ -26,10 +31,9 @@ const Hero = () => {
         console.error('Error fetching content:', error);
       }
     };
-  
     fetchContent();
   }, []);
-  
+
   const handleScroll = (direction) => {
     if (direction === "left") {
       setCurrentIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
@@ -67,7 +71,7 @@ const Hero = () => {
               transition={{ duration: 0.5 }}
             >
               <img
-                src={images[currentIndex].src}
+                src={getImageUrl(images[currentIndex].src)}
                 alt={`Slide ${currentIndex + 1}`}
                 className="object-cover w-full h-full"
               />
@@ -124,7 +128,7 @@ const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * index, duration: 0.5 }}
             >
-              <img src={news.image} alt={news.title} className="w-full h-48 object-cover" />
+              <img src={getImageUrl(news.image)} alt={news.title} className="w-full h-48 object-cover" />
               <div className="p-4">
                 <h3 className="text-xl font-semibold mb-2">{news.title}</h3>
                 <p className="text-gray-600">{news.summary}</p>

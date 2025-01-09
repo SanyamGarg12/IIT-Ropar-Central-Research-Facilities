@@ -1,24 +1,70 @@
 {
   "sliderImages": [
     {
-      "src": "/assets/sample.jpeg",
       "title": "Image 1",
-      "subtitle": "Subtitle 1"
+      "subtitle": "Subtitle 1",
+      "imagePath": "/assets/sample.jpeg"
     },
     {
-      "src": "/assets/sample.jpeg",
       "title": "Image 2",
-      "subtitle": "Subtitle 2"
+      "subtitle": "Subtitle 2",
+      "imagePath": "/assets/sample.jpeg"
     },
     {
-      "src": "/assets/sample.jpeg",
       "title": "Image 3",
-      "subtitle": "Subtitle 3"
+      "subtitle": "Subtitle 3",
+      "imagePath": "/assets/sample.jpeg"
+    },
+    {
+      "imagePath": "1736423300968.jpg",
+      "title": "abc",
+      "subtitle": "abc"
+    },
+    {
+      "imagePath": "1736423302838.jpg",
+      "title": "abc",
+      "subtitle": "abc"
     }
   ],
-  "Thought": "Hello World",
+  "Thought": "abc",
   "NewsFeed": [
-    "news1",
-    "news2"
+    {
+      "title": "news1",
+      "summary": "content1",
+      "imagePath": "/assets/sample.jpeg",
+      "link": "link1"
+    },
+    {
+      "title": "news2",
+      "summary": "content2",
+      "imagePath": "/assets/sample.jpeg",
+      "link": "link2"
+    },
+    {
+      "title": "news3",
+      "summary": "content3",
+      "imagePath": "/assets/sample.jpeg",
+      "link": "link3"
+    },
+    {
+      "title": "news3",
+      "summary": "content3",
+      "imagePath": "/assets/sample.jpeg",
+      "link": "link3"
+    },
+    {
+      "action": "addNews",
+      "title": "title_test",
+      "summary": "sum_test",
+      "imagePath": "1736423570070.png",
+      "link": "https://chatgpt.com/c/677fa00b-11d0-8005-b816-4c178b52ed76"
+    },
+    {
+      "action": "addNews",
+      "title": "title_test",
+      "summary": "sum_test",
+      "imagePath": "1736423574126.png",
+      "link": "https://chatgpt.com/c/677fa00b-11d0-8005-b816-4c178b52ed76"
+    }
   ]
 }
