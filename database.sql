@@ -1,4 +1,4 @@
-drop database iitrpr;
+drop database iitrpr if exists;
 
 -- Create the database if it doesn't exist
 CREATE DATABASE IF NOT EXISTS iitrpr;
@@ -282,3 +282,22 @@ VALUES
 ('Research Proposal Submission', 'Form for submitting research project proposals', 'https://example.com/research-proposal', 'Research Department', 'https://example.com/research-department'),
 ('Maintenance Request Form', 'Request form for facility maintenance services', 'https://example.com/maintenance-request', 'Maintenance Department', 'https://example.com/maintenance-department'),
 ('Library Membership Form', 'Form to apply for library membership', 'https://example.com/library-membership', 'Library Services', 'https://example.com/library-services');
+
+CREATE TABLE staff (
+    id INT AUTO_INCREMENT PRIMARY KEY, -- Unique ID for each staff member
+    name VARCHAR(255) NOT NULL,        -- Name of the staff member
+    image_name VARCHAR(255),           -- Name of the image file
+    designation VARCHAR(255) NOT NULL, -- Designation of the staff member
+    phone VARCHAR(20),                 -- Phone number
+    email VARCHAR(255) UNIQUE,         -- Email address
+    office_address TEXT,               -- Office address
+    qualification TEXT                 -- Qualification details
+);
+
+INSERT INTO staff (name, image_name, designation, phone, email, office_address, qualification) 
+VALUES
+('Dr. Rahul Sharma', 'rahul_sharma.jpg', 'Technical Officer', '9876543210', 'rahul.sharma@example.com', 'Office No. 101, Building A', 'PhD in Electronics'),
+('Ms. Priya Nair', 'priya_nair.jpg', 'Technical Superintendent', '9876543211', 'priya.nair@example.com', 'Office No. 102, Building B', 'M.Tech in Computer Science'),
+('Mr. Amit Kumar', 'amit_kumar.jpg', 'Junior Technical Superintendent', '9876543212', 'amit.kumar@example.com', 'Office No. 103, Building C', 'B.Tech in Mechanical Engineering'),
+('Ms. Sneha Verma', 'sneha_verma.jpg', 'Operator', '9876543213', 'sneha.verma@example.com', 'Office No. 104, Building D', 'Diploma in Electrical Engineering'),
+('Mr. Anil Singh', 'anil_singh.jpg', 'Others', '9876543214', 'anil.singh@example.com', 'Office No. 105, Building E', 'BSc in Physics');

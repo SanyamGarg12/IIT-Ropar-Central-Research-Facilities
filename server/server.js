@@ -627,6 +627,13 @@ app.get("/api/members", (req, res) => {
   });
 });
 
+app.get("/api/staff", (req, res) => {
+  db.query("SELECT * FROM staff", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
 app.post("/api/members", upload.single("image"), (req, res) => {
   const { name, designation, profileLink } = req.body;
   const imagePath = req.file ? req.file.filename : null;
@@ -641,6 +648,20 @@ app.post("/api/members", upload.single("image"), (req, res) => {
   );
 });
 
+app.post("/api/staff", upload.single("image"), (req, res) => {
+  const { name, designation, phone, email, office_address, qualification } = req.body;
+  const imagePath = req.file ? req.file.filename : null;
+
+  db.query(
+    "INSERT INTO staff (name, designation, phone, email, office_address, qualification, image_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [name, designation, phone, email, office_address, qualification, imagePath],
+    (err, results) => {
+      if (err) return res.status(500).send(err);
+      res.status(201).send("New Staff Member added successfully.");
+    }
+  );
+});
+
 app.delete('/api/members/:id', (req, res) => {
   const memberId = req.params.id;
 
@@ -651,6 +672,20 @@ app.delete('/api/members/:id', (req, res) => {
       res.status(500).send('Error deleting member');
     } else {
       res.status(200).send('Member deleted successfully');
+    }
+  });
+});
+
+app.delete('/api/staff/:id', (req, res) => {
+  const memberId = req.params.id;
+
+  const query = 'DELETE FROM staff WHERE id = ?';
+  db.query(query, [memberId], (err, results) => {
+    if (err) {
+      console.error('Error deleting staff member:', err);
+      res.status(500).send('Error deleting staff member');
+    } else {
+      res.status(200).send('Staff member deleted successfully');
     }
   });
 });
