@@ -1,81 +1,138 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
+import { motion } from 'framer-motion'
+import Footer from './Footer'
+import { Loader2 } from 'lucide-react'
 
 function Forms() {
-  const [forms, setForms] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [forms, setForms] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const fetchForms = async () => {
       try {
-        const response = await axios.get('/api/forms');
-        setForms(response.data);
-        setIsLoading(false);
+        const response = await axios.get('/api/forms')
+        setForms(response.data)
+        setIsLoading(false)
       } catch (err) {
-        setError('Failed to fetch forms. Please try again later.');
-        setIsLoading(false);
+        setError('Failed to fetch forms. Please try again later.')
+        setIsLoading(false)
       }
-    };
+    }
 
-    fetchForms();
-  }, []);
+    fetchForms()
+  }, [])
 
-  if (isLoading) return <div className="text-center mt-8">Loading...</div>;
-  if (error) return <div className="text-center mt-8 text-red-600">{error}</div>;
+  if (isLoading)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    )
+  if (error)
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mt-8 text-red-600 bg-red-100 p-4 rounded-lg shadow"
+      >
+        {error}
+      </motion.div>
+    )
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center text-gray-900 mb-12">IITRPR FORMS</h1>
-        
-        <div className="mb-12 rounded-lg overflow-hidden shadow-xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 py-12 px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-7xl mx-auto"
+      >
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="text-5xl font-extrabold text-center text-gray-900 mb-12 tracking-tight"
+        >
+          IITRPR FORMS
+        </motion.h1>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="mb-12 rounded-lg overflow-hidden shadow-2xl"
+        >
           <img
             src="/assets/forms.jpg"
             alt="IITRPR Forms"
-            className="w-full object-cover h-64 sm:h-80 md:h-96"
+            className="w-full object-cover h-64 sm:h-80 md:h-96 transform hover:scale-105 transition-transform duration-300"
           />
-        </div>
+        </motion.div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-            <thead className="bg-gray-200">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="overflow-x-auto bg-white rounded-lg shadow-xl"
+        >
+          <table className="min-w-full">
+            <thead className="bg-gray-800 text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Form Name</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Description</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Facility</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Form Name</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Description</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Facility</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {forms.map((form) => (
-                <tr key={form.form_name} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{form.form_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{form.description}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{form.facility_name}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <div className="flex space-x-2">
-                      <a href={form.form_link} className="text-blue-600 hover:text-blue-800 transition-colors">
+              {forms.map((form, index) => (
+                <motion.tr
+                  key={form.form_name}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index, duration: 0.3 }}
+                  className="hover:bg-gray-50"
+                >
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{form.form_name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{form.description}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{form.facility_name}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <div className="flex space-x-4">
+                      <a
+                        href={form.form_link}
+                        className="text-blue-600 hover:text-blue-800 transition-colors hover:underline"
+                      >
                         Form Link
                       </a>
-                      <a href={form.facility_link} className="text-green-600 hover:text-green-800 transition-colors flex items-center">
-                        Facility 
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                      <a
+                        href={form.facility_link}
+                        className="text-green-600 hover:text-green-800 transition-colors flex items-center hover:underline"
+                      >
+                        Facility
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 ml-1"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
                           <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
                           <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
                         </svg>
                       </a>
                     </div>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
+      <Footer />
     </div>
-  );
+  )
 }
 
-export default Forms;
+export default Forms
 

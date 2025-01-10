@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Videos from "./Videos";
 import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
+import Footer from "./Footer";
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
@@ -181,81 +182,7 @@ const Hero = () => {
       </motion.div>
 
       {/* Footer Section */}
-      <motion.footer
-        className="bg-gray-800 text-white py-12"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
-            >
-              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
-              <ul className="space-y-2">
-                <li><a href="/" className="hover:text-gray-300 transition-colors duration-200">Home</a></li>
-                <li><a href="/about" className="hover:text-gray-300 transition-colors duration-200">About</a></li>
-                <li><a href="/contact-us" className="hover:text-gray-300 transition-colors duration-200">Contact Us</a></li>
-                <li><a href="/publications" className="hover:text-gray-300 transition-colors duration-200">Publications</a></li>
-              </ul>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.5 }}
-            >
-              <h4 className="text-lg font-semibold mb-4">Contact</h4>
-              <p>Email: info@iiitd.ac.in</p>
-              <p>Phone: +91-12345-67890</p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9, duration: 0.5 }}
-            >
-              <h4 className="text-lg font-semibold mb-4">Follow Us</h4>
-              <div className="flex space-x-4">
-                <motion.a
-                  href="https://facebook.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hover:text-blue-400 transition-colors duration-200"
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <Facebook className="w-6 h-6" />
-                  <span className="sr-only">Facebook</span>
-                </motion.a>
-                <motion.a
-                  href="https://twitter.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hover:text-blue-400 transition-colors duration-200"
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <Twitter className="w-6 h-6" />
-                  <span className="sr-only">Twitter</span>
-                </motion.a>
-                <motion.a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hover:text-pink-400 transition-colors duration-200"
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <Instagram className="w-6 h-6" />
-                  <span className="sr-only">Instagram</span>
-                </motion.a>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </motion.footer>
+      <Footer />
     </motion.div>
   );
 };
