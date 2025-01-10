@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Trash2 } from 'lucide-react'
 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  return `http://localhost:5000/uploads/${imagePath}`;
+};
+
 export default function ManageHero() {
   const [state, setState] = useState({ message: '', error: '' })
   const [activeTab, setActiveTab] = useState('slider')
@@ -167,7 +172,7 @@ export default function ManageHero() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {sliderImages.map((image) => (
               <div key={image.id} className="border rounded p-4">
-                <img src={image.imagepath} alt={image.title} className="w-full h-40 object-cover mb-2" />
+                <img src={getImageUrl(image.imagepath)} alt={image.title} className="w-full h-40 object-cover mb-2" />
                 <h3 className="font-bold">{image.title}</h3>
                 <p className="text-sm text-gray-600">{image.subtitle}</p>
                 <button
@@ -240,7 +245,7 @@ export default function ManageHero() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {newsFeed.map((item) => (
               <div key={item.id} className="border rounded p-4">
-                <img src={item.imagepath} alt={item.news_title} className="w-full h-40 object-cover mb-2" />
+                <img src={getImageUrl(item.imagepath)} alt={item.news_title} className="w-full h-40 object-cover mb-2" />
                 <h3 className="font-bold">{item.news_title}</h3>
                 <p className="text-sm text-gray-600">{item.summary}</p>
                 <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">Read More</a>

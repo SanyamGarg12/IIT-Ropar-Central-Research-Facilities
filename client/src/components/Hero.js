@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Videos from "./Videos";
+// import Videos from "./Videos";
 import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from "./Footer";
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
-  return `localhost:5000/uploads/${imagePath}`;
+  return `http://localhost:5000/uploads/${imagePath}`;
 };
-
 const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [images, setImages] = useState([]);
@@ -173,47 +169,6 @@ const Hero = () => {
               </div>
             </motion.div>
           ))}
-        </div>
-      </motion.div>
-
-      {/* Videos Section */}
-      <motion.div
-        className="bg-gray-200 py-12"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6">Featured Videos</h2>
-          <Videos />
-        </div>
-      </motion.div>
-
-      {/* Recent Publications Section */}
-      <motion.div
-        className="bg-white py-12"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.5 }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6">Recent Publications</h2>
-          <motion.ul className="space-y-4">
-            {[1, 2, 3].map((index) => (
-              <motion.li
-                key={index}
-                className="bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow duration-200"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 * index, duration: 0.5 }}
-                whileHover={{ scale: 1.02 }}
-              >
-                <a href="#" className="text-lg text-blue-600 hover:underline">
-                  Title of Publication {index}
-                </a>
-              </motion.li>
-            ))}
-          </motion.ul>
         </div>
       </motion.div>
 
