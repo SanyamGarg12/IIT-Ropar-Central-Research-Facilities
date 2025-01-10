@@ -74,7 +74,7 @@ const Hero = () => {
       setCurrentIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
     }
   };
-
+  console.log(images);
   return (
     <motion.div
       className="bg-gray-100 min-h-screen"
@@ -104,7 +104,7 @@ const Hero = () => {
               transition={{ duration: 0.5 }}
             >
               <img
-                src={getImageUrl(images[currentIndex].imagePath)}
+                src={getImageUrl(images[currentIndex].imagepath)}
                 alt={`Slide ${currentIndex + 1}`}
                 className="object-cover w-full h-full"
               />
@@ -165,7 +165,7 @@ const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * index, duration: 0.5 }}
             >
-              <img src={getImageUrl(news.imagePath)} alt={news.title} className="w-full h-48 object-cover" />
+              <img src={getImageUrl(news.imagepath)} alt={news.title} className="w-full h-48 object-cover" />
               <div className="p-4">
                 <h3 className="text-xl font-semibold mb-2">{news.title}</h3>
                 <p className="text-gray-600">{news.summary}</p>
