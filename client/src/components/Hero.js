@@ -6,7 +6,10 @@ import Footer from "./Footer";
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `http://localhost:5000/uploads/${imagePath}`;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  return `localhost:5000/uploads/${imagePath}`;
 };
 
 const Hero = () => {
@@ -16,23 +19,52 @@ const Hero = () => {
   const [newsFeed, setNewsFeed] = useState([]);
 
   useEffect(() => {
-    const fetchContent = async () => {
+    const fetchSliderImages = async () => {
       try {
         const response = await fetch('/api/getsliderimages');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const { sliderImages, Thought, NewsFeed } = await response.json();
-
-        // Update states
-        setImages(sliderImages);
-        setThought(Thought);
-        setNewsFeed(NewsFeed);
+        const data = await response.json();
+        console.log('Fetched Slider Images:', data);
+        setImages(data || []);
       } catch (error) {
-        console.error('Error fetching content:', error);
+        console.error('Error fetching slider images:', error);
       }
     };
-    fetchContent();
+
+    const fetchThought = async () => {
+      try {
+        const response = await fetch('/api/getthought');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        // console.log('Fetched Thought:', data);
+        setThought(data[0].thought_text || '');
+      } catch (error) {
+        console.error('Error fetching thought:', error);
+        setThought('');
+      }
+    };
+
+    const fetchNews = async () => {
+      try {
+        const response = await fetch('/api/getnews');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log('Fetched News:', data);
+        setNewsFeed(data || []);
+      } catch (error) {
+        console.error('Error fetching news:', error);
+      }
+    };
+
+    fetchSliderImages();
+    fetchThought();
+    fetchNews();
   }, []);
 
   const handleScroll = (direction) => {
@@ -72,7 +104,7 @@ const Hero = () => {
               transition={{ duration: 0.5 }}
             >
               <img
-                src={getImageUrl(images[currentIndex].src)}
+                src={getImageUrl(images[currentIndex].imagePath)}
                 alt={`Slide ${currentIndex + 1}`}
                 className="object-cover w-full h-full"
               />
@@ -108,7 +140,11 @@ const Hero = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h3 className="text-2xl font-semibold text-blue-800 mb-2">Thought of the Day</h3>
-          <p className="text-lg text-blue-600 italic">&quot;{thought}&quot;</p>
+          {thought ? (
+            <p className="text-lg text-blue-600 italic">&quot;{thought}&quot;</p>
+          ) : (
+            <p className="text-lg text-blue-600">No thought available for today.</p>
+          )}
         </div>
       </motion.div>
 
@@ -129,7 +165,7 @@ const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * index, duration: 0.5 }}
             >
-              <img src={getImageUrl(news.image)} alt={news.title} className="w-full h-48 object-cover" />
+              <img src={getImageUrl(news.imagePath)} alt={news.title} className="w-full h-48 object-cover" />
               <div className="p-4">
                 <h3 className="text-xl font-semibold mb-2">{news.title}</h3>
                 <p className="text-gray-600">{news.summary}</p>

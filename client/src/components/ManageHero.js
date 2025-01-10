@@ -1,15 +1,42 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
-
-// const getImageUrl = (imagePath) => {
-//   if (!imagePath) return null;
-//   return `http://localhost:5000/uploads/${imagePath}`;
-// };
+import { AlertCircle, CheckCircle2, Trash2 } from 'lucide-react'
 
 export default function ManageHero() {
   const [state, setState] = useState({ message: '', error: '' })
   const [activeTab, setActiveTab] = useState('slider')
+  const [sliderImages, setSliderImages] = useState([])
+  const [thought, setThought] = useState('')
+  const [newsFeed, setNewsFeed] = useState([])
+
+  useEffect(() => {
+    fetchContent()
+  }, [])
+
+  const fetchContent = async () => {
+    try {
+      const [sliderResponse, thoughtResponse, newsResponse] = await Promise.all([
+        fetch('/api/getsliderimages'),
+        fetch('/api/getthought'),
+        fetch('/api/getnews')
+      ])
+
+      if (!sliderResponse.ok || !thoughtResponse.ok || !newsResponse.ok) {
+        throw new Error('Failed to fetch content')
+      }
+
+      const sliderData = await sliderResponse.json()
+      const thoughtData = await thoughtResponse.json()
+      const newsData = await newsResponse.json()
+
+      setSliderImages(sliderData)
+      setThought(thoughtData[0]?.thought_text || '')
+      setNewsFeed(newsData)
+    } catch (error) {
+      console.log('Error fetching content:', error);
+      setState({ message: '', error: 'Failed to fetch content' })
+    }
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -18,7 +45,7 @@ export default function ManageHero() {
     const action = formData.get('action')
 
     try {
-      const response = await fetch('/api/hero', {
+      const response = await fetch('/api/homecontent', {
         method: 'POST',
         body: formData,
       })
@@ -29,6 +56,34 @@ export default function ManageHero() {
 
       const result = await response.json()
       setState({ message: result.message, error: '' })
+
+      // Refresh the content after successful operation
+      fetchContent()
+    } catch (error) {
+      setState({ message: '', error: error.message })
+    }
+  }
+
+  const handleDelete = async (id, type) => {
+    console.log('Deleting', type, id)
+    try {
+      const response = await fetch('/api/homecontent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'delete', type, id }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete ${type}`)
+      }
+
+      const result = await response.json()
+      setState({ message: result.message, error: '' })
+
+      // Refresh the content after successful deletion
+      fetchContent()
     } catch (error) {
       setState({ message: '', error: error.message })
     }
@@ -107,6 +162,24 @@ export default function ManageHero() {
             </div>
             <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Update Slider Image</button>
           </form>
+
+          <h2 className="text-xl font-bold mb-2 mt-8">Existing Slider Images</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sliderImages.map((image) => (
+              <div key={image.id} className="border rounded p-4">
+                <img src={image.imagepath} alt={image.title} className="w-full h-40 object-cover mb-2" />
+                <h3 className="font-bold">{image.title}</h3>
+                <p className="text-sm text-gray-600">{image.subtitle}</p>
+                <button
+                  onClick={() => handleDelete(image.id, 'sliderImages')}
+                  className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline text-sm"
+                >
+                  <Trash2 className="inline-block h-4 w-4 mr-1" />
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -118,7 +191,13 @@ export default function ManageHero() {
             <input type="hidden" name="action" value="updateThought" />
             <div>
               <label htmlFor="thought" className="block text-gray-700 text-sm font-bold mb-2">Thought</label>
-              <textarea id="thought" name="thought" required className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32"></textarea>
+              <textarea 
+                id="thought" 
+                name="thought" 
+                required 
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32"
+                defaultValue={thought}
+              ></textarea>
             </div>
             <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Update Thought</button>
           </form>
@@ -156,6 +235,25 @@ export default function ManageHero() {
             </div>
             <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Add News Item</button>
           </form>
+
+          <h2 className="text-xl font-bold mb-2 mt-8">Existing News Items</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {newsFeed.map((item) => (
+              <div key={item.id} className="border rounded p-4">
+                <img src={item.imagepath} alt={item.news_title} className="w-full h-40 object-cover mb-2" />
+                <h3 className="font-bold">{item.news_title}</h3>
+                <p className="text-sm text-gray-600">{item.summary}</p>
+                <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">Read More</a>
+                <button
+                  onClick={() => handleDelete(item.id, 'NewsFeed')}
+                  className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline text-sm"
+                >
+                  <Trash2 className="inline-block h-4 w-4 mr-1" />
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </motion.div>

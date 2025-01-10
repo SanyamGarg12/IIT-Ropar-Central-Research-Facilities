@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -13,7 +15,6 @@ function ManageForms() {
     facility_name: '',
     facility_link: '',
   });
-  const [imageFile, setImageFile] = useState(null);
 
   useEffect(() => {
     fetchForms();
@@ -76,23 +77,6 @@ function ManageForms() {
     }
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    setImageFile(file);
-    const formData = new FormData();
-    formData.append('image', file);
-    try {
-      await axios.post('/api/upload-image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      // Refresh the page or update the image src
-    } catch (err) {
-      setError('Failed to upload image. Please try again.');
-    }
-  };
-
   if (isLoading) return <div className="text-center mt-8">Loading...</div>;
   if (error) return <div className="text-center mt-8 text-red-600">{error}</div>;
 
@@ -101,12 +85,6 @@ function ManageForms() {
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-center text-gray-900 mb-12">Manage IITRPR Forms</h1>
         
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold mb-4">Update Header Image</h2>
-          <input type="file" onChange={handleImageUpload} accept="image/*" />
-          {imageFile && <p className="mt-2">Selected file: {imageFile.name}</p>}
-        </div>
-
         <div className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Add New Form</h2>
           <form onSubmit={handleAddNew} className="space-y-4">
@@ -162,6 +140,8 @@ function ManageForms() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Form Name</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Description</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Facility</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Form Link</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Facility Link</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
@@ -201,6 +181,34 @@ function ManageForms() {
                       />
                     ) : (
                       form.facility_name
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {editingForm && editingForm.id === form.id ? (
+                      <input
+                        type="url"
+                        value={editingForm.form_link}
+                        onChange={(e) => setEditingForm({...editingForm, form_link: e.target.value})}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      <a href={form.form_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {form.form_link}
+                      </a>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {editingForm && editingForm.id === form.id ? (
+                      <input
+                        type="url"
+                        value={editingForm.facility_link}
+                        onChange={(e) => setEditingForm({...editingForm, facility_link: e.target.value})}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      <a href={form.facility_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {form.facility_link}
+                      </a>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm">

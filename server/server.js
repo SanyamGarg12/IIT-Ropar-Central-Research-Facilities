@@ -194,58 +194,152 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
   });
 });
 
-app.post('/api/hero', upload.single('image'), (req, res) => {
+app.post('/api/homecontent', upload.single('image'), (req, res) => {
   const { action } = req.body;
   const imagePath = req.file ? req.file.filename : null;
-  if (action === 'updateSlider') {
-    const { title, subtitle } = req.body;
-    var data = { imagePath, title, subtitle };
-  } else if (action === 'updateThought') {
-    const { thought } = req.body;
-    var data = thought;
-  } else if (action === 'addNews') {
-    const { action, title, summary, link } = req.body;
-    var data = { action, title, summary, imagePath, link };
-  }
-  const filePath = path.join(__dirname, 'homeContent.json');
 
-  fs.readFile(filePath, 'utf-8', (readErr, fileContent) => {
-    if (readErr) {
-      console.error('Error reading hero content:', readErr);
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
-
-    let heroContent;
-    try {
-      heroContent = JSON.parse(fileContent);
-    } catch (parseErr) {
-      console.error('Error parsing hero content:', parseErr);
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
-
-    switch (action) {
-      case 'updateSlider':
-        heroContent.sliderImages.push(data);
-        break;
-      case 'updateThought':
-        heroContent.Thought = data;
-        break;
-      case 'addNews':
-        heroContent.NewsFeed.push(data);
-        break;
-      default:
-        return res.status(400).json({ error: 'Invalid action' });
-    }
-
-    fs.writeFile(filePath, JSON.stringify(heroContent, null, 2), (writeErr) => {
-      if (writeErr) {
-        console.error('Error writing hero content:', writeErr);
-        return res.status(500).json({ error: 'Internal Server Error' });
+  switch (action) {
+    case 'updateThought': {
+      const { thought } = req.body;
+      if (!thought) {
+        return res.status(400).json({ error: 'Thought text is required' });
       }
-      res.json({ message: 'Hero content updated successfully' });
-    });
-  });
+
+      // Using callback style for db.query
+      db.query(`UPDATE thought SET thought_text = ? WHERE id = 1`, [thought], (error, results) => {
+        if (error) {
+          console.error('Error updating thought:', error);
+          return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        return res.json({ message: 'Thought updated successfully' });
+      });
+      break;
+    }
+
+    case 'updateSlider': {
+      const { title, subtitle } = req.body;
+      if (!title || !subtitle || !imagePath) {
+        return res.status(400).json({ error: 'Missing required fields for slider update' });
+      }
+
+      db.query(
+        `INSERT INTO heroImages (imagepath, title, subtitle) VALUES (?, ?, ?)`,
+        [imagePath, title, subtitle],
+        (error, results) => {
+          if (error) {
+            console.error('Error updating slider:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+          }
+          return res.json({ message: 'Slider updated successfully' });
+        }
+      );
+      break;
+    }
+
+    case 'addNews': {
+      const { title: newsTitle, summary, link } = req.body;
+      if (!newsTitle || !summary || !link || !imagePath) {
+        return res.status(400).json({ error: 'Missing required fields for news addition' });
+      }
+
+      db.query(
+        `INSERT INTO heroNews (news_title, summary, imagepath, link) VALUES (?, ?, ?, ?)`,
+        [newsTitle, summary, imagePath, link],
+        (error, results) => {
+          if (error) {
+            console.error('Error adding news:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+          }
+          return res.json({ message: 'News added successfully' });
+        }
+      );
+      break;
+    }
+
+    case 'delete': {
+      const { type, id } = req.body;
+      console.log('type:', type, 'id:', id);
+      if (!type || typeof id !== 'number') {
+        return res.status(400).json({ error: 'Invalid delete parameters' });
+      }
+      let query;
+      if (type === 'sliderImages') {
+        query = `DELETE FROM heroImages WHERE id = ?`;
+      } else if (type === 'NewsFeed') {
+        query = `DELETE FROM heroNews WHERE id = ?`;
+      } else {
+        return res.status(400).json({ error: 'Invalid delete type' });
+      }
+
+      db.query(query, [id], (error, results) => {
+        if (error) {
+          console.error('Error deleting content:', error);
+          return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        return res.json({ message: 'Content deleted successfully' });
+      });
+      break;
+    }
+
+    default:
+      return res.status(400).json({ error: 'Invalid action' });
+  }
 });
+
+
+
+// app.post('/api/hero', upload.single('image'), (req, res) => {
+//   const { action } = req.body;
+//   const imagePath = req.file ? req.file.filename : null;
+//   if (action === 'updateSlider') {
+//     const { title, subtitle } = req.body;
+//     var data = { imagePath, title, subtitle };
+//   } else if (action === 'updateThought') {
+//     const { thought } = req.body;
+//     var data = thought;
+//   } else if (action === 'addNews') {
+//     const { action, title, summary, link } = req.body;
+//     var data = { action, title, summary, imagePath, link };
+//   }
+//   const filePath = path.join(__dirname, 'homeContent.json');
+
+//   fs.readFile(filePath, 'utf-8', (readErr, fileContent) => {
+//     if (readErr) {
+//       console.error('Error reading hero content:', readErr);
+//       return res.status(500).json({ error: 'Internal Server Error' });
+//     }
+
+//     let heroContent;
+//     try {
+//       heroContent = JSON.parse(fileContent);
+//     } catch (parseErr) {
+//       console.error('Error parsing hero content:', parseErr);
+//       return res.status(500).json({ error: 'Internal Server Error' });
+//     }
+
+//     switch (action) {
+//       case 'updateSlider':
+//         heroContent.sliderImages.push(data);
+//         break;
+//       case 'updateThought':
+//         heroContent.Thought = data;
+//         break;
+//       case 'addNews':
+//         heroContent.NewsFeed.push(data);
+//         break;
+//       default:
+//         return res.status(400).json({ error: 'Invalid action' });
+//     }
+
+//     fs.writeFile(filePath, JSON.stringify(heroContent, null, 2), (writeErr) => {
+//       if (writeErr) {
+//         console.error('Error writing hero content:', writeErr);
+//         return res.status(500).json({ error: 'Internal Server Error' });
+//       }
+//       res.json({ message: 'Hero content updated successfully' });
+//     });
+//   });
+// });
 
 app.get('/api/forms', (req, res) => {
   const query = 'SELECT * FROM forms';
@@ -286,12 +380,13 @@ app.get('/api/publications', (req, res) => {
 // Helper function to authenticate user
 function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
+  console.log("authHeader", authHeader);
 
   if (!authHeader) {
     return res.status(401).send("Access Denied");
   }
 
-  const token = authHeader.split(" ")[1]; // Extract the token after "Bearer"
+  const token = authHeader // Extract the token after "Bearer"
 
   if (!token) {
     return res.status(401).send("Access Denied");
@@ -467,7 +562,7 @@ app.post("/login", (req, res) => {
         console.error("Failed to delete old log entries:", err);
       }
     });
-
+    console.log("token", token);
     res.status(200).json({ token });
   });
 });
@@ -502,10 +597,59 @@ app.post('/api/logout', (req, res) => {
 
 });
 
+app.post('/api/forms', (req, res) => {
+  const { form_name, description, form_link, facility_name, facility_link } = req.body;
+  if (!form_name || !description || !form_link || !facility_name || !facility_link) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const query =
+    'INSERT INTO forms (form_name, description, form_link, facility_name, facility_link) VALUES (?, ?, ?, ?, ?)';
+  db.query(query, [form_name, description, form_link, facility_name, facility_link], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database insertion error' });
+    res.status(201).json({ id: result.insertId, form_name, description, form_link, facility_name, facility_link });
+  });
+});
+
+// Edit an existing form
+app.put('/api/forms/:id', (req, res) => {
+  const { id } = req.params;
+  const { form_name, description, form_link, facility_name, facility_link } = req.body;
+
+  const query =
+    'UPDATE forms SET form_name = ?, description = ?, form_link = ?, facility_name = ?, facility_link = ? WHERE id = ?';
+  db.query(
+    query,
+    [form_name, description, form_link, facility_name, facility_link, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: 'Database update error' });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Form not found' });
+      res.status(200).json({ message: 'Form updated successfully' });
+    }
+  );
+});
+
+// Delete a form
+app.delete('/api/forms/:id', (req, res) => {
+  const { id } = req.params;
+
+  const query = 'DELETE FROM forms WHERE id = ?';
+  db.query(query, [id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database deletion error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Form not found' });
+    res.status(200).json({ message: 'Form deleted successfully' });
+  });
+});
+
+// Upload an image
+app.post('/api/upload-image', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  res.status(200).json({ message: 'Image uploaded successfully', path: `/uploads/${req.file.filename}` });
+});
+
 app.post('/api/change-password', authenticateToken, async (req, res) => {
-  // change password logic here , refer to table named users to edit password all 4 kind of users are there!.
-  // Note : users table will be modified later(4-5 Columns add honge), for now, just change password of the user who is logged in.
-  // TODO
   const { userId, newPassword } = req.body;
 
   if (!userId || !newPassword) {
@@ -567,7 +711,7 @@ app.post('/api/booking', (req, res) => {
 });
 
 // Get booking history
-app.get('/booking-history', authenticateToken, (req, res) => {
+app.get('/api/booking-history', authenticateToken, (req, res) => {
   db.query(
     `SELECT * FROM BookingHistory WHERE user_id = ?`,
     [req.user.userId],
@@ -581,43 +725,36 @@ app.get('/booking-history', authenticateToken, (req, res) => {
   );
 });
 
-// app.get('/api/members', (req, res) => {
-//   const query = `
-//     SELECT 
-//       id,
-//       name,
-//       designation,
-//       profile_link,
-//       image_path
-//     FROM 
-//       Members
-//     ORDER BY 
-//       name;
-//   `;
-
-//   db.query(query, (err, results) => {
-//     if (err) {
-//       console.error('Error fetching members:', err);
-//       res.status(500).send('Error fetching members');
-//     } else {
-//       // Transform image path to direct link if necessary
-//       const members = results.map((member) => {
-//         if (member.image_path) {
-//           // Assuming the images are stored in a publicly accessible directory
-//           member.image_url = `http://localhost:5000/uploads/${member.image_path}`;
-//         } else {
-//           member.image_url = null; // Handle missing images gracefully
-//         }
-//         delete member.image_path; // Remove the raw path for cleaner response
-//         return member;
-//       });
-//       res.json(members); // Send the transformed data
-//     }
-//   });
-// });
-
 app.get('/api/getsliderimages', (req, res) => {
-  res.sendFile(path.join(__dirname, 'homeContent.json'));
+  const query = 'SELECT * FROM heroImages';
+  db.query(query, (err, result) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching slider images' });
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+app.get('/api/getthought', (req, res) => {
+  const query = 'SELECT * FROM Thought';
+  db.query(query, (err, result) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching thought' });
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+app.get('/api/getnews', (req, res) => {
+  const query = 'SELECT * FROM heroNews';
+  db.query(query, (err, result) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching news' });
+    }
+    res.json(result);
+});
 });
 
 app.get("/api/members", (req, res) => {

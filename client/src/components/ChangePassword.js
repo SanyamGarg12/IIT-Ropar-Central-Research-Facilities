@@ -19,6 +19,7 @@ function ChangePassword() {
 
     // Get authToken from localStorage
     const authToken = localStorage.getItem('authToken');
+    // console.log(authToken);
     if (!authToken) {
       setError('You are not logged in. Please log in and try again.');
       return;
@@ -33,7 +34,7 @@ function ChangePassword() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`, // Pass the token for authentication
+          Authorization: `${authToken}`, // Pass the token for authentication
         },
         body: JSON.stringify({ userId:userId , newPassword: password }),
       });

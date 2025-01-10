@@ -301,3 +301,54 @@ VALUES
 ('Mr. Amit Kumar', 'amit_kumar.jpg', 'Junior Technical Superintendent', '9876543212', 'amit.kumar@example.com', 'Office No. 103, Building C', 'B.Tech in Mechanical Engineering'),
 ('Ms. Sneha Verma', 'sneha_verma.jpg', 'Operator', '9876543213', 'sneha.verma@example.com', 'Office No. 104, Building D', 'Diploma in Electrical Engineering'),
 ('Mr. Anil Singh', 'anil_singh.jpg', 'Others', '9876543214', 'anil.singh@example.com', 'Office No. 105, Building E', 'BSc in Physics');
+
+
+CREATE TABLE heroImages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    imagepath VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    subtitle VARCHAR(255)
+);
+
+-- Create the heroNews table
+CREATE TABLE heroNews (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    news_title VARCHAR(255) NOT NULL,
+    summary TEXT NOT NULL,
+    imagepath VARCHAR(255) NOT NULL,
+    link VARCHAR(255) NOT NULL
+);
+
+-- Create the thought table
+CREATE TABLE thought (
+    id INT PRIMARY KEY DEFAULT 1, -- To ensure only one entry
+    thought_text TEXT NOT NULL
+);
+
+-- Populate heroImages table
+INSERT INTO heroImages (imagepath, title, subtitle)
+VALUES 
+('/images/hero1.jpg', 'Welcome to the Future', 'Discover the innovations shaping tomorrow.'),
+('/images/hero2.jpg', 'Your Gateway to Knowledge', 'Unlock the potential of endless learning.'),
+('/images/hero3.jpg', 'Empowering Communities', 'Together, we achieve greatness.');
+
+-- Populate heroNews table
+INSERT INTO heroNews (news_title, summary, imagepath, link)
+VALUES 
+('Breaking: Tech Revolution in AI', 
+ 'AI has reached unprecedented heights, transforming industries across the globe.', 
+ '/images/news1.jpg', 
+ 'https://example.com/ai-revolution'),
+('Climate Change Updates', 
+ 'Recent studies show a path to sustainability through collective action.', 
+ '/images/news2.jpg', 
+ 'https://example.com/climate-change'),
+('Healthcare Innovations in 2025', 
+ 'Explore groundbreaking healthcare solutions set to redefine treatment paradigms.', 
+ '/images/news3.jpg', 
+ 'https://example.com/healthcare-innovations');
+
+-- Populate thought table
+INSERT INTO thought (id, thought_text)
+VALUES 
+(1, 'The only limit to our realization of tomorrow is our doubts of today.');
