@@ -18,6 +18,7 @@ import Register from "./components/Register";
 import Login from "./components/Login";
 import ManageAbout from "./components/ManageAbout";
 import ManageHero from "./components/ManageHero";
+import Header from "./components/Header";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -46,7 +47,7 @@ const App = () => {
             element={
               <div className="flex flex-col min-h-screen">
                 {/* Main Navbar */}
-                <nav className="bg-white shadow-md">
+                {/* <nav className="bg-white shadow-md">
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                       <div className="flex">
@@ -89,8 +90,8 @@ const App = () => {
                       </div>
                     </div>
                   </div>
-                </nav>
-
+                </nav> */}
+                <Header />
                 {/* Main Website Content */}
                 <main className="flex-grow">
                   <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -202,4 +203,3 @@ const App = () => {
 };
 
 export default App;
-
