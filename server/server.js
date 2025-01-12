@@ -1085,7 +1085,69 @@ app.get("/api/slots", async (req, res) => {
 });
 
 
+app.post("/api/publications", (req, res) => {
+  const { title, link, facility_id } = req.body;
+  if (!title || !link) {
+    return res.status(400).json({ error: "Title and link are required" });
+  }
 
+  db.query(
+    "INSERT INTO Publications (title, link, facility_id) VALUES (?, ?, ?)",
+    [title, link, facility_id],
+    (err, result) => {
+      if (err) {
+        console.error("Error adding publication:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.status(201).json({ id: result.insertId, title, link, facility_id });
+    }
+  );
+});
+
+// Update a publication
+app.put("/api/publications/:id", (req, res) => {
+  const { id } = req.params;
+  const { title, link, facility_id } = req.body;
+
+  if (!title || !link) {
+    return res.status(400).json({ error: "Title and link are required" });
+  }
+
+  db.query(
+    "UPDATE Publications SET title = ?, link = ?, facility_id = ? WHERE id = ?",
+    [title, link, facility_id, id],
+    (err, result) => {
+      if (err) {
+        console.error("Error updating publication:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Publication not found" });
+      }
+
+      res.json({ message: "Publication updated successfully" });
+    }
+  );
+});
+
+// Delete a publication
+app.delete("/api/publications/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.query("DELETE FROM Publications WHERE id = ?", [id], (err, result) => {
+    if (err) {
+      console.error("Error deleting publication:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Publication not found" });
+    }
+
+    res.status(204).send(); // No content
+  });
+});
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

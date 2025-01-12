@@ -352,3 +352,9 @@ VALUES
 INSERT INTO thought (id, thought_text)
 VALUES 
 (1, 'The only limit to our realization of tomorrow is our doubts of today.');
+
+CREATE TABLE operators (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL
+);
