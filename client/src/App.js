@@ -21,6 +21,7 @@ import ManageHero from "./components/ManageHero";
 import Header from "./components/Header";
 import ManageBooking from "./components/ManageBooking";
 import ManageLimFacilities from "./components/ManageLimFacilities";
+import AddOperator from "./components/AddOperator";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -140,6 +141,7 @@ const App = () => {
                       <Route path="/hero" element={<ManageHero />} />
                       <Route path="/booking" element={<ManageBooking />} />
                       <Route path="/opfacilities" element={<ManageLimFacilities />} />
+                      <Route path="/addoperator" element={<AddOperator />} />
                     </Routes>
                   </div>
                 </main>

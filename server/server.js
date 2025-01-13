@@ -1380,6 +1380,26 @@ app.get('/api/get-publications/:userId',(req, res) => {
   });
 });
 
+app.post('/api/add-operator', authenticateToken, (req, res) => {
+  const { operatorId, password } = req.body;
+  const Position = 'Operator';
+  // Validate input
+  if (!operatorId || !password) {
+      return res.status(400).json({ error: 'Operator ID and password are required' });
+  }
+
+  // SQL query to insert the operator into the table
+  const sql = 'INSERT INTO management_cred (email, pass, Position) VALUES (?, ?, ?)';
+
+  db.query(sql, [operatorId, password, Position], (err, result) => {
+      if (err) {
+          console.error('Error inserting operator into database:', err);
+          return res.status(500).json({ error: 'Database error' });
+      }
+      res.status(201).json({ message: 'Operator added successfully', operatorId });
+  });
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Start the server

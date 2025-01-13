@@ -54,129 +54,120 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div>
-      <h1>Admin Dashboard</h1>
-      {!isLoggedIn ? (
-        <form onSubmit={handleLogin}>
-          <div>
-            <label htmlFor="email">Email:</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="password">Password:</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <button type="submit">Login</button>
-          {error && <p style={{ color: "red" }}>{error}</p>}
-        </form>
-      ) : (
-        <>
-          <p>Welcome, {userPosition}!</p>
-          <nav className="mt-5">
-            <ul className="space-y-2">
-              {userPosition === "Admin" ? (
-                <>
-                  <li>
-                    <Link
-                      to="/admin/members"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Members
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/facilities"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Facilities
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/forms"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Forms
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/publications"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Publications
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/about"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage About Page
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/booking"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Bookings
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/hero"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Home Page
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/reviewpublications"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Review Publications
-                    </Link>
-                  </li>
-                </>
-              ) : (
-                <>
-                  <li>
-                    <Link
-                      to="/admin/booking"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Manage Bookings
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/admin/opfacilities"
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      View Facilities
-                    </Link>
-                  </li>
-                </>
-              )}
-            </ul>
-          </nav>
-          <button onClick={handleLogout}>Logout</button>
-        </>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white shadow-xl rounded-lg overflow-hidden w-full max-w-md">
+        <div className="p-8">
+          <h1 className="text-3xl font-bold text-center text-indigo-700 mb-6">Admin Dashboard</h1>
+          {!isLoggedIn ? (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                <input
+                  type="password"
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <button 
+                type="submit" 
+                className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105"
+              >
+                Login
+              </button>
+              {error && <p className="text-red-500 text-center mt-2">{error}</p>}
+            </form>
+          ) : (
+            <div>
+              <p className="text-xl font-semibold text-center text-gray-800 mb-6">
+                Welcome, {userPosition}!
+              </p>
+              <nav className="mb-6">
+                <ul className="space-y-2">
+                  {userPosition === "Admin" ? (
+                    <>
+                      <AdminLinks />
+                    </>
+                  ) : (
+                    <>
+                      <OperatorLinks />
+                    </>
+                  )}
+                </ul>
+              </nav>
+              <button 
+                onClick={handleLogout}
+                className="w-full bg-red-500 text-white font-bold py-2 px-4 rounded-md hover:bg-red-600 transition duration-300 ease-in-out transform hover:scale-105"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
+  );
+};
+
+const AdminLinks = () => {
+  const links = [
+    { to: "/admin/members", text: "Manage Members" },
+    { to: "/admin/facilities", text: "Manage Facilities" },
+    { to: "/admin/forms", text: "Manage Forms" },
+    { to: "/admin/publications", text: "Manage Publications" },
+    { to: "/admin/about", text: "Manage About Page" },
+    { to: "/admin/booking", text: "Manage Bookings" },
+    { to: "/admin/hero", text: "Manage Home Page" },
+    { to: "/admin/reviewpublications", text: "Review Publications" },
+    { to: "/admin/addoperator", text: "Add Operator" },
+  ];
+
+  return (
+    <>
+      {links.map((link, index) => (
+        <li key={index}>
+          <Link
+            to={link.to}
+            className="block text-indigo-600 hover:text-indigo-900 transition duration-300 ease-in-out transform hover:translate-x-1"
+          >
+            {link.text}
+          </Link>
+        </li>
+      ))}
+    </>
+  );
+};
+
+const OperatorLinks = () => {
+  const links = [
+    { to: "/admin/booking", text: "Manage Bookings" },
+    { to: "/admin/opfacilities", text: "View Facilities" },
+  ];
+
+  return (
+    <>
+      {links.map((link, index) => (
+        <li key={index}>
+          <Link
+            to={link.to}
+            className="block text-indigo-600 hover:text-indigo-900 transition duration-300 ease-in-out transform hover:translate-x-1"
+          >
+            {link.text}
+          </Link>
+        </li>
+      ))}
+    </>
   );
 };
 
