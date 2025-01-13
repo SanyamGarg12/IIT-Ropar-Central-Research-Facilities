@@ -568,27 +568,27 @@ app.post("/login", (req, res) => {
 
 app.post('/api/admin/login', (req, res) => {
   const { email, password } = req.body;
-  
+
   if (!email || !password) {
     return res.status(400).json({ message: 'All fields are required.' });
   }
-  
+
   // Query the database to find the user by email
   const query = "SELECT * FROM management_cred WHERE email = ?";
   db.query(query, [email], async (err, results) => {
     if (err) {
       return res.status(500).json({ message: "Server error." });
     }
-    
+
     // If the user does not exist
     if (results.length === 0) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
-    
+
     const user = results[0];
-  
+
     // Compare the provided password with the hashed password stored in the database
-    if(password !== user.Pass) {
+    if (password !== user.Pass) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
     // Generate a JWT token with the username (email can be used as identifier)
@@ -598,7 +598,7 @@ app.post('/api/admin/login', (req, res) => {
     res.json({
       token,
       position: user.Position,
-      email: user.email
+      email: user.email,
     });
   });
 });
@@ -727,7 +727,7 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
 //removed authenticate token from this route
 app.post('/api/booking', (req, res) => {
-  const { facility_id, date, schedule_id, user_id, operator_email, cost} = req.body;
+  const { facility_id, date, schedule_id, user_id, operator_email, cost } = req.body;
   const query = `INSERT INTO bookinghistory (facility_id, booking_date, schedule_id, user_id, operator_email, cost) VALUES (?, ?, ?, ?, ?, ?)`;
   try {
     db.query(query, [facility_id, date, schedule_id, user_id, operator_email, cost], (err, result) => {
@@ -846,7 +846,7 @@ app.get('/api/getnews', (req, res) => {
       res.status(500).json({ error: 'Error fetching news' });
     }
     res.json(result);
-});
+  });
 });
 
 app.get("/api/members", (req, res) => {
@@ -1234,6 +1234,91 @@ app.delete("/api/publications/:id", (req, res) => {
     res.status(204).send(); // No content
   });
 });
+
+const resultsStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/results'); // Directory for result uploads
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const uniqueFilename = `${timestamp}-${file.originalname}`;
+    cb(null, uniqueFilename);
+  }
+});
+
+// Create a multer upload instance specifically for results
+const resultsUpload = multer({ storage: resultsStorage });
+app.post('/api/upload-results', authenticateToken, resultsUpload.single('file'), async (req, res) => {
+  const { bookingId, resultDate } = req.body;
+  // const resultFilePath = req.file ? req.file.path : null;
+  const uploadedFile = req.file; 
+  // Validate inputs
+  if (!bookingId || !resultDate || !uploadedFile) {
+    return res.status(400).json({ error: 'No file uploaded or missing required fields.' });
+  }
+  const relativeFilePath = `/results/${uploadedFile.filename}`;
+  // Fetch user_id from BookingHistory using bookingId
+  const fetchUserQuery = `SELECT user_id FROM BookingHistory WHERE booking_id = ?`;
+  db.query(fetchUserQuery, [bookingId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user ID:', err);
+      return res.status(500).json({ error: 'Failed to fetch user ID.' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'No booking found with the provided booking ID.' });
+    }
+
+    const userId = results[0].user_id;
+
+    // Insert into results table
+    const insertResultQuery = `
+        INSERT INTO results (user_id, booking_id, result_date, result_file_path)
+        VALUES (?, ?, ?, ?)
+      `;
+      db.query(insertResultQuery, [userId, bookingId, resultDate, relativeFilePath], (err) => {
+      if (err) {
+        console.error('Error inserting result:', err);
+        return res.status(500).json({ error: 'Failed to upload results.' });
+      }
+
+      res.status(200).json({ message: 'Results uploaded successfully.' });
+    });
+  });
+});
+
+app.get('/api/results/:userId/:bookingId', authenticateToken, (req, res) => {
+  const { userId, bookingId } = req.params;
+  console.log("userId", userId, req.params);
+  const query = `
+    SELECT 
+      booking_id, 
+      result_file_path, 
+      result_date 
+    FROM 
+      results 
+    WHERE 
+      user_id = ? AND 
+      booking_id = ? 
+    ORDER BY 
+      result_date DESC 
+    LIMIT 1
+  `;
+
+  db.query(query, [userId, bookingId], (err, results) => {
+    if (err) {
+      console.error('Error fetching results:', err);
+      return res.status(500).json({ error: 'Error fetching results' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'No results found' });
+    }
+    res.json(results[0]);
+  });
+});
+
+
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

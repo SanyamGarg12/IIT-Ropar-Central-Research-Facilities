@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Upload } from 'lucide-react';
 
 const ManageBooking = () => {
   const [bookingRequests, setBookingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
 
   const operatorEmail = localStorage.getItem('userEmail');
-  const authToken = localStorage.getItem('authToken');
-
+  const authToken = localStorage.getItem('userToken');
+ 
   useEffect(() => {
     fetchBookingRequests();
   }, []);
@@ -40,14 +41,55 @@ const ManageBooking = () => {
       }, {
         headers: { Authorization: `${authToken}` }
       });
-      setBookingRequests(bookingRequests.filter(request => String(request.booking_id) !== String(bookingId)));
+      setBookingRequests(bookingRequests.map(request => 
+        String(request.booking_id) === String(bookingId) 
+          ? { ...request, status: action } 
+          : request
+      ));
       setSuccessMessage(`Booking ${action.toLowerCase()} successfully.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(`Failed to ${action.toLowerCase()} booking. Please try again.`);
       setTimeout(() => setError(null), 3000);
     }
-    fetchBookingRequests();
+  };
+
+  const handleFileUpload = async (bookingId, file) => {
+    if (!file) {
+      setError('Please select a file to upload.');
+      return;
+    }
+
+    if (file.type !== 'application/zip' && !file.name.endsWith('.zip')) {
+      setError('Please upload a zip file only.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    // formData.append('userId', userId);
+    formData.append('bookingId', bookingId);
+    formData.append('resultDate', new Date());
+
+    try {
+      setUploadingId(bookingId);
+      await axios.post('http://localhost:5000/api/upload-results', formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          Authorization: `${authToken}`
+        }
+      });
+      setSuccessMessage('Results uploaded successfully.');
+      setBookingRequests(bookingRequests.map(request => 
+        String(request.booking_id) === String(bookingId) 
+          ? { ...request, resultsUploaded: true } 
+          : request
+      ));
+    } catch (err) {
+      setError('Failed to upload results. Please try again.');
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   if (loading) {
@@ -124,7 +166,7 @@ const ManageBooking = () => {
                       <p className="text-gray-600"><span className="font-medium">Cost:</span> {request.cost}</p>
                       <p className="text-gray-600"><span className="font-medium">Status:</span> {request.status}</p>
                     </div>
-                    <div className="flex justify-end space-x-4">
+                    <div className="flex flex-wrap justify-end space-x-4 space-y-2">
                       <button
                         onClick={() => handleBookingAction(request.booking_id, 'Approved')}
                         className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
@@ -137,6 +179,31 @@ const ManageBooking = () => {
                       >
                         Decline
                       </button>
+                      {request.status === 'Approved' && !request.resultsUploaded && (
+                        <div className="relative">
+                          <input
+                            type="file"
+                            id={`file-upload-${request.booking_id}`}
+                            className="hidden"
+                            accept=".zip"
+                            onChange={(e) => handleFileUpload(request.booking_id, e.target.files[0], request.user_id)}
+                          />
+                          <label
+                            htmlFor={`file-upload-${request.booking_id}`}
+                            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 cursor-pointer flex items-center"
+                          >
+                            {uploadingId === request.booking_id ? (
+                              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="w-5 h-5 mr-2" />
+                            )}
+                            Choose ZIP File
+                          </label>
+                        </div>
+                      )}
+                      {request.status === 'Approved' && request.resultsUploaded && (
+                        <p className="text-green-600 font-medium">Results Uploaded</p>
+                      )}
                     </div>
                   </div>
                 </motion.li>

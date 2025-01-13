@@ -4,7 +4,6 @@ import UserProfile from "./UserProfile";
 import ChangePassword from "./ChangePassword";
 import BookingHistory from "./BookingHistory";
 import UserPublications from "./UserPublications";
-import Results from "./Results";
 import BookingFacility from "./BookingFacility";
 import Logout from "./Logout";
 import { Navigate } from "react-router-dom";
@@ -44,7 +43,6 @@ function Booking() {
           "Change Password",
           "Booking History",
           "Publications",
-          "Results",
           "Booking Facility",
           "Logout",
         ];
@@ -61,8 +59,6 @@ function Booking() {
         return <BookingHistory />;
       case "Publications":
         return <UserPublications />;
-      case "Results":
-        return <Results />;
       case "Booking Facility":
         return <BookingFacility />;
       case "Logout":
