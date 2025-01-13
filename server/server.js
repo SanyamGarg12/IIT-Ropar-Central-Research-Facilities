@@ -775,22 +775,42 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
 
 
 app.get('/api/booking-requests', authenticateToken, (req, res) => {
-  db.query(
-    `SELECT * FROM BookingHistory WHERE operator_email = ?`,
-    [req.operator_email],
-    (err, results) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error fetching booking history.');
-      }
-      res.status(200).json(results);
+  console.log("req", req.query.operatorEmail);
+
+  const query = `
+    SELECT 
+      BookingHistory.user_id,
+      Users.full_name AS user_name,
+      BookingHistory.facility_id,
+      Facilities.name AS facility_name,
+      BookingHistory.booking_date,
+      BookingHistory.status,
+      BookingHistory.cost,
+      BookingHistory.schedule_id,
+      BookingHistory.booking_id
+    FROM 
+      BookingHistory
+    JOIN 
+      Users ON BookingHistory.user_id = Users.user_id
+    JOIN 
+      Facilities ON BookingHistory.facility_id = Facilities.id
+    WHERE 
+      BookingHistory.operator_email = ?
+  `;
+
+  db.query(query, [req.query.operatorEmail], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send('Error fetching booking history.');
     }
-  );
+    res.status(200).json(results);
+  });
 });
 
-app.post('api/handle-booking', authenticateToken, (req, res) => {
+app.post('/api/handle-booking', authenticateToken, (req, res) => {
+  console.log("req", req.body);
   const { bookingId, action } = req.body;
-  const query = `UPDATE BookingHistory SET status = ? WHERE id = ?`;
+  const query = `UPDATE BookingHistory SET status = ? WHERE booking_id = ?`;
   db.query(query, [action, bookingId], (err, result) => {
     if (err) return res.status(500).json({ message: "Booking action failed" });
     res.json({ message: "Booking action successful" });

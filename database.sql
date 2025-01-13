@@ -340,11 +340,11 @@ VALUES
 CREATE TABLE management_cred (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    pass VARCHAR(255) NOT NULL,
     Position VARCHAR(255) NOT NULL
 );
 
-INSERT INTO management_cred (email, password_hash, Position)
+INSERT INTO management_cred (email, pass, Position)
 VALUES
     ('adminneetu@bansal.com', '123', 'Admin'),
     ('sneha.verma@example.com', '123', 'Operator'),
