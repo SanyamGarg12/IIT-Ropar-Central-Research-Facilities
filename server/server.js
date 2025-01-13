@@ -1318,7 +1318,67 @@ app.get('/api/results/:userId/:bookingId', authenticateToken, (req, res) => {
   });
 });
 
+const pubStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/publications'); // Directory for result uploads
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const uniqueFilename = `${timestamp}-${file.originalname}`;
+    cb(null, uniqueFilename);
+  }
+});
 
+// Create a multer upload instance specifically for results
+const pubUploads = multer({ storage: pubStorage });
+
+app.post('/api/add-publication', authenticateToken, pubUploads.single('file'), (req, res) => {
+  console.log("req.body", req.body);
+  const {
+    author_name,
+    title_of_paper,
+    journal_name,
+    volume_number,
+    year,
+    page_number,
+    userId,
+  } = req.body;
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'Publication file is required.' });
+  }
+
+  // Save relative path (e.g., publications/filename.zip) instead of absolute path
+  const file_path = `publications/${req.file.filename}`;
+
+  const query = `INSERT INTO User_Publications (author_name, title_of_paper, journal_name, volume_number, year, page_number, file_path, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  const values = [author_name, title_of_paper, journal_name, volume_number, year, page_number, file_path, userId];
+
+  db.query(query, values, (error, result) => {
+    if (error) {
+      console.error('Error adding publication:', error);
+      return res.status(500).json({ error: 'Failed to add publication.' });
+    }
+
+    res.status(201).json({ message: 'Publication added successfully'});
+  });
+});
+
+app.get('/api/get-publications/:userId',(req, res) => {
+  console.log("req.params", req.params);
+  const { userId } = req.params;
+
+  const query = `SELECT * FROM User_Publications WHERE user_id = ?`;
+
+  db.query(query, [userId], (error, results) => {
+    if (error) {
+      console.error('Error fetching publications:', error);
+      return res.status(500).json({ error: 'Failed to fetch publications.' });
+    }
+
+    res.json(results);
+  });
+});
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

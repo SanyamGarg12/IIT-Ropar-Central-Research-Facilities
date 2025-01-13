@@ -142,6 +142,14 @@ const AdminDashboard = () => {
                       Manage Home Page
                     </Link>
                   </li>
+                  <li>
+                    <Link
+                      to="/admin/reviewpublications"
+                      className="text-indigo-600 hover:text-indigo-900"
+                    >
+                      Review Publications
+                    </Link>
+                  </li>
                 </>
               ) : (
                 <>

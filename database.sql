@@ -98,17 +98,6 @@ CREATE TABLE Users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create the User_Publications table
-CREATE TABLE User_Publications (
-    publication_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    publication_date DATE NOT NULL,
-    journal_name VARCHAR(255),
-    doi VARCHAR(255),
-    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
-);
-
 -- Insert default data into Users table
 INSERT INTO Users (user_type, full_name, email, password_hash, contact_number, profile_details)
 VALUES
@@ -116,14 +105,6 @@ VALUES
     ('External Academic', 'Bob Johnson', 'bob@academic.com', 'hashed_password_2', '0987654321', 'Visiting professor from XYZ University.'),
     ('R&D Lab', 'Charlie Lee', 'charlie@rdlab.com', 'hashed_password_3', '5678901234', 'Researcher working in nanotechnology.'),
     ('Industry', 'Diana Brown', 'diana@industry.com', 'hashed_password_4', '6789012345', 'Industry professional in the field of AI.');
-
--- Insert sample data into User_Publications table
-INSERT INTO User_Publications (user_id, title, publication_date, journal_name, doi)
-VALUES
-    (1, 'Quantum Physics Breakthrough', '2023-10-15', 'Nature Physics', '10.1038/s41567-023-01234'),
-    (2, 'Advances in Machine Learning', '2023-05-20', 'IEEE Transactions', '10.1109/TML.2023.123456'),
-    (3, 'Nanotechnology in Medicine', '2022-12-10', 'Nano Letters', '10.1021/nl1234567'),
-    (4, 'AI and Industry 4.0', '2023-09-01', 'AI Journal', '10.1016/j.aij.2023.78901');
 
 CREATE TABLE facility_publications (
   facility_id INT,
@@ -341,3 +322,17 @@ Create table results(
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (booking_id) REFERENCES BookingHistory(booking_id) ON DELETE CASCADE  
 )
+
+CREATE TABLE User_Publications (
+    publication_id INT AUTO_INCREMENT PRIMARY KEY,
+    author_name VARCHAR(255) NOT NULL,
+    title_of_paper VARCHAR(255) NOT NULL,
+    journal_name VARCHAR(255),
+    volume_number INT,
+    year INT,
+    page_number VARCHAR(50),
+    file_path VARCHAR(255),
+    user_id INT NOT NULL,
+    status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+);
