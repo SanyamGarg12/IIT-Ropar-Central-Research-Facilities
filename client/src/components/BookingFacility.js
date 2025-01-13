@@ -150,7 +150,7 @@ function BookingFacility({ authToken }) {
           {facilityPrice > 0 && (
             <div className="bg-gray-50 p-3 rounded-md">
               <p className="text-sm text-gray-600">
-                Facility Cost: <span className="font-semibold">${facilityPrice.toFixed(2)}</span>
+                Facility Cost: <span className="font-semibold">${facilityPrice}</span>
               </p>
             </div>
           )}
