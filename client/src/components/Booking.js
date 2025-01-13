@@ -7,7 +7,6 @@ import UserPublications from "./UserPublications";
 import Results from "./Results";
 import BookingFacility from "./BookingFacility";
 import Logout from "./Logout";
-import Footer from "./Footer";
 import { Navigate } from "react-router-dom";
 
 function Booking() {

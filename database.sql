@@ -243,26 +243,9 @@ CREATE TABLE BookingHistory (
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
     FOREIGN KEY (schedule_id) REFERENCES FacilitySchedule(schedule_id) ON DELETE CASCADE,
-    UNIQUE (facility_id, schedule_id, booking_date, user_id)
+    UNIQUE (facility_id, schedule_id, booking_date, user_id),
+    operator_email VARCHAR(255)
 );
-
--- Insert dummy bookings into BookingHistory with correct schedule_id values
-INSERT INTO BookingHistory (user_id, facility_id, schedule_id, booking_date, status, cost)
-VALUES
-  (1, (SELECT id FROM Facilities WHERE name = 'Electron Microscope'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Electron Microscope') AND weekday = 'Monday' AND start_time = '09:00:00'), '2025-01-10', 'Approved', 150.00),  -- User 1 books Electron Microscope (schedule 1st slot Monday 9-10 AM)
-  
-  (2, (SELECT id FROM Facilities WHERE name = 'Electron Microscope'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Electron Microscope') AND weekday = 'Monday' AND start_time = '10:00:00'), '2025-01-10', 'Pending', 150.00),  -- User 2 books Electron Microscope (schedule 2nd slot Monday 10-11 AM)
-
-  (3, (SELECT id FROM Facilities WHERE name = '3D Printer'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = '3D Printer') AND weekday = 'Tuesday' AND start_time = '10:00:00'), '2025-01-11', 'Approved', 100.00),  -- User 3 books 3D Printer (schedule Tuesday 10-11 AM)
-  
-  (4, (SELECT id FROM Facilities WHERE name = '3D Printer'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = '3D Printer') AND weekday = 'Tuesday' AND start_time = '11:00:00'), '2025-01-11', 'Cancelled', 100.00),  -- User 4 books 3D Printer (schedule Tuesday 11-12 AM)
-
-  (1, (SELECT id FROM Facilities WHERE name = 'Research Library'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Research Library') AND weekday = 'Monday' AND start_time = '08:00:00'), '2025-01-12', 'Approved', 0.00),  -- User 1 books Research Library (schedule Monday 8-9 AM)
-  
-  (2, (SELECT id FROM Facilities WHERE name = 'Workshop Area'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Workshop Area') AND weekday = 'Friday' AND start_time = '09:00:00'), '2025-01-13', 'Approved', 200.00),  -- User 2 books Workshop Area (schedule Friday 9-10 AM)
-  
-  (3, (SELECT id FROM Facilities WHERE name = 'Workshop Area'), (SELECT schedule_id FROM FacilitySchedule WHERE facility_id = (SELECT id FROM Facilities WHERE name = 'Workshop Area') AND weekday = 'Friday' AND start_time = '10:00:00'), '2025-01-13', 'Pending', 200.00);  -- User 3 books Workshop Area (schedule Friday 10-11 AM)
-
 
 CREATE TABLE forms (
     id INT AUTO_INCREMENT PRIMARY KEY,       -- Unique identifier for each form
@@ -353,8 +336,16 @@ INSERT INTO thought (id, thought_text)
 VALUES 
 (1, 'The only limit to our realization of tomorrow is our doubts of today.');
 
-CREATE TABLE operators (
+-- Create the management_cred table
+CREATE TABLE management_cred (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL,
+    Position VARCHAR(255) NOT NULL
 );
+
+INSERT INTO management_cred (email, password_hash, Position)
+VALUES
+    ('adminneetu@bansal.com', '123', 'Admin'),
+    ('sneha.verma@example.com', '123', 'Operator'),
+    ('sanyam.garg@example.com', '123', 'Operator');

@@ -1,5 +1,3 @@
-'use client'
-
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
@@ -92,7 +90,7 @@ function BookingHistory() {
         Booking History
       </motion.h2>
       <motion.div
-        className="bg-white shadow-md rounded-lg overflow-hidden"
+        className="bg-white shadow-md rounded-lg overflow-hidden overflow-x-auto"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -104,6 +102,7 @@ function BookingHistory() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operator Email</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -127,7 +126,8 @@ function BookingHistory() {
                     {booking.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${booking.cost.toFixed(2)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${booking.cost}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.operator_email}</td>
               </motion.tr>
             ))}
           </tbody>

@@ -1,84 +1,144 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import {jwtDecode} from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 
 function BookingFacility({ authToken }) {
-  const [facility, setFacility] = useState("1");
+  const [facilityId, setFacilityId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [facilities, setFacilities] = useState([]);
+  const [operatorEmail, setOperatorEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [facilityPrice, setFacilityPrice] = useState(0);
+
   const handleSlotClick = (time) => {
     setSelectedSlot(time);
   };
 
-  useEffect(() => {
+  const getFacilityPrice = (facility, userType) => {
+    switch(userType.toLowerCase()) {
+      case 'internal':
+        return facility.price_internal;
+      case 'external':
+        return facility.price_external;
+      case 'r_and_d':
+        return facility.price_r_and_d;
+      case 'industry':
+        return facility.price_industry;
+      default:
+        return facility.price_external; // default to external price
+    }
+  };
 
+  const fetchSlots = useCallback(async () => {
+    if (!facilityId) {
+      alert("Please select a facility first.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/slots?facility_id=${facilityId}&date=${date}`
+      );
+      setAvailableSlots(response.data.slots);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to fetch available slots. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [facilityId, date]);
+
+  useEffect(() => {
     const fetchFacilities = async () => {
       try {
         const response = await axios.get("http://localhost:5000/api/facilities");
         setFacilities(response.data);
+        if (response.data.length > 0) {
+          setFacilityId(response.data[0].id);
+          setOperatorEmail(response.data[0].operator_email);
+          
+          // Get user type from token and set initial price
+          const token = localStorage.getItem("authToken");
+          const decoded = jwtDecode(token);
+          const userType = decoded.userType;
+          setFacilityPrice(getFacilityPrice(response.data[0], userType));
+        }
       } catch (err) {
         console.error(err);
+        alert("Failed to fetch facilities. Please refresh the page.");
       }
     };
     fetchFacilities();
   }, []);
 
-
-  useEffect(() => {
-    // fetch available slots
-    const fetchSlots = async () => {
-      try {
-        const response = await axios.get(
-          `http://localhost:5000/api/slots?facility_id=${facility}&date=${date}`
-        );
-        // setSelectedSlot(null);
-        // console.log(response.data);
-        setAvailableSlots(response.data.slots);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchSlots(); 
-  }, [facility, date])
-  
+  const handleFetchSlots = () => {
+    setSelectedSlot("");
+    setSelectedScheduleId("");
+    fetchSlots();
+  };
 
   const handleBooking = (e) => {
+    e.preventDefault();
     const token = localStorage.getItem("authToken");
     const decoded = jwtDecode(token);
     const userId = decoded.userId;
-    e.preventDefault();
+    const userType = decoded.userType;
+
+    // Get the selected facility and its price
+    const selectedFacility = facilities.find(f => String(f.id) === String(facilityId));
+    console.log("cost", selectedFacility,  facilityId);
+    const cost = getFacilityPrice(selectedFacility, userType);
     axios
       .post(
         "http://localhost:5000/api/booking",
-        { facility, date, schedule_id: selectedScheduleId, user_id: userId },
+        {
+          facility_id: facilityId,
+          date,
+          schedule_id: selectedScheduleId,
+          user_id: userId,
+          operator_email: operatorEmail,
+          cost: cost,
+          user_type: userType
+        },
         { headers: { Authorization: authToken } }
       )
       .then((response) => alert("Booking successful"))
-      .catch((err) => alert("Booking failed"));
+      .catch((err) => alert("Booking failed", err));
   };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* <h1 className="text-3xl font-bold mb-8">Facility Booking</h1> */}
-
       <div className="border rounded-md p-4 mt-4">
         <h2 className="text-xl font-semibold mb-4">Book Slot</h2>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium">Facility Name</label>
             <select
-              type="text"
               className="w-full p-2 border rounded"
-              value={facility}
+              value={facilityId}
               onChange={(e) => {
-                setFacility(e.target.value);
-                // console.log(e.target.value);
+                const selectedFacilityId = e.target.value;
+                setFacilityId(selectedFacilityId);
+                const selectedFacility = facilities.find(f => String(f.id) === String(selectedFacilityId));
+                if (selectedFacility) {
+                  setOperatorEmail(selectedFacility.operator_email);
+                  
+                  // Update price when facility changes
+                  const token = localStorage.getItem("authToken");
+                  const decoded = jwtDecode(token);
+                  const userType = decoded.userType;
+                  setFacilityPrice(getFacilityPrice(selectedFacility, userType));
+                }
+                setSelectedSlot("");
+                setSelectedScheduleId("");
+                setAvailableSlots([]);
               }}
               required
             >
+              <option value="">Select a facility</option>
               {facilities.map((facility) => (
                 <option key={facility.id} value={facility.id}>
                   {facility.name}
@@ -86,25 +146,14 @@ function BookingFacility({ authToken }) {
               ))}
             </select>
           </div>
-          {/* <div>
-              <label className="block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                className="w-full p-2 border rounded"
-                placeholder="Your email"
-                required
-              />
-            </div> */}
-          {/* <div>
-              <label className="block text-sm font-medium">
-                Purpose of Booking
-              </label>
-              <textarea
-                className="w-full p-2 border rounded"
-                placeholder="Briefly describe the purpose of your booking"
-                required
-              />
-            </div> */}
+
+          {facilityPrice > 0 && (
+            <div className="bg-gray-50 p-3 rounded-md">
+              <p className="text-sm text-gray-600">
+                Facility Cost: <span className="font-semibold">${facilityPrice.toFixed(2)}</span>
+              </p>
+            </div>
+          )}
 
           <div className="grid md:grid-cols-2 gap-8">
             <div className="border rounded-md p-4">
@@ -112,9 +161,21 @@ function BookingFacility({ authToken }) {
               <input
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full p-2 border rounded"
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setSelectedSlot("");
+                  setSelectedScheduleId("");
+                  setAvailableSlots([]);
+                }}
+                className="w-full p-2 border rounded mb-4"
               />
+              <button
+                onClick={handleFetchSlots}
+                className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-300 disabled:opacity-50"
+                disabled={isLoading || !facilityId}
+              >
+                {isLoading ? "Loading..." : "Fetch Available Slots"}
+              </button>
             </div>
 
             <div className="border rounded-md p-4 max-h-64 overflow-y-auto">
@@ -147,7 +208,7 @@ function BookingFacility({ authToken }) {
                   ))
                 ) : (
                   <div className="grid col-span-3 text-center">
-                    No slots available on this day.
+                    {isLoading ? "Loading slots..." : "No slots available. Click 'Fetch Available Slots' to check."}
                   </div>
                 )}
               </div>
@@ -160,7 +221,8 @@ function BookingFacility({ authToken }) {
             </div>
             <button
               onClick={handleBooking}
-              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 flex-1"
+              className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 flex-1 transition duration-300 disabled:opacity-50"
+              disabled={!selectedScheduleId || !facilityId}
             >
               Book Now
             </button>
@@ -172,3 +234,4 @@ function BookingFacility({ authToken }) {
 }
 
 export default BookingFacility;
+

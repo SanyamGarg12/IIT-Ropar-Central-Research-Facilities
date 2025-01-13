@@ -522,7 +522,6 @@ app.post("/login", (req, res) => {
 
   const query = "SELECT * FROM Users WHERE email = ? AND user_type = ?";
   db.query(query, [email, userType], async (err, results) => {
-    console.log(err, results);
     if (err) {
       return res.status(500).json({ message: "Server error." });
     }
@@ -567,11 +566,44 @@ app.post("/login", (req, res) => {
   });
 });
 
+app.post('/api/admin/login', (req, res) => {
+  const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+  
+  // Query the database to find the user by email
+  const query = "SELECT * FROM management_cred WHERE email = ?";
+  db.query(query, [email], async (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Server error." });
+    }
+    
+    // If the user does not exist
+    if (results.length === 0) {
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
+    
+    const user = results[0];
+  
+    // Compare the provided password with the hashed password stored in the database
+    if(password !== user.Pass) {
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
+    // Generate a JWT token with the username (email can be used as identifier)
+    const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+    // Return the token and user's position in the response
+    res.json({
+      token,
+      position: user.Position,
+      email: user.email
+    });
+  });
+});
 
 app.post('/api/logout', (req, res) => {
-  // TODO
-  // Note : table named LoginLogoutHistory has to be created in the database(query is already written in the sql file). We will store past 2 days entry and please code to delete oldeer entreis automatically!
-  // Also, during logging in, make entry in this table too!.
   const { userId } = req.body;
 
   if (!userId) {
@@ -695,12 +727,11 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
 //removed authenticate token from this route
 app.post('/api/booking', (req, res) => {
-  const { facility, date, schedule_id, user_id } = req.body;
-  const query = `INSERT INTO bookinghistory (user_id, facility_id, booking_date, schedule_id) VALUES (?, ?, ?, ?)`;
+  const { facility_id, date, schedule_id, user_id, operator_email, cost} = req.body;
+  const query = `INSERT INTO bookinghistory (facility_id, booking_date, schedule_id, user_id, operator_email, cost) VALUES (?, ?, ?, ?, ?, ?)`;
   try {
-    db.query(query, [user_id, facility, date, schedule_id], (err, result) => {
-      // console.log("result",result);
-      // console.log("err",err);
+    db.query(query, [facility_id, date, schedule_id, user_id, operator_email, cost], (err, result) => {
+      console.log(err, result);
       if (err) return res.status(500).json({ message: "Booking failed" });
       res.json({ message: "Booking successful" });
     });
@@ -712,9 +743,41 @@ app.post('/api/booking', (req, res) => {
 
 // Get booking history
 app.get('/api/booking-history', authenticateToken, (req, res) => {
+  const query = `
+    SELECT 
+      BookingHistory.*,
+      Facilities.name AS facility_name
+    FROM 
+      BookingHistory
+    JOIN 
+      Facilities 
+    ON 
+      BookingHistory.facility_id = Facilities.id
+    WHERE 
+      BookingHistory.user_id = ?
+  `;
+
+  db.query(query, [req.user.userId], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send('Error fetching booking history.');
+    }
+
+    // Map the results to include the facility name
+    const formattedResults = results.map(booking => ({
+      ...booking,
+      facility_name: booking.facility_name,
+    }));
+
+    res.status(200).json(formattedResults);
+  });
+});
+
+
+app.get('/api/booking-requests', authenticateToken, (req, res) => {
   db.query(
-    `SELECT * FROM BookingHistory WHERE user_id = ?`,
-    [req.user.userId],
+    `SELECT * FROM BookingHistory WHERE operator_email = ?`,
+    [req.operator_email],
     (err, results) => {
       if (err) {
         console.error(err);
@@ -723,6 +786,15 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
       res.status(200).json(results);
     }
   );
+});
+
+app.post('api/handle-booking', authenticateToken, (req, res) => {
+  const { bookingId, action } = req.body;
+  const query = `UPDATE BookingHistory SET status = ? WHERE id = ?`;
+  db.query(query, [action, bookingId], (err, result) => {
+    if (err) return res.status(500).json({ message: "Booking action failed" });
+    res.json({ message: "Booking action successful" });
+  });
 });
 
 app.get('/api/getsliderimages', (req, res) => {
@@ -1017,12 +1089,7 @@ function getWeekday(dateString) {
 }
 
 app.get("/api/slots", async (req, res) => {
-
-  //pending according to number of people can be accomodated in a slot
-
-
-
-
+  // console.log("req.query: ", req.query);
   const { facility_id, date } = req.query;
 
   // Check if the facility can be available on that weekday and find the number of slots
@@ -1055,6 +1122,7 @@ app.get("/api/slots", async (req, res) => {
       WHERE facility_id = ? AND booking_date = ?
     `;
 
+    // console.log("checkBookedSlotsQuery: ", checkBookedSlotsQuery);
     // Using await to fetch booked slots
     const [bookedSlots] = await db
       .promise()
@@ -1073,8 +1141,6 @@ app.get("/api/slots", async (req, res) => {
       ...slot,
       available: !bookedSlotIds.includes(slot.schedule_id),
     }));
-
-    // console.log("slotsWithAvailability: ", slotsWithAvailability);
 
     // Return all slots with the 'available' field
     return res.status(200).json({ slots: slotsWithAvailability });

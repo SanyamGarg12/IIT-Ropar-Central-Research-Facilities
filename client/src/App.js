@@ -19,6 +19,8 @@ import Login from "./components/Login";
 import ManageAbout from "./components/ManageAbout";
 import ManageHero from "./components/ManageHero";
 import Header from "./components/Header";
+import ManageBooking from "./components/ManageBooking";
+import ManageLimFacilities from "./components/ManageLimFacilities";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -46,51 +48,6 @@ const App = () => {
             path="/*"
             element={
               <div className="flex flex-col min-h-screen">
-                {/* Main Navbar */}
-                {/* <nav className="bg-white shadow-md">
-                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                      <div className="flex">
-                        <div className="flex-shrink-0 flex items-center">
-                          <img
-                            className="h-8 w-auto"
-                            src="/assets/logo.jpg"
-                            alt="College Logo"
-                          />
-                          <h1 className="ml-2 text-xl font-bold text-gray-800">
-                            IIT Ropar Central Research Facility
-                          </h1>
-                        </div>
-                      </div>
-                      <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <Link to="/" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Home
-                        </Link>
-                        <Link to="/about" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          About
-                        </Link>
-                        <Link to="/people" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          People
-                        </Link>
-                        <Link to="/facilities" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Facilities
-                        </Link>
-                        <Link to="/booking" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Booking
-                        </Link>
-                        <Link to="/forms" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Forms
-                        </Link>
-                        <Link to="/publications" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Publications
-                        </Link>
-                        <Link to="/contact-us" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Contact Us
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </nav> */}
                 <Header />
                 {/* Main Website Content */}
                 <main className="flex-grow">
@@ -136,7 +93,7 @@ const App = () => {
             element={
               <div className="flex flex-col min-h-screen bg-gray-100">
                 {/* Admin Panel Navbar */}
-                <nav className="bg-white shadow-md">
+                {/* <nav className="bg-white shadow-md">
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16">
                       <div className="flex">
@@ -168,7 +125,7 @@ const App = () => {
                       </div>
                     </div>
                   </div>
-                </nav>
+                </nav> */}
 
                 {/* Admin Panel Content */}
                 <main className="flex-grow">
@@ -181,6 +138,8 @@ const App = () => {
                       <Route path="/publications" element={<ManagePublications />} />
                       <Route path="/about" element={<ManageAbout />} />
                       <Route path="/hero" element={<ManageHero />} />
+                      <Route path="/booking" element={<ManageBooking />} />
+                      <Route path="/opfacilities" element={<ManageLimFacilities />} />
                     </Routes>
                   </div>
                 </main>
