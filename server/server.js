@@ -402,6 +402,28 @@ function authenticateToken(req, res, next) {
   });
 }
 
+app.post('/api/modifypassword', authenticateToken, async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  try {
+    const query = 'UPDATE management_cred SET Pass = ? WHERE email = ?';
+    db.query(query, [password, email], (err, result) => {
+      if (err) {
+        console.error('Error updating password:', err);
+        return res.status(500).json({ message: 'Failed to update password' });
+      }
+      res.status(200).json({ message: 'Password updated successfully' });
+    });
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.status(500).json({ message: 'An error occurred while updating password' });
+  }
+});
+
 app.post('/api/register', async (req, res) => {
   const { fullName, email, password, userType, contactNumber } = req.body;
 
@@ -723,6 +745,47 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
       .status(500)
       .json({ message: "An error occurred during password reset." });
   }
+});
+
+app.post('/api/op-change-password',  (req, res) => {
+  const { oldPassword, newPassword, userEmail } = req.body;
+
+  // Validate input
+  if (!oldPassword || !newPassword || !userEmail) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  // Query to find the operator in the management_cred table
+  const findUserQuery = 'SELECT Pass FROM management_cred WHERE email = ?';
+
+  db.query(findUserQuery, [userEmail], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if the old password matches
+    const storedPassword = results[0].Pass;
+    if (storedPassword !== oldPassword) {
+      return res.status(400).json({ success: false, message: 'Incorrect old password' });
+    }
+
+    // Query to update the password
+    const updatePasswordQuery = 'UPDATE management_cred SET Pass = ? WHERE email = ?';
+
+    db.query(updatePasswordQuery, [newPassword, userEmail], (updateErr) => {
+      if (updateErr) {
+        console.error('Error updating password:', updateErr);
+        return res.status(500).json({ success: false, message: 'Failed to update password' });
+      }
+
+      res.status(200).json({ success: true, message: 'Password changed successfully' });
+    });
+  });
 });
 
 //removed authenticate token from this route
@@ -1251,7 +1314,7 @@ const resultsUpload = multer({ storage: resultsStorage });
 app.post('/api/upload-results', authenticateToken, resultsUpload.single('file'), async (req, res) => {
   const { bookingId, resultDate } = req.body;
   // const resultFilePath = req.file ? req.file.path : null;
-  const uploadedFile = req.file; 
+  const uploadedFile = req.file;
   // Validate inputs
   if (!bookingId || !resultDate || !uploadedFile) {
     return res.status(400).json({ error: 'No file uploaded or missing required fields.' });
@@ -1276,7 +1339,7 @@ app.post('/api/upload-results', authenticateToken, resultsUpload.single('file'),
         INSERT INTO results (user_id, booking_id, result_date, result_file_path)
         VALUES (?, ?, ?, ?)
       `;
-      db.query(insertResultQuery, [userId, bookingId, resultDate, relativeFilePath], (err) => {
+    db.query(insertResultQuery, [userId, bookingId, resultDate, relativeFilePath], (err) => {
       if (err) {
         console.error('Error inserting result:', err);
         return res.status(500).json({ error: 'Failed to upload results.' });
@@ -1360,11 +1423,11 @@ app.post('/api/add-publication', authenticateToken, pubUploads.single('file'), (
       return res.status(500).json({ error: 'Failed to add publication.' });
     }
 
-    res.status(201).json({ message: 'Publication added successfully'});
+    res.status(201).json({ message: 'Publication added successfully' });
   });
 });
 
-app.get('/api/get-publications/:userId',(req, res) => {
+app.get('/api/get-publications/:userId', (req, res) => {
   console.log("req.params", req.params);
   const { userId } = req.params;
 
@@ -1385,18 +1448,18 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   const Position = 'Operator';
   // Validate input
   if (!operatorId || !password) {
-      return res.status(400).json({ error: 'Operator ID and password are required' });
+    return res.status(400).json({ error: 'Operator ID and password are required' });
   }
 
   // SQL query to insert the operator into the table
   const sql = 'INSERT INTO management_cred (email, pass, Position) VALUES (?, ?, ?)';
 
   db.query(sql, [operatorId, password, Position], (err, result) => {
-      if (err) {
-          console.error('Error inserting operator into database:', err);
-          return res.status(500).json({ error: 'Database error' });
-      }
-      res.status(201).json({ message: 'Operator added successfully', operatorId });
+    if (err) {
+      console.error('Error inserting operator into database:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.status(201).json({ message: 'Operator added successfully', operatorId });
   });
 });
 

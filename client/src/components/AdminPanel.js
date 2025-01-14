@@ -131,6 +131,7 @@ const AdminLinks = () => {
     { to: "/admin/hero", text: "Manage Home Page" },
     { to: "/admin/reviewpublications", text: "Review Publications" },
     { to: "/admin/addoperator", text: "Add Operator" },
+    { to: "/admin/modpass", text: "Change Operator Password" },
   ];
 
   return (
@@ -153,6 +154,8 @@ const OperatorLinks = () => {
   const links = [
     { to: "/admin/booking", text: "Manage Bookings" },
     { to: "/admin/opfacilities", text: "View Facilities" },
+    { to: "/admin/opchangepass", text: "Change Password" },
+    { to: "/admin/addslots", text: "Modify Facility Slots" },
   ];
 
   return (

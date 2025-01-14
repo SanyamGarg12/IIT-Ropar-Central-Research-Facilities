@@ -22,6 +22,9 @@ import Header from "./components/Header";
 import ManageBooking from "./components/ManageBooking";
 import ManageLimFacilities from "./components/ManageLimFacilities";
 import AddOperator from "./components/AddOperator";
+import OperatorChangePassword from "./components/operatorChangePassword";
+import ModPassword from "./components/ModPassword";
+import AddSlots from "./components/AddSlots"; 
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -142,6 +145,9 @@ const App = () => {
                       <Route path="/booking" element={<ManageBooking />} />
                       <Route path="/opfacilities" element={<ManageLimFacilities />} />
                       <Route path="/addoperator" element={<AddOperator />} />
+                      <Route path="/opchangepass" element={<OperatorChangePassword />} />
+                      <Route path="/modpass" element={<ModPassword />} />
+                      <Route path="/addslots" element={<AddSlots />} />
                     </Routes>
                   </div>
                 </main>
