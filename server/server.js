@@ -1463,6 +1463,124 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   });
 });
 
+
+// Fetch facilities and their slots for an operator
+app.get('/facilities/slots', authenticateToken, (req, res) => {
+  const { operatorId } = req.query;
+
+  if (!operatorId) {
+    return res.status(400).json({ message: 'Operator ID is required' });
+  }
+
+  db.query('SELECT id, name FROM facilities WHERE operator_email = ?', [operatorId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to fetch facilities' });
+    }
+
+    const facilities = [];
+    let pending = rows.length;
+
+    if (pending === 0) {
+      return res.json(facilities);
+    }
+
+    rows.forEach((facility) => {
+      db.query('SELECT weekday, start_time, end_time FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to fetch schedule' });
+        }
+
+        const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
+          if (!acc[weekday]) acc[weekday] = [];
+          acc[weekday].push({ start_time, end_time });
+          return acc;
+        }, {});
+
+        facilities.push({ ...facility, slots });
+
+        if (--pending === 0) {
+          res.json(facilities);
+        }
+      });
+    });
+  });
+});
+
+// Add a new slot
+app.post('/operator/slots', authenticateToken, (req, res) => {
+  const { facilityId, weekday, start_time, end_time, operatorId } = req.body;
+
+  if (!facilityId || !weekday || !start_time || !end_time || !operatorId) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  db.query('SELECT operator_email FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to validate facility' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Facility not found' });
+    }
+
+    if (rows[0].operator_email !== operatorId) {
+      return res.status(403).json({ message: 'Unauthorized access to this facility' });
+    }
+
+    db.query(
+      'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)',
+      [facilityId, weekday, start_time, end_time],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to add slot' });
+        }
+
+        res.json({ message: 'Slot added successfully' });
+      }
+    );
+  });
+});
+
+// Delete a slot
+app.delete('/operator/slots', (req, res) => {
+  const { facilityId, weekday, slot, operatorId } = req.body;
+
+  if (!facilityId || !weekday || !slot || !operatorId) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  db.query('SELECT operator_email FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to validate facility' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Facility not found' });
+    }
+
+    if (rows[0].operator_email !== operatorId) {
+      return res.status(403).json({ message: 'Unauthorized access to this facility' });
+    }
+
+    db.query(
+      'DELETE FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+      [facilityId, weekday, slot.start_time, slot.end_time],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to delete slot' });
+        }
+        res.json({ message: 'Slot deleted successfully' });
+      }
+    );
+  });
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Start the server

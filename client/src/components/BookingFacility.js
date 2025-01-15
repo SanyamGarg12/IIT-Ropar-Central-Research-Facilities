@@ -12,25 +12,49 @@ function BookingFacility({ authToken }) {
   const [operatorEmail, setOperatorEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [facilityPrice, setFacilityPrice] = useState(0);
+  const [costPerHour, setCostPerHour] = useState(0);
 
-  const handleSlotClick = (time) => {
-    setSelectedSlot(time);
-  };
+  const calculateDuration = useCallback((startTime, endTime) => {
+    const start = new Date(`2000-01-01T${startTime}`);
+    const end = new Date(`2000-01-01T${endTime}`);
+    return (end - start) / (1000 * 60 * 60); // Convert milliseconds to hours
+  }, []);
 
-  const getFacilityPrice = (facility, userType) => {
-    switch(userType.toLowerCase()) {
+  const calculateTotalCost = useCallback((startTime, endTime) => {
+    const duration = calculateDuration(startTime, endTime);
+    return costPerHour * duration;
+  }, [calculateDuration, costPerHour]);
+
+  const handleSlotClick = useCallback((slot) => {
+    setSelectedSlot(`${slot.start_time} - ${slot.end_time}`);
+    setSelectedScheduleId(slot.schedule_id);
+    const totalCost = calculateTotalCost(slot.start_time, slot.end_time);
+    setFacilityPrice(totalCost);
+  }, [calculateTotalCost]);
+
+
+  const getFacilityPrice = useCallback((facility, userType) => {
+    let price;
+    switch (userType.toLowerCase()) {
       case 'internal':
-        return facility.price_internal;
+        price = facility.price_internal;
+        break;
       case 'external':
-        return facility.price_external;
+        price = facility.price_external;
+        break;
       case 'r_and_d':
-        return facility.price_r_and_d;
+        price = facility.price_r_and_d;
+        break;
       case 'industry':
-        return facility.price_industry;
+        price = facility.price_industry;
+        break;
       default:
-        return facility.price_external; // default to external price
+        price = facility.price_external; // default to external price
     }
-  };
+    setCostPerHour(price);
+    return price;
+  }, []);
+
 
   const fetchSlots = useCallback(async () => {
     if (!facilityId) {
@@ -59,12 +83,12 @@ function BookingFacility({ authToken }) {
         if (response.data.length > 0) {
           setFacilityId(response.data[0].id);
           setOperatorEmail(response.data[0].operator_email);
-          
+
           // Get user type from token and set initial price
           const token = localStorage.getItem("authToken");
           const decoded = jwtDecode(token);
           const userType = decoded.userType;
-          setFacilityPrice(getFacilityPrice(response.data[0], userType));
+          getFacilityPrice(response.data[0], userType);
         }
       } catch (err) {
         console.error(err);
@@ -72,7 +96,7 @@ function BookingFacility({ authToken }) {
       }
     };
     fetchFacilities();
-  }, []);
+  }, [getFacilityPrice]);
 
   const handleFetchSlots = () => {
     setSelectedSlot("");
@@ -87,10 +111,6 @@ function BookingFacility({ authToken }) {
     const userId = decoded.userId;
     const userType = decoded.userType;
 
-    // Get the selected facility and its price
-    const selectedFacility = facilities.find(f => String(f.id) === String(facilityId));
-    console.log("cost", selectedFacility,  facilityId);
-    const cost = getFacilityPrice(selectedFacility, userType);
     axios
       .post(
         "http://localhost:5000/api/booking",
@@ -100,7 +120,7 @@ function BookingFacility({ authToken }) {
           schedule_id: selectedScheduleId,
           user_id: userId,
           operator_email: operatorEmail,
-          cost: cost,
+          cost: facilityPrice,
           user_type: userType
         },
         { headers: { Authorization: authToken } }
@@ -125,12 +145,12 @@ function BookingFacility({ authToken }) {
                 const selectedFacility = facilities.find(f => String(f.id) === String(selectedFacilityId));
                 if (selectedFacility) {
                   setOperatorEmail(selectedFacility.operator_email);
-                  
+
                   // Update price when facility changes
                   const token = localStorage.getItem("authToken");
                   const decoded = jwtDecode(token);
                   const userType = decoded.userType;
-                  setFacilityPrice(getFacilityPrice(selectedFacility, userType));
+                  getFacilityPrice(selectedFacility, userType);
                 }
                 setSelectedSlot("");
                 setSelectedScheduleId("");
@@ -147,13 +167,14 @@ function BookingFacility({ authToken }) {
             </select>
           </div>
 
-          {facilityPrice > 0 && (
+          {costPerHour > 0 && (
             <div className="bg-gray-50 p-3 rounded-md">
               <p className="text-sm text-gray-600">
-                Facility Cost: <span className="font-semibold">${facilityPrice}</span>
+                Facility Cost: <span className="font-semibold">{Math.round(facilityPrice * 100) / 100} Rs.</span> ({Math.round(costPerHour * 100) / 100} Rs. per hour)
               </p>
             </div>
           )}
+
 
           <div className="grid md:grid-cols-2 gap-8">
             <div className="border rounded-md p-4">
@@ -185,23 +206,15 @@ function BookingFacility({ authToken }) {
                   availableSlots.map((slot) => (
                     <button
                       key={slot.schedule_id}
-                      onClick={() => {
-                        slot.available &&
-                          handleSlotClick(
-                            `${slot.start_time} - ${slot.end_time}`
-                          );
-                        setSelectedScheduleId(slot.schedule_id);
-                      }}
+                      onClick={() => handleSlotClick(slot)}
                       disabled={!slot.available}
-                      className={`p-2 rounded border text-center ${
-                        slot.available
+                      className={`p-2 rounded border text-center ${slot.available
                           ? "bg-white hover:bg-green-400 text-black outline outline-1"
                           : "bg-gray-200 cursor-not-allowed hover:bg-red-400 text-white outline outline-1"
-                      } ${
-                        selectedScheduleId === slot.schedule_id
+                        } ${selectedScheduleId === slot.schedule_id
                           ? "border-green-500 ring-2 bg-green-500"
                           : ""
-                      }`}
+                        }`}
                     >
                       {slot.start_time} - {slot.end_time}
                     </button>

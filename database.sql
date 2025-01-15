@@ -143,7 +143,7 @@ CREATE TABLE FacilitySchedule (
     weekday ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    total_slots INT NOT NULL,
+    total_slots INT,
     FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
     UNIQUE (facility_id, weekday, start_time, end_time)
 );
