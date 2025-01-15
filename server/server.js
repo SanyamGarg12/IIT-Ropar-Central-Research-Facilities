@@ -1427,6 +1427,21 @@ app.post('/api/add-publication', authenticateToken, pubUploads.single('file'), (
   });
 });
 
+app.delete('/api/delete-publication/:publicationId', authenticateToken, (req, res) => {
+  const { publicationId } = req.params;
+
+  const query = `DELETE FROM User_Publications WHERE publication_id = ?`;
+
+  db.query(query, [publicationId], (error, result) => {
+    if (error) {
+      console.error('Error deleting publication:', error);
+      return res.status(500).json({ error: 'Failed to delete publication.' });
+    }
+
+    res.json({ message: 'Publication deleted successfully' });
+  });
+});
+
 app.get('/api/get-publications/:userId', (req, res) => {
   console.log("req.params", req.params);
   const { userId } = req.params;

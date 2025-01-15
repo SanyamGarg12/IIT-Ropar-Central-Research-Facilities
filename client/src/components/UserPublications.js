@@ -46,7 +46,12 @@ function UserPublications() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/get-publications/${userId}`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/get-publications/${userId}`, {
+        headers: {
+          'Authorization': `${token}`
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch publications');
       }
@@ -140,6 +145,31 @@ function UserPublications() {
     }
   };
 
+  const handleDelete = async (publicationId) => {
+    if (window.confirm('Are you sure you want to delete this publication?')) {
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/delete-publication/${publicationId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete publication');
+        }
+
+        setMessage('Publication deleted successfully!');
+        // Refresh the publications list after successful deletion
+        fetchPublications(formData.userId);
+      } catch (error) {
+        console.error('Delete error:', error);
+        setMessage(`Error deleting publication: ${error.message}`);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -149,7 +179,6 @@ function UserPublications() {
         
         {/* Publications List */}
         <div className="mb-12 bg-white rounded-lg shadow-xl overflow-hidden transition-all duration-300 ease-in-out transform hover:scale-105">
-          <h2 className="text-2xl font-bold text-indigo-800 bg-indigo-100 p-4">Your Publications</h2>
           <div className="p-6">
             {isLoading ? (
               <div className="flex justify-center items-center h-32">
@@ -165,11 +194,17 @@ function UserPublications() {
                     <p className="text-indigo-700"><span className="font-semibold">Author:</span> {pub.author_name}</p>
                     <p className="text-indigo-700"><span className="font-semibold">Journal:</span> {pub.journal_name}</p>
                     <p className="text-indigo-700"><span className="font-semibold">Year:</span> {pub.year}</p>
+                    <button
+                      onClick={() => handleDelete(pub.publication_id)}
+                      className="mt-2 bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline transition-all duration-300 ease-in-out transform hover:scale-105"
+                    >
+                      Delete
+                    </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-center text-indigo-700">No publications found.</p>
+              <p className="text-center text-indigo-700">You don't have any publications, please fill the form below to add one</p>
             )}
           </div>
         </div>
