@@ -127,7 +127,6 @@ const AdminLinks = () => {
     { to: "/admin/forms", text: "Manage Forms" },
     { to: "/admin/publications", text: "Manage Publications" },
     { to: "/admin/about", text: "Manage About Page" },
-    { to: "/admin/booking", text: "Manage Bookings" },
     { to: "/admin/hero", text: "Manage Home Page" },
     { to: "/admin/reviewpublications", text: "Review Publications" },
     { to: "/admin/addoperator", text: "Add Operator" },
