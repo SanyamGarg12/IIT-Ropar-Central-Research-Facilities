@@ -41,8 +41,6 @@ export default function BookingHistory() {
 
   const fetchResults = async (bookingId) => {
     setLoadingResults(prev => ({ ...prev, [bookingId]: true }))
-    console.log('fetching results for booking', bookingId);
-    console.log('fetching results for user', userId);
     try {
       const response = await axios.get(`http://localhost:5000/api/results/${userId}/${bookingId}`, {
         headers: { Authorization: `${authToken}` },
@@ -69,14 +67,12 @@ export default function BookingHistory() {
         headers: { Authorization: `${authToken}` },
       });
       
-      // console.log('filePathResponse', filePathResponse);
       const filePath = filePathResponse.data.result_file_path;
   
       if (!filePath) {
         console.error('File path not found in the API response');
         return;
       }
-      // console.log('Downloading file:', filePath);
       
       // Now, download the file using the obtained file path
       const downloadResponse = await axios.get(`http://localhost:5000/uploads/${filePath}`, {

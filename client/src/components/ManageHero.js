@@ -38,7 +38,6 @@ export default function ManageHero() {
       setThought(thoughtData[0]?.thought_text || '')
       setNewsFeed(newsData)
     } catch (error) {
-      console.log('Error fetching content:', error);
       setState({ message: '', error: 'Failed to fetch content' })
     }
   }
@@ -70,7 +69,6 @@ export default function ManageHero() {
   }
 
   const handleDelete = async (id, type) => {
-    console.log('Deleting', type, id)
     try {
       const response = await fetch('/api/homecontent', {
         method: 'POST',

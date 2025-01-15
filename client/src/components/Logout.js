@@ -30,8 +30,6 @@ const Logout = () => {
             navigate("/login");
             
             
-        }else{
-            console.log("No token found");
         }
         } catch (error) {
         console.error("Error logging out:", error);

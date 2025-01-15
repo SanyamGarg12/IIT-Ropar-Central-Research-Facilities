@@ -95,7 +95,6 @@ function UserPublications() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted");
     const token = localStorage.getItem('authToken');
     if (!token) {
       setMessage('User not authenticated. Please log in.');

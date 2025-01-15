@@ -19,13 +19,11 @@ function ChangePassword() {
 
     // Get authToken from localStorage
     const authToken = localStorage.getItem('authToken');
-    // console.log(authToken);
     if (!authToken) {
       setError('You are not logged in. Please log in and try again.');
       return;
     }
     const decoded = jwtDecode(authToken);
-    console.log(decoded)
     const userId = decoded.userId;
 
     try {

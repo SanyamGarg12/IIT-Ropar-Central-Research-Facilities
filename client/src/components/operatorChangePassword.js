@@ -24,7 +24,6 @@ const OperatorChangePassword = () => {
                     'Authorization': `${authToken}`
                 }
             });
-            console.log(response);
             if (response.data.success) {
                 setMessage({ text: 'Password changed successfully', type: 'success' });
             } else {

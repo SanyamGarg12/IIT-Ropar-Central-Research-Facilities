@@ -22,7 +22,6 @@ const Hero = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        console.log('Fetched Slider Images:', data);
         setImages(data || []);
       } catch (error) {
         console.error('Error fetching slider images:', error);
@@ -36,7 +35,6 @@ const Hero = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        // console.log('Fetched Thought:', data);
         setThought(data[0].thought_text || '');
       } catch (error) {
         console.error('Error fetching thought:', error);
@@ -51,7 +49,6 @@ const Hero = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        console.log('Fetched News:', data);
         setNewsFeed(data || []);
       } catch (error) {
         console.error('Error fetching news:', error);
@@ -70,7 +67,6 @@ const Hero = () => {
       setCurrentIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
     }
   };
-  console.log(images);
   return (
     <motion.div
       className="bg-gray-100 min-h-screen"

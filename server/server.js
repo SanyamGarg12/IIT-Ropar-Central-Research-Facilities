@@ -258,7 +258,6 @@ app.post('/api/homecontent', upload.single('image'), (req, res) => {
 
     case 'delete': {
       const { type, id } = req.body;
-      console.log('type:', type, 'id:', id);
       if (!type || typeof id !== 'number') {
         return res.status(400).json({ error: 'Invalid delete parameters' });
       }
@@ -380,8 +379,6 @@ app.get('/api/publications', (req, res) => {
 // Helper function to authenticate user
 function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
-  console.log("authHeader", authHeader);
-
   if (!authHeader) {
     return res.status(401).send("Access Denied");
   }
@@ -583,7 +580,6 @@ app.post("/login", (req, res) => {
         console.error("Failed to delete old log entries:", err);
       }
     });
-    console.log("token", token);
     res.status(200).json({ token });
   });
 });
@@ -794,7 +790,6 @@ app.post('/api/booking', (req, res) => {
   const query = `INSERT INTO bookinghistory (facility_id, booking_date, schedule_id, user_id, operator_email, cost) VALUES (?, ?, ?, ?, ?, ?)`;
   try {
     db.query(query, [facility_id, date, schedule_id, user_id, operator_email, cost], (err, result) => {
-      console.log(err, result);
       if (err) return res.status(500).json({ message: "Booking failed" });
       res.json({ message: "Booking successful" });
     });
@@ -838,7 +833,6 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
 
 
 app.get('/api/booking-requests', authenticateToken, (req, res) => {
-  console.log("req", req.query.operatorEmail);
 
   const query = `
     SELECT 
@@ -871,7 +865,6 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
 });
 
 app.post('/api/handle-booking', authenticateToken, (req, res) => {
-  console.log("req", req.body);
   const { bookingId, action } = req.body;
   const query = `UPDATE BookingHistory SET status = ? WHERE booking_id = ?`;
   db.query(query, [action, bookingId], (err, result) => {
@@ -986,7 +979,6 @@ app.delete('/api/staff/:id', (req, res) => {
 // API endpoint to get details of a single facility
 app.get('/api/facility/:id', (req, res) => {
   const facilityId = req.params.id;
-  console.log(facilityId);
   const query = `
     SELECT 
       f.id,
@@ -1172,7 +1164,6 @@ function getWeekday(dateString) {
 }
 
 app.get("/api/slots", async (req, res) => {
-  // console.log("req.query: ", req.query);
   const { facility_id, date } = req.query;
 
   // Check if the facility can be available on that weekday and find the number of slots
@@ -1196,7 +1187,6 @@ app.get("/api/slots", async (req, res) => {
         .json({ slots: [] });
     }
 
-    // console.log("totalSlots: ", totalSlots);
 
     // Check if any slots are already booked
     const checkBookedSlotsQuery = `
@@ -1205,20 +1195,17 @@ app.get("/api/slots", async (req, res) => {
       WHERE facility_id = ? AND booking_date = ?
     `;
 
-    // console.log("checkBookedSlotsQuery: ", checkBookedSlotsQuery);
     // Using await to fetch booked slots
     const [bookedSlots] = await db
       .promise()
       .query(checkBookedSlotsQuery, [facility_id, date]);
 
-    // console.log("bookedSlots: ", bookedSlots);
 
     // Extract schedule_ids of booked slots
     const bookedSlotIds = bookedSlots
       .filter((slot) => slot.status === "Approved")
       .map((slot) => slot.schedule_id);
 
-    // console.log("bookedSlotIds: ", bookedSlotIds);
     // Add 'available' field to each slot, indicating whether the slot is available for booking
     const slotsWithAvailability = totalSlots.map((slot) => ({
       ...slot,
@@ -1352,7 +1339,6 @@ app.post('/api/upload-results', authenticateToken, resultsUpload.single('file'),
 
 app.get('/api/results/:userId/:bookingId', authenticateToken, (req, res) => {
   const { userId, bookingId } = req.params;
-  console.log("userId", userId, req.params);
   const query = `
     SELECT 
       booking_id, 
@@ -1396,7 +1382,6 @@ const pubStorage = multer.diskStorage({
 const pubUploads = multer({ storage: pubStorage });
 
 app.post('/api/add-publication', authenticateToken, pubUploads.single('file'), (req, res) => {
-  console.log("req.body", req.body);
   const {
     author_name,
     title_of_paper,
@@ -1443,7 +1428,6 @@ app.delete('/api/delete-publication/:publicationId', authenticateToken, (req, re
 });
 
 app.get('/api/get-publications/:userId', (req, res) => {
-  console.log("req.params", req.params);
   const { userId } = req.params;
 
   const query = `SELECT * FROM User_Publications WHERE user_id = ?`;

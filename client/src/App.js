@@ -96,41 +96,6 @@ const App = () => {
             path="/admin/*"
             element={
               <div className="flex flex-col min-h-screen bg-gray-100">
-                {/* Admin Panel Navbar */}
-                {/* <nav className="bg-white shadow-md">
-                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                      <div className="flex">
-                        <div className="flex-shrink-0 flex items-center">
-                          <h1 className="text-xl font-bold text-gray-800">
-                            Admin Panel
-                          </h1>
-                        </div>
-                      </div>
-                      <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <Link to="/admin/members" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Manage Members
-                        </Link>
-                        <Link to="/admin/facilities" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Manage Facilities
-                        </Link>
-                        <Link to="/admin/forms" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Manage Forms
-                        </Link>
-                        <Link to="/admin/publications" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Manage Publications
-                        </Link>
-                        <Link to="/admin/about" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Manage About
-                        </Link>
-                        <Link to="/admin/hero" className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-indigo-500 text-sm font-medium">
-                          Manage Home Page
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </nav> */}
-
                 {/* Admin Panel Content */}
                 <main className="flex-grow">
                   <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

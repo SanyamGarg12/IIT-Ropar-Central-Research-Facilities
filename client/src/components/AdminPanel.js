@@ -128,7 +128,6 @@ const AdminLinks = () => {
     { to: "/admin/publications", text: "Manage Publications" },
     { to: "/admin/about", text: "Manage About Page" },
     { to: "/admin/hero", text: "Manage Home Page" },
-    { to: "/admin/reviewpublications", text: "Review Publications" },
     { to: "/admin/addoperator", text: "Add Operator" },
     { to: "/admin/modpass", text: "Change Operator Password" },
   ];

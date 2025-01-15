@@ -91,21 +91,7 @@ const ManageFacilities = () => {
         },
       })
       .then((response) => {
-        // const facilityId = response.data.id;
         setFacilities([...facilities, response.data]);
-        // console.log("facilityId", facilityId);
-        // console.log("publication_id", publicationId);
-        // Associate the new facility with selected publications
-        // const associations = selectedPublications.map((publicationId) =>
-        //   axios.post("http://localhost:5000/api/facility-publications", {
-        //     facility_id: facilityId,
-        //     publication_id: publicationId,
-        //   })
-        // );
-
-        // Promise.all(associations)
-          // .then(() => {
-            // Clear the form after successful submission
             setName("");
             setMakeYear("");
             setModel("");
@@ -125,11 +111,6 @@ const ManageFacilities = () => {
             setPriceIndustry("0.00");
             setImageFile(null);
             setSelectedPublications([]);
-          // })
-          // .catch((error) => {
-          //   setError("Error associating facility with publications.");
-          //   console.error(error);
-          // });
           alert("Facility added successfully");
       })
       .catch((error) => {
