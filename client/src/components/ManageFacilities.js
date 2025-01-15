@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import {
+  fetchFacilities,
+  fetchPublications,
+  addFacility,
+  updateFacility,
+  deleteFacility,
+} from "./facilityAPI";
 
 const ManageFacilities = () => {
   const [facilities, setFacilities] = useState([]);
@@ -29,27 +35,25 @@ const ManageFacilities = () => {
   const [editingFacilityId, setEditingFacilityId] = useState(null);
 
   useEffect(() => {
-    fetchFacilities();
-    fetchPublications();
+    loadFacilities();
+    loadPublications();
   }, []);
 
-  const fetchFacilities = async () => {
+  const loadFacilities = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/facilities");
-      setFacilities(response.data);
+      const data = await fetchFacilities();
+      setFacilities(data);
     } catch (error) {
       setError("Error fetching facilities.");
-      console.error(error);
     }
   };
 
-  const fetchPublications = async () => {
+  const loadPublications = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/publications");
-      setPublications(response.data);
+      const data = await fetchPublications();
+      setPublications(data);
     } catch (error) {
       setError("Error fetching publications.");
-      console.error(error);
     }
   };
 
@@ -60,71 +64,59 @@ const ManageFacilities = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const formDataToSend = new FormData();
-
-    Object.keys(formData).forEach(key => {
-      formDataToSend.append(key, formData[key]);
-    });
-
-    if (imageFile) {
-      formDataToSend.append("image", imageFile);
-    }
-
     try {
       if (editingFacilityId) {
-        await axios.put(`http://localhost:5000/api/facilities/${editingFacilityId}`, formDataToSend, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await updateFacility(editingFacilityId, formData, selectedPublications, imageFile);
         alert("Facility updated successfully");
       } else {
-        const response = await axios.post("http://localhost:5000/api/facilities", formDataToSend, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        setFacilities([...facilities, response.data]);
+        await addFacility(formData, selectedPublications, imageFile);
         alert("Facility added successfully");
       }
       resetForm();
-      fetchFacilities();
+      loadFacilities();
     } catch (error) {
       setError(editingFacilityId ? "Error updating facility." : "Error adding facility.");
-      console.error(error);
     }
   };
 
   const handleDeleteFacility = async (facilityId) => {
     if (window.confirm("Are you sure you want to delete this facility?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/facilities/${facilityId}`);
+        await deleteFacility(facilityId);
         setFacilities(facilities.filter((facility) => facility.id !== facilityId));
       } catch (error) {
         setError("Error deleting facility.");
-        console.error(error);
       }
     }
   };
 
   const handleEditFacility = (facility) => {
+    // First, reset the form
+    resetForm();
+
+    // Then, set the editing facility ID and populate the form
     setEditingFacilityId(facility.id);
     setFormData({
-      name: facility.name,
-      make_year: facility.make_year,
-      model: facility.model,
-      faculty_in_charge: facility.faculty_in_charge,
-      faculty_contact: facility.faculty_contact,
-      faculty_email: facility.faculty_email,
-      operator_name: facility.operator_name,
-      operator_contact: facility.operator_contact,
-      operator_email: facility.operator_email,
-      description: facility.description,
-      specifications: facility.specifications,
-      usage_details: facility.usage_details,
-      category_id: facility.category_id,
-      price_internal: facility.price_internal,
-      price_external: facility.price_external,
-      price_r_and_d: facility.price_r_and_d,
-      price_industry: facility.price_industry,
+      name: facility.name || "",
+      make_year: facility.make_year || "",
+      model: facility.model || "",
+      faculty_in_charge: facility.faculty_in_charge || "",
+      faculty_contact: facility.faculty_contact || "",
+      faculty_email: facility.faculty_email || "",
+      operator_name: facility.operator_name || "",
+      operator_contact: facility.operator_contact || "",
+      operator_email: facility.operator_email || "",
+      description: facility.description || "",
+      specifications: facility.specifications || "",
+      usage_details: facility.usage_details || "",
+      category_id: facility.category_id || "",
+      price_internal: facility.price_internal || "0.00",
+      price_external: facility.price_external || "0.00",
+      price_r_and_d: facility.price_r_and_d || "0.00",
+      price_industry: facility.price_industry || "0.00",
     });
-    setSelectedPublications(facility.publications.map(pub => pub.id));
+    // Clear all selected publications
+    setSelectedPublications([]);
   };
 
   const resetForm = () => {
@@ -150,6 +142,14 @@ const ManageFacilities = () => {
     setImageFile(null);
     setSelectedPublications([]);
     setEditingFacilityId(null);
+  };
+
+  const handlePublicationChange = (pubId) => {
+    setSelectedPublications(prev => 
+      prev.includes(pubId) 
+        ? prev.filter(id => id !== pubId) 
+        : [...prev, pubId]
+    );
   };
 
   return (
@@ -313,20 +313,25 @@ const ManageFacilities = () => {
             type="file"
             onChange={(e) => setImageFile(e.target.files[0])}
           />
-          <select
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            multiple
-            value={selectedPublications}
-            onChange={(e) =>
-              setSelectedPublications(Array.from(e.target.selectedOptions, (option) => option.value))
-            }
-          >
-            {publications.map((publication) => (
-              <option key={publication.id} value={publication.id}>
-                {publication.title}
-              </option>
-            ))}
-          </select>
+          <div className="mt-4">
+            <h4 className="text-lg font-semibold mb-2">Associated Publications</h4>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {publications.map((publication) => (
+                <div key={publication.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`pub-${publication.id}`}
+                    checked={selectedPublications.includes(publication.id)}
+                    onChange={() => handlePublicationChange(publication.id)}
+                    className="mr-2"
+                  />
+                  <label htmlFor={`pub-${publication.id}`} className="text-sm text-gray-700">
+                    {publication.title}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
           <button
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             type="submit"
@@ -349,7 +354,7 @@ const ManageFacilities = () => {
         <ul className="divide-y divide-gray-200">
           {facilities.map((facility) => (
             <li key={facility.id} className="py-4 flex justify-between items-center">
-              <span className="text-lg font-medium text-gray-900">{facility.name}</span>
+              <span className="text-lg font-medium text-gray-900">{facility.name || 'Unnamed Facility'}</span>
               <div>
                 <button
                   onClick={() => handleEditFacility(facility)}
@@ -373,4 +378,3 @@ const ManageFacilities = () => {
 };
 
 export default ManageFacilities;
-

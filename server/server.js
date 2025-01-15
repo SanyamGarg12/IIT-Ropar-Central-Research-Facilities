@@ -91,6 +91,133 @@ app.get('/api/facilities', (req, res) => {
 });
 
 
+app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
+  // console.log("req.body", req.body);
+  const facilityId = req.params.id;
+  const {
+    name,
+    make_year,
+    model,
+    faculty_in_charge,
+    faculty_contact,
+    faculty_email,
+    operator_name,
+    operator_contact,
+    operator_email,
+    description,
+    specifications,
+    usage_details,
+    category_id,
+    price_internal,
+    price_external,
+    price_r_and_d,
+    price_industry,
+    publication_ids, // Array of publication IDs to associate with the facility
+  } = req.body;
+
+  // Get the uploaded image filename from req.file
+  const image_url = req.file ? req.file.filename : null;
+
+  // Validate required fields
+  if (!name || !category_id) {
+    return res.status(400).json({ error: "Missing required fields: name or category_id" });
+  }
+
+  // SQL query for updating the facility
+  const updateQuery = `
+    UPDATE Facilities
+    SET 
+      name = ?, 
+      make_year = ?, 
+      model = ?, 
+      faculty_in_charge = ?, 
+      faculty_contact = ?, 
+      faculty_email = ?, 
+      operator_name = ?, 
+      operator_contact = ?, 
+      operator_email = ?, 
+      description = ?, 
+      specifications = ?, 
+      usage_details = ?, 
+      image_url = ?, 
+      category_id = ?, 
+      price_internal = ?, 
+      price_external = ?, 
+      price_r_and_d = ?, 
+      price_industry = ?
+    WHERE 
+      id = ?
+  `;
+
+  const updateValues = [
+    name,
+    make_year,
+    model,
+    faculty_in_charge,
+    faculty_contact,
+    faculty_email,
+    operator_name,
+    operator_contact,
+    operator_email,
+    description,
+    specifications,
+    usage_details,
+    image_url,
+    category_id,
+    price_internal,
+    price_external,
+    price_r_and_d,
+    price_industry,
+    facilityId,
+  ];
+
+  db.query(updateQuery, updateValues, (err, result) => {
+    if (err) {
+      console.error("Error updating facility:", err);
+      return res.status(500).json({ error: "Database update failed" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Facility not found" });
+    }
+
+    // Handle the publications update: delete old ones and add new ones
+    const deletePublicationsQuery = `DELETE FROM Facility_Publications WHERE facility_id = ?`;
+    db.query(deletePublicationsQuery, [facilityId], (deleteErr) => {
+      if (deleteErr) {
+        console.error("Error deleting old publications:", deleteErr);
+        return res.status(500).json({ error: "Error updating publications" });
+      }
+
+      if (publication_ids && publication_ids.length > 0) {
+        const insertPublicationsQuery = `
+          INSERT INTO Facility_Publications (facility_id, publication_id)
+          VALUES ?`;
+        const publicationValues = publication_ids.map((pubId) => [facilityId, pubId]);
+
+        db.query(insertPublicationsQuery, [publicationValues], (insertErr) => {
+          if (insertErr) {
+            console.error("Error inserting new publications:", insertErr);
+            return res.status(500).json({ error: "Error inserting new publications" });
+          }
+
+          return res.status(200).json({
+            message: "Facility and publications updated successfully",
+            facilityId,
+          });
+        });
+      } else {
+        // No publications provided, return success
+        return res.status(200).json({
+          message: "Facility updated successfully",
+          facilityId,
+        });
+      }
+    });
+  });
+});
+
+
 app.post('/api/facilities', upload.single("image"), (req, res) => {
   const {
     name,
@@ -172,7 +299,7 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     // If publications are provided, insert into Facilities_Publications table
     if (publications && publications.length > 0) {
       const publicationQuery = `
-        INSERT INTO Facilities_Publications (facility_id, publication_id)
+        INSERT INTO Facility_Publications (facility_id, publication_id)
         VALUES ?
       `;
 
@@ -1031,141 +1158,6 @@ app.get('/api/facility/:id', (req, res) => {
     res.json(facility);
   });
 });
-
-
-app.put("/api/facilities/:id", (req, res) => {
-  const facilityId = req.params.id;
-  const {
-    name,
-    make_year,
-    model,
-    faculty_in_charge,
-    faculty_contact,
-    faculty_email,
-    operator_name,
-    operator_contact,
-    operator_email,
-    description,
-    specifications,
-    usage_details,
-    image_url,
-    category_id,
-    price_internal,
-    price_external,
-    price_r_and_d,
-    price_industry,
-    publication_ids,  // Array of publication IDs to associate with the facility
-  } = req.body;
-
-  // Validate inputs
-  if (!name || !category_id) {
-    return res.status(400).json({ error: "Missing required fields: name or category_id" });
-  }
-
-  // Check if category exists (basic validation)
-  const checkCategoryQuery = `SELECT * FROM Categories WHERE id = ?`;
-  db.query(checkCategoryQuery, [category_id], (err, categoryResults) => {
-    if (err) {
-      console.error("Error checking category:", err);
-      return res.status(500).json({ error: "Error checking category" });
-    }
-
-    if (categoryResults.length === 0) {
-      return res.status(400).json({ error: "Invalid category_id" });
-    }
-
-    // SQL query for updating the facility
-    const query = `
-      UPDATE Facilities
-      SET 
-        name = ?, 
-        make_year = ?, 
-        model = ?, 
-        faculty_in_charge = ?, 
-        faculty_contact = ?, 
-        faculty_email = ?, 
-        operator_name = ?, 
-        operator_contact = ?, 
-        operator_email = ?, 
-        description = ?, 
-        specifications = ?, 
-        usage_details = ?, 
-        image_url = ?, 
-        category_id = ?, 
-        price_internal = ?, 
-        price_external = ?, 
-        price_r_and_d = ?, 
-        price_industry = ?
-      WHERE 
-        id = ?
-    `;
-
-    const values = [
-      name,
-      make_year,
-      model,
-      faculty_in_charge,
-      faculty_contact,
-      faculty_email,
-      operator_name,
-      operator_contact,
-      operator_email,
-      description,
-      specifications,
-      usage_details,
-      image_url,
-      category_id,
-      price_internal,
-      price_external,
-      price_r_and_d,
-      price_industry,
-      facilityId,
-    ];
-
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error("Error updating facility:", err);
-        return res.status(500).json({ error: "Database update failed" });
-      }
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: "Facility not found" });
-      }
-
-      // Now, handle the publication update (remove old ones and add new ones)
-      const deletePublicationsQuery = `DELETE FROM facility_publications WHERE facility_id = ?`;
-      db.query(deletePublicationsQuery, [facilityId], (err) => {
-        if (err) {
-          console.error("Error deleting old publications:", err);
-          return res.status(500).json({ error: "Error updating publications" });
-        }
-
-        if (publication_ids && publication_ids.length > 0) {
-          const insertPublicationsQuery = `INSERT INTO facility_publications (facility_id, publication_id) VALUES ?`;
-          const values = publication_ids.map(pubId => [facilityId, pubId]);
-
-          db.query(insertPublicationsQuery, [values], (err) => {
-            if (err) {
-              console.error("Error inserting new publications:", err);
-              return res.status(500).json({ error: "Error inserting new publications" });
-            }
-
-            res.status(200).json({
-              message: "Facility and publications updated successfully",
-              facilityId,
-            });
-          });
-        } else {
-          res.status(200).json({
-            message: "Facility updated successfully",
-            facilityId,
-          });
-        }
-      });
-    });
-  });
-});
-
 
 // API endpoint to fetch all publications
 app.get('/api/publications', (req, res) => {

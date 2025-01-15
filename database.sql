@@ -110,9 +110,10 @@ CREATE TABLE facility_publications (
   facility_id INT,
   publication_id INT,
   PRIMARY KEY (facility_id, publication_id),
-  FOREIGN KEY (facility_id) REFERENCES facilities(id),
-  FOREIGN KEY (publication_id) REFERENCES publications(id)
+  FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE,
+  FOREIGN KEY (publication_id) REFERENCES publications(id) ON DELETE CASCADE
 );
+
 
 INSERT INTO Facility_Publications (facility_id, publication_id)
 VALUES
@@ -121,7 +122,9 @@ VALUES
   (4, 4),
   (5,2),
   (5,3),
-  (5,4);
+  (5,4),
+  (11, 3),
+  (11, 4);
 -- Create the LoginLogoutHistory table
 CREATE TABLE LoginLogoutHistory (
   id INT AUTO_INCREMENT PRIMARY KEY,
