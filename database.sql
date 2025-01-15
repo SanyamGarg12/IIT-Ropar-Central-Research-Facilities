@@ -114,6 +114,14 @@ CREATE TABLE facility_publications (
   FOREIGN KEY (publication_id) REFERENCES publications(id)
 );
 
+INSERT INTO Facility_Publications (facility_id, publication_id)
+VALUES
+  (2, 2),
+  (3, 3),
+  (4, 4),
+  (5,2),
+  (5,3),
+  (5,4);
 -- Create the LoginLogoutHistory table
 CREATE TABLE LoginLogoutHistory (
   id INT AUTO_INCREMENT PRIMARY KEY,

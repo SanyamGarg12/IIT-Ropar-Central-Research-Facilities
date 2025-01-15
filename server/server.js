@@ -992,6 +992,7 @@ app.get('/api/facility/:id', (req, res) => {
       f.faculty_in_charge,
       f.contact_person_contact,
       c.name AS category_name,
+      p.id AS publication_id,
       p.title AS publication_title,
       p.link AS publication_link
     FROM 
@@ -999,7 +1000,9 @@ app.get('/api/facility/:id', (req, res) => {
     LEFT JOIN 
       Categories c ON f.category_id = c.id
     LEFT JOIN 
-      Publications p ON f.id = p.facility_id
+      facility_publications fp ON f.id = fp.facility_id
+    LEFT JOIN 
+      Publications p ON fp.publication_id = p.id
     WHERE 
       f.id = ?;
   `;
@@ -1007,24 +1010,25 @@ app.get('/api/facility/:id', (req, res) => {
   db.query(query, [facilityId], (err, results) => {
     if (err) {
       console.error('Error fetching facility details:', err);
-      res.status(500).send('Error fetching facility details');
-    } else {
-      if (results.length > 0) {
-        const facility = results[0];
-
-        // Convert Google Drive link to direct image URL
-        if (facility.image_url) {
-          const imageIdMatch = facility.image_url.match(/\/d\/(.*?)\//);
-          if (imageIdMatch) {
-            facility.image_url = `https://drive.google.com/uc?export=view&id=${imageIdMatch[1]}`;
-          }
-        }
-
-        res.json(facility);
-      } else {
-        res.status(404).send('Facility not found');
-      }
+      return res.status(500).send('Error fetching facility details');
     }
+
+    if (results.length === 0) {
+      return res.status(404).send('Facility not found');
+    }
+
+    const facility = results[0];
+    // Filter out the rows with publication data and map them into an array
+    const publications = results
+      .filter(row => row.publication_title) // Filter rows where publication details exist
+      .map(row => ({
+        id: row.publication_id,
+        title: row.publication_title,
+        link: row.publication_link,
+      }));
+
+    facility.publications = publications;
+    res.json(facility);
   });
 });
 
@@ -1050,72 +1054,118 @@ app.put("/api/facilities/:id", (req, res) => {
     price_external,
     price_r_and_d,
     price_industry,
+    publication_ids,  // Array of publication IDs to associate with the facility
   } = req.body;
 
-  // Corrected SQL Query
-  const query = `
-    UPDATE Facilities
-    SET 
-      name = ?, 
-      make_year = ?, 
-      model = ?, 
-      faculty_in_charge = ?, 
-      faculty_contact = ?, 
-      faculty_email = ?, 
-      operator_name = ?, 
-      operator_contact = ?, 
-      operator_email = ?, 
-      description = ?, 
-      specifications = ?, 
-      usage_details = ?, 
-      image_url = ?, 
-      category_id = ?, 
-      price_internal = ?, 
-      price_external = ?, 
-      price_r_and_d = ?, 
-      price_industry = ?
-    WHERE 
-      id = ?
-  `;
+  // Validate inputs
+  if (!name || !category_id) {
+    return res.status(400).json({ error: "Missing required fields: name or category_id" });
+  }
 
-  const values = [
-    name,
-    make_year,
-    model,
-    faculty_in_charge,
-    faculty_contact,
-    faculty_email,
-    operator_name,
-    operator_contact,
-    operator_email,
-    description,
-    specifications,
-    usage_details,
-    image_url,
-    category_id,
-    price_internal,
-    price_external,
-    price_r_and_d,
-    price_industry,
-    facilityId, // The last value corresponds to the `id` to match the `WHERE` clause
-  ];
-
-  db.query(query, values, (err, result) => {
+  // Check if category exists (basic validation)
+  const checkCategoryQuery = `SELECT * FROM Categories WHERE id = ?`;
+  db.query(checkCategoryQuery, [category_id], (err, categoryResults) => {
     if (err) {
-      console.error("Error updating facility:", err);
-      return res.status(500).json({ error: "Database update failed" });
+      console.error("Error checking category:", err);
+      return res.status(500).json({ error: "Error checking category" });
     }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Facility not found" });
+    if (categoryResults.length === 0) {
+      return res.status(400).json({ error: "Invalid category_id" });
     }
 
-    res.status(200).json({
-      message: "Facility updated successfully",
+    // SQL query for updating the facility
+    const query = `
+      UPDATE Facilities
+      SET 
+        name = ?, 
+        make_year = ?, 
+        model = ?, 
+        faculty_in_charge = ?, 
+        faculty_contact = ?, 
+        faculty_email = ?, 
+        operator_name = ?, 
+        operator_contact = ?, 
+        operator_email = ?, 
+        description = ?, 
+        specifications = ?, 
+        usage_details = ?, 
+        image_url = ?, 
+        category_id = ?, 
+        price_internal = ?, 
+        price_external = ?, 
+        price_r_and_d = ?, 
+        price_industry = ?
+      WHERE 
+        id = ?
+    `;
+
+    const values = [
+      name,
+      make_year,
+      model,
+      faculty_in_charge,
+      faculty_contact,
+      faculty_email,
+      operator_name,
+      operator_contact,
+      operator_email,
+      description,
+      specifications,
+      usage_details,
+      image_url,
+      category_id,
+      price_internal,
+      price_external,
+      price_r_and_d,
+      price_industry,
       facilityId,
+    ];
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error("Error updating facility:", err);
+        return res.status(500).json({ error: "Database update failed" });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+
+      // Now, handle the publication update (remove old ones and add new ones)
+      const deletePublicationsQuery = `DELETE FROM facility_publications WHERE facility_id = ?`;
+      db.query(deletePublicationsQuery, [facilityId], (err) => {
+        if (err) {
+          console.error("Error deleting old publications:", err);
+          return res.status(500).json({ error: "Error updating publications" });
+        }
+
+        if (publication_ids && publication_ids.length > 0) {
+          const insertPublicationsQuery = `INSERT INTO facility_publications (facility_id, publication_id) VALUES ?`;
+          const values = publication_ids.map(pubId => [facilityId, pubId]);
+
+          db.query(insertPublicationsQuery, [values], (err) => {
+            if (err) {
+              console.error("Error inserting new publications:", err);
+              return res.status(500).json({ error: "Error inserting new publications" });
+            }
+
+            res.status(200).json({
+              message: "Facility and publications updated successfully",
+              facilityId,
+            });
+          });
+        } else {
+          res.status(200).json({
+            message: "Facility updated successfully",
+            facilityId,
+          });
+        }
+      });
     });
   });
 });
+
 
 // API endpoint to fetch all publications
 app.get('/api/publications', (req, res) => {

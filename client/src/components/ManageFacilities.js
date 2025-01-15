@@ -1,268 +1,320 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./ManageFacilities.css";
 
 const ManageFacilities = () => {
   const [facilities, setFacilities] = useState([]);
   const [publications, setPublications] = useState([]);
-  const [name, setName] = useState("");
-  const [makeYear, setMakeYear] = useState("");
-  const [model, setModel] = useState("");
-  const [facultyInCharge, setFacultyInCharge] = useState("");
-  const [facultyContact, setFacultyContact] = useState("");
-  const [facultyEmail, setFacultyEmail] = useState("");
-  const [operatorName, setOperatorName] = useState("");
-  const [operatorContact, setOperatorContact] = useState("");
-  const [operatorEmail, setOperatorEmail] = useState("");
-  const [description, setDescription] = useState("");
-  const [specifications, setSpecifications] = useState("");
-  const [usageDetails, setUsageDetails] = useState("");
-  const [categoryId, setCategoryId] = useState(""); // Category name instead of ID
-  const [priceInternal, setPriceInternal] = useState("0.00");
-  const [priceExternal, setPriceExternal] = useState("0.00");
-  const [priceRandD, setPriceRandD] = useState("0.00");
-  const [priceIndustry, setPriceIndustry] = useState("0.00");
+  const [formData, setFormData] = useState({
+    name: "",
+    make_year: "",
+    model: "",
+    faculty_in_charge: "",
+    faculty_contact: "",
+    faculty_email: "",
+    operator_name: "",
+    operator_contact: "",
+    operator_email: "",
+    description: "",
+    specifications: "",
+    usage_details: "",
+    category_id: "",
+    price_internal: "0.00",
+    price_external: "0.00",
+    price_r_and_d: "0.00",
+    price_industry: "0.00",
+  });
   const [imageFile, setImageFile] = useState(null);
   const [selectedPublications, setSelectedPublications] = useState([]);
   const [error, setError] = useState(null);
+  const [editingFacilityId, setEditingFacilityId] = useState(null);
 
   useEffect(() => {
-    // Fetch existing facilities
-    axios
-      .get("http://localhost:5000/api/facilities")
-      .then((response) => {
-        setFacilities(response.data);
-      })
-      .catch((error) => {
-        setError("Error fetching facilities.");
-        console.error(error);
-      });
-
-    // Fetch publications for linking to facilities
-    axios
-      .get("http://localhost:5000/api/publications")
-      .then((response) => {
-        setPublications(response.data);
-      })
-      .catch((error) => {
-        setError("Error fetching publications.");
-        console.error(error);
-      });
+    fetchFacilities();
+    fetchPublications();
   }, []);
 
-  const handleAddFacility = (e) => {
-    e.preventDefault();
-
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("make_year", makeYear);
-    formData.append("model", model);
-    formData.append("faculty_in_charge", facultyInCharge);
-    formData.append("faculty_contact", facultyContact);
-    formData.append("faculty_email", facultyEmail);
-    formData.append("operator_name", operatorName);
-    formData.append("operator_contact", operatorContact);
-    formData.append("operator_email", operatorEmail);
-    formData.append("description", description);
-    formData.append("specifications", specifications);
-    formData.append("usage_details", usageDetails);
-    // Map category name to category_id (if necessary)
-    const categoryIdMapping = {
-      Laboratory: 1,
-      Equipment: 2,
-      Library: 3,
-      Workshop: 4,
-    };
-    const categoryMappedId = categoryIdMapping[categoryId] || null;
-    formData.append("category_id", categoryMappedId);
-
-    formData.append("price_internal", priceInternal);
-    formData.append("price_external", priceExternal);
-    formData.append("price_r_and_d", priceRandD);
-    formData.append("price_industry", priceIndustry);
-    if (imageFile) {
-      formData.append("image", imageFile);
+  const fetchFacilities = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/facilities");
+      setFacilities(response.data);
+    } catch (error) {
+      setError("Error fetching facilities.");
+      console.error(error);
     }
-
-    axios
-      .post("http://localhost:5000/api/facilities", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      })
-      .then((response) => {
-        setFacilities([...facilities, response.data]);
-            setName("");
-            setMakeYear("");
-            setModel("");
-            setFacultyInCharge("");
-            setFacultyContact("");
-            setFacultyEmail("");
-            setOperatorName("");
-            setOperatorContact("");
-            setOperatorEmail("");
-            setDescription("");
-            setSpecifications("");
-            setUsageDetails("");
-            setCategoryId("");
-            setPriceInternal("0.00");
-            setPriceExternal("0.00");
-            setPriceRandD("0.00");
-            setPriceIndustry("0.00");
-            setImageFile(null);
-            setSelectedPublications([]);
-          alert("Facility added successfully");
-      })
-      .catch((error) => {
-        setError("Error adding facility.");
-        console.error(error);
-      });
   };
 
-  const handleDeleteFacility = (facilityId) => {
-    axios
-      .delete(`http://localhost:5000/api/facilities/${facilityId}`)
-      .then(() => {
+  const fetchPublications = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/publications");
+      setPublications(response.data);
+    } catch (error) {
+      setError("Error fetching publications.");
+      console.error(error);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formDataToSend = new FormData();
+
+    Object.keys(formData).forEach(key => {
+      formDataToSend.append(key, formData[key]);
+    });
+
+    if (imageFile) {
+      formDataToSend.append("image", imageFile);
+    }
+
+    try {
+      if (editingFacilityId) {
+        await axios.put(`http://localhost:5000/api/facilities/${editingFacilityId}`, formDataToSend, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        alert("Facility updated successfully");
+      } else {
+        const response = await axios.post("http://localhost:5000/api/facilities", formDataToSend, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        setFacilities([...facilities, response.data]);
+        alert("Facility added successfully");
+      }
+      resetForm();
+      fetchFacilities();
+    } catch (error) {
+      setError(editingFacilityId ? "Error updating facility." : "Error adding facility.");
+      console.error(error);
+    }
+  };
+
+  const handleDeleteFacility = async (facilityId) => {
+    if (window.confirm("Are you sure you want to delete this facility?")) {
+      try {
+        await axios.delete(`http://localhost:5000/api/facilities/${facilityId}`);
         setFacilities(facilities.filter((facility) => facility.id !== facilityId));
-      })
-      .catch((error) => {
+      } catch (error) {
         setError("Error deleting facility.");
         console.error(error);
-      });
+      }
+    }
+  };
+
+  const handleEditFacility = (facility) => {
+    setEditingFacilityId(facility.id);
+    setFormData({
+      name: facility.name,
+      make_year: facility.make_year,
+      model: facility.model,
+      faculty_in_charge: facility.faculty_in_charge,
+      faculty_contact: facility.faculty_contact,
+      faculty_email: facility.faculty_email,
+      operator_name: facility.operator_name,
+      operator_contact: facility.operator_contact,
+      operator_email: facility.operator_email,
+      description: facility.description,
+      specifications: facility.specifications,
+      usage_details: facility.usage_details,
+      category_id: facility.category_id,
+      price_internal: facility.price_internal,
+      price_external: facility.price_external,
+      price_r_and_d: facility.price_r_and_d,
+      price_industry: facility.price_industry,
+    });
+    setSelectedPublications(facility.publications.map(pub => pub.id));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      make_year: "",
+      model: "",
+      faculty_in_charge: "",
+      faculty_contact: "",
+      faculty_email: "",
+      operator_name: "",
+      operator_contact: "",
+      operator_email: "",
+      description: "",
+      specifications: "",
+      usage_details: "",
+      category_id: "",
+      price_internal: "0.00",
+      price_external: "0.00",
+      price_r_and_d: "0.00",
+      price_industry: "0.00",
+    });
+    setImageFile(null);
+    setSelectedPublications([]);
+    setEditingFacilityId(null);
   };
 
   return (
-    <div className="manage-facilities-container">
-      <h2>Manage Facilities</h2>
+    <div className="container mx-auto px-4 py-8">
+      <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">Manage Facilities</h2>
 
-      {error && <p className="error-message">{error}</p>}
+      {error && <p className="text-red-500 mb-4">{error}</p>}
 
-      <div className="facility-form-container">
-        <h3>Add New Facility</h3>
-        <form onSubmit={handleAddFacility} className="facility-form">
-          {/* Facility Details */}
-          <input
-            type="text"
-            placeholder="Facility Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <input
-            type="number"
-            placeholder="Make Year"
-            value={makeYear}
-            onChange={(e) => setMakeYear(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Model"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Faculty In Charge"
-            value={facultyInCharge}
-            onChange={(e) => setFacultyInCharge(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Faculty Contact"
-            value={facultyContact}
-            onChange={(e) => setFacultyContact(e.target.value)}
-          />
-          <input
-            type="email"
-            placeholder="Faculty Email"
-            value={facultyEmail}
-            onChange={(e) => setFacultyEmail(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Operator Name"
-            value={operatorName}
-            onChange={(e) => setOperatorName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Operator Contact"
-            value={operatorContact}
-            onChange={(e) => setOperatorContact(e.target.value)}
-          />
-          <input
-            type="email"
-            placeholder="Operator Email"
-            value={operatorEmail}
-            onChange={(e) => setOperatorEmail(e.target.value)}
-          />
+      <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+        <h3 className="text-xl font-semibold mb-4">{editingFacilityId ? "Edit Facility" : "Add New Facility"}</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Facility Name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="number"
+              placeholder="Make Year"
+              name="make_year"
+              value={formData.make_year}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Model"
+              name="model"
+              value={formData.model}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Faculty In Charge"
+              name="faculty_in_charge"
+              value={formData.faculty_in_charge}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Faculty Contact"
+              name="faculty_contact"
+              value={formData.faculty_contact}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="email"
+              placeholder="Faculty Email"
+              name="faculty_email"
+              value={formData.faculty_email}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Operator Name"
+              name="operator_name"
+              value={formData.operator_name}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Operator Contact"
+              name="operator_contact"
+              value={formData.operator_contact}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="email"
+              placeholder="Operator Email"
+              name="operator_email"
+              value={formData.operator_email}
+              onChange={handleInputChange}
+            />
+          </div>
           <textarea
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
           />
           <textarea
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             placeholder="Specifications"
-            value={specifications}
-            onChange={(e) => setSpecifications(e.target.value)}
+            name="specifications"
+            value={formData.specifications}
+            onChange={handleInputChange}
           />
           <textarea
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             placeholder="Usage Details"
-            value={usageDetails}
-            onChange={(e) => setUsageDetails(e.target.value)}
+            name="usage_details"
+            value={formData.usage_details}
+            onChange={handleInputChange}
           />
-
-          {/* Category Selection */}
           <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            name="category_id"
+            value={formData.category_id}
+            onChange={handleInputChange}
             required
           >
             <option value="">Select Category</option>
-            <option value="Laboratory">Laboratory</option>
-            <option value="Equipment">Equipment</option>
-            <option value="Library">Library</option>
-            <option value="Workshop">Workshop</option>
+            <option value="1">Laboratory</option>
+            <option value="2">Equipment</option>
+            <option value="3">Library</option>
+            <option value="4">Workshop</option>
           </select>
-
-          {/* Price Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="number"
+              step="0.01"
+              placeholder="Price for Internal Users"
+              name="price_internal"
+              value={formData.price_internal}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="number"
+              step="0.01"
+              placeholder="Price for External Users"
+              name="price_external"
+              value={formData.price_external}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="number"
+              step="0.01"
+              placeholder="Price for R&D"
+              name="price_r_and_d"
+              value={formData.price_r_and_d}
+              onChange={handleInputChange}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="number"
+              step="0.01"
+              placeholder="Price for Industry"
+              name="price_industry"
+              value={formData.price_industry}
+              onChange={handleInputChange}
+            />
+          </div>
           <input
-            type="number"
-            step="0.01"
-            placeholder="Price for Internal Users"
-            value={priceInternal}
-            onChange={(e) => setPriceInternal(e.target.value)}
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Price for External Users"
-            value={priceExternal}
-            onChange={(e) => setPriceExternal(e.target.value)}
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Price for R&D"
-            value={priceRandD}
-            onChange={(e) => setPriceRandD(e.target.value)}
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Price for Industry"
-            value={priceIndustry}
-            onChange={(e) => setPriceIndustry(e.target.value)}
-          />
-
-          {/* Image Upload */}
-          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             type="file"
             onChange={(e) => setImageFile(e.target.files[0])}
           />
-
-          {/* Publications */}
           <select
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             multiple
             value={selectedPublications}
             onChange={(e) =>
@@ -275,20 +327,43 @@ const ManageFacilities = () => {
               </option>
             ))}
           </select>
-
-          <button type="submit">Add Facility</button>
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            type="submit"
+          >
+            {editingFacilityId ? "Update Facility" : "Add Facility"}
+          </button>
+          {editingFacilityId && (
+            <button
+              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2"
+              onClick={resetForm}
+            >
+              Cancel Edit
+            </button>
+          )}
         </form>
       </div>
 
-      <div className="facility-list">
-        <h3>Existing Facilities</h3>
-        <ul>
+      <div className="bg-white shadow-md rounded px-8 pt-6 pb-8">
+        <h3 className="text-xl font-semibold mb-4">Existing Facilities</h3>
+        <ul className="divide-y divide-gray-200">
           {facilities.map((facility) => (
-            <li key={facility.id}>
-              <span>{facility.name}</span>
-              <button onClick={() => handleDeleteFacility(facility.id)}>
-                Delete
-              </button>
+            <li key={facility.id} className="py-4 flex justify-between items-center">
+              <span className="text-lg font-medium text-gray-900">{facility.name}</span>
+              <div>
+                <button
+                  onClick={() => handleEditFacility(facility)}
+                  className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded mr-2"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteFacility(facility.id)}
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -298,3 +373,4 @@ const ManageFacilities = () => {
 };
 
 export default ManageFacilities;
+

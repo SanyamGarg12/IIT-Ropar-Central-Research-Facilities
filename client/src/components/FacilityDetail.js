@@ -49,7 +49,7 @@ export default function FacilityDetail() {
       try {
         const response = await fetch(`http://localhost:5000/api/facility/${id}`);
         const data = await response.json();
-
+        console.log(data);
         if (data) {
           setFacility(data);
         } else {
