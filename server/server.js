@@ -1666,6 +1666,35 @@ app.delete('/operator/slots', (req, res) => {
   });
 });
 
+app.get('/api/user-history/:userId', authenticateToken, (req, res) => {
+  // console.log("Hellooo", req.params);
+  const { userId } = req.params;
+
+  // Query to fetch booking history along with facility name and schedule details
+  const query = `
+    SELECT 
+      bh.booking_id,
+      f.name AS facility_name,
+      fs.start_time,
+      fs.end_time,
+      bh.status,
+      bh.booking_date
+    FROM bookinghistory bh
+    JOIN facilities f ON bh.facility_id = f.id
+    JOIN facilityschedule fs ON bh.schedule_id = fs.schedule_id
+    WHERE bh.user_id = ?`;
+
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to fetch booking history' });
+    }
+
+    res.json(results);
+  });
+});
+
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Start the server

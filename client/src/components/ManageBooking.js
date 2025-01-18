@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, Loader2, Upload } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Upload, Eye } from 'lucide-react';
+import UserHistoryModal from './UserHistoryModal';
 
 const ManageBooking = () => {
   const [bookingRequests, setBookingRequests] = useState([]);
@@ -9,6 +10,8 @@ const ManageBooking = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   const operatorEmail = localStorage.getItem('userEmail');
   const authToken = localStorage.getItem('userToken');
@@ -67,7 +70,6 @@ const ManageBooking = () => {
 
     const formData = new FormData();
     formData.append('file', file);
-    // formData.append('userId', userId);
     formData.append('bookingId', bookingId);
     formData.append('resultDate', new Date());
 
@@ -90,6 +92,11 @@ const ManageBooking = () => {
     } finally {
       setUploadingId(null);
     }
+  };
+
+  const handleViewUserHistory = (userId, userName) => {
+    setSelectedUser({ id: userId, name: userName });
+    setIsHistoryModalOpen(true);
   };
 
   if (loading) {
@@ -151,7 +158,7 @@ const ManageBooking = () => {
             <AnimatePresence>
               {bookingRequests.map((request) => (
                 <motion.li
-                  key={request.id}
+                  key={request.booking_id}
                   initial={{ opacity: 0, y: 50 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -50 }}
@@ -160,7 +167,16 @@ const ManageBooking = () => {
                   <div className="p-6">
                     <h2 className="text-2xl font-semibold mb-4 text-gray-800">{request.facilityName}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                      <p className="text-gray-600"><span className="font-medium">User:</span> {request.user_name}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-gray-600"><span className="font-medium">User:</span> {request.user_name}</p>
+                        <button
+                          onClick={() => handleViewUserHistory(request.user_id, request.user_name)}
+                          className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-full transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 flex items-center"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View History
+                        </button>
+                      </div>
                       <p className="text-gray-600"><span className="font-medium">Date:</span> {request.booking_date}</p>
                       <p className="text-gray-600"><span className="font-medium">Facility Name:</span> {request.facility_name}</p>
                       <p className="text-gray-600"><span className="font-medium">Cost:</span> {request.cost}</p>
@@ -186,7 +202,7 @@ const ManageBooking = () => {
                             id={`file-upload-${request.booking_id}`}
                             className="hidden"
                             accept=".zip"
-                            onChange={(e) => handleFileUpload(request.booking_id, e.target.files[0], request.user_id)}
+                            onChange={(e) => handleFileUpload(request.booking_id, e.target.files[0])}
                           />
                           <label
                             htmlFor={`file-upload-${request.booking_id}`}
@@ -212,6 +228,12 @@ const ManageBooking = () => {
           </ul>
         )}
       </div>
+      <UserHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        userId={selectedUser?.id}
+        userName={selectedUser?.name}
+      />
     </div>
   );
 };
