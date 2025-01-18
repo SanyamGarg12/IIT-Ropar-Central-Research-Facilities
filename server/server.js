@@ -1504,6 +1504,50 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   });
 });
 
+app.get('/api/weekly-slots',  (req, res) => {
+  const { facilityId } = req.query;  // Changed from operatorId to facilityId
+
+  if (!facilityId) {
+    return res.status(400).json({ message: 'Facility ID is required' });
+  }
+
+  // Query to fetch the selected facility
+  db.query('SELECT id, name FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to fetch facility' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Facility not found' });
+    }
+
+    const facility = rows[0];  // Assuming only one facility is returned
+
+    // Query to fetch the schedule for the selected facility
+    db.query('SELECT weekday, start_time, end_time FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Failed to fetch schedule' });
+      }
+
+      const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
+        if (!acc[weekday]) acc[weekday] = [];
+        acc[weekday].push({ start_time, end_time });
+        return acc;
+      }, {});
+
+      // Return the facility with its corresponding slots
+      res.json({
+        facility: {
+          id: facility.id,
+          name: facility.name,
+          slots: slots,
+        },
+      });
+    });
+  });
+});
 
 // Fetch facilities and their slots for an operator
 app.get('/facilities/slots', authenticateToken, (req, res) => {
