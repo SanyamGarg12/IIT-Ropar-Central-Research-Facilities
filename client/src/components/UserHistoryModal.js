@@ -16,12 +16,11 @@ const UserHistoryModal = ({ isOpen, onClose, userId, userName }) => {
 
   const fetchUserHistory = async () => {
     try {
-        // console.log("userId: ", userId);
-        setLoading(true);
-        const response = await axios.get(`http://localhost:5000/api/user-history/${userId}`, {
-            headers: { Authorization: `${localStorage.getItem('userToken')}` }
-          });          
-        setUserHistory(response.data);
+      setLoading(true);
+      const response = await axios.get(`http://localhost:5000/api/user-history/${userId}`, {
+        headers: { Authorization: `${localStorage.getItem('userToken')}` }
+      });
+      setUserHistory(response.data);
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch user history. Please try again later.');
@@ -47,8 +46,13 @@ const UserHistoryModal = ({ isOpen, onClose, userId, userName }) => {
         >
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold text-gray-800">Booking History for {userName}</h2>
-              <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Booking History for {userName}
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -65,21 +69,41 @@ const UserHistoryModal = ({ isOpen, onClose, userId, userName }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facility Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Booking</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Facility Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Start Time
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        End Time
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date of Booking
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {userHistory.map((booking) => (
                       <tr key={booking.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.facility_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.start_time}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.end_time}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.status}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.booking_date}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {booking.facility_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {booking.start_time}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {booking.end_time}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {booking.status}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {booking.booking_date}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
