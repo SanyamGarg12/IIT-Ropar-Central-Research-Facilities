@@ -25,6 +25,7 @@ import AddOperator from "./components/AddOperator";
 import OperatorChangePassword from "./components/operatorChangePassword";
 import ModPassword from "./components/ModPassword";
 import AddSlots from "./components/AddSlots"; 
+import UsersRequests from "./components/UsersRequests";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -112,6 +113,7 @@ const App = () => {
                       <Route path="/addoperator" element={<AddOperator />} />
                       <Route path="/opchangepass" element={<OperatorChangePassword />} />
                       <Route path="/modpass" element={<ModPassword />} />
+                      <Route path="/approveUsers" element={<UsersRequests />} />
                       <Route path="/addslots" element={<AddSlots />} />
                     </Routes>
                   </div>

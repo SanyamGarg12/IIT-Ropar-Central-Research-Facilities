@@ -11,17 +11,30 @@ function Register() {
     password: '',
     userType: 'Internal', // Default value matching ENUM
     contactNumber: '',
+    orgName: '',
+    idProof: null
   });
 
   const handleChange = (e) => {
     setUserDetails({ ...userDetails, [e.target.name]: e.target.value });
   };
 
+  const handleFileChange = (e) => {
+    setUserDetails({ ...userDetails, idProof: e.target.files[0] });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const formData = new FormData();
+    
+    for (const key in userDetails) {
+      formData.append(key, userDetails[key]);
+    }
+
     try {
-      const response = await axios.post('http://localhost:5000/api/register', userDetails);
-      // localStorage.setItem('token', response.data.token);
+      const response = await axios.post('http://localhost:5000/api/register', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       alert(response.data.message);
       navigate('/login');
     } catch (err) {
@@ -35,33 +48,15 @@ function Register() {
       <form onSubmit={handleSubmit}>
         <label>
           Full Name:
-          <input
-            type="text"
-            name="fullName"
-            value={userDetails.fullName}
-            onChange={handleChange}
-            required
-          />
+          <input type="text" name="fullName" value={userDetails.fullName} onChange={handleChange} required />
         </label>
         <label>
           Email:
-          <input
-            type="email"
-            name="email"
-            value={userDetails.email}
-            onChange={handleChange}
-            required
-          />
+          <input type="email" name="email" value={userDetails.email} onChange={handleChange} required />
         </label>
         <label>
           Password:
-          <input
-            type="password"
-            name="password"
-            value={userDetails.password}
-            onChange={handleChange}
-            required
-          />
+          <input type="password" name="password" value={userDetails.password} onChange={handleChange} required />
         </label>
         <label>
           User Type:
@@ -74,12 +69,15 @@ function Register() {
         </label>
         <label>
           Contact Number (Optional):
-          <input
-            type="tel"
-            name="contactNumber"
-            value={userDetails.contactNumber}
-            onChange={handleChange}
-          />
+          <input type="tel" name="contactNumber" value={userDetails.contactNumber} onChange={handleChange} />
+        </label>
+        <label>
+          Organization Name:
+          <input type="text" name="orgName" value={userDetails.orgName} onChange={handleChange} />
+        </label>
+        <label>
+          Upload ID Proof:
+          <input type="file" name="idProof" onChange={handleFileChange} required />
         </label>
         <button type="submit">Register</button>
       </form>

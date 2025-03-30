@@ -5,11 +5,12 @@ const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 require("dotenv").config();
 const app = express();
 const port = 5000;
-const JWT_SECRET = 'abcd';
+const JWT_SECRET = 'sdfadfs';
 // Enable CORS for cross-origin requests
 app.use(cors());
 
@@ -548,8 +549,17 @@ app.post('/api/modifypassword', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/register', async (req, res) => {
-  const { fullName, email, password, userType, contactNumber } = req.body;
+app.post('/api/register', upload.single('idProof'), async (req, res) => {
+  const { fullName, email, password, userType, contactNumber, orgName } = req.body;
+  const uploadDir = path.join(__dirname, 'uploads');
+  // Generate a unique filename to avoid conflicts
+  let idProofPath = null;
+  if (req.file) {
+    const uniqueName = `${Date.now()}-${crypto.randomUUID()}${path.extname(req.file.originalname)}`;
+    const newPath = path.join(uploadDir, uniqueName);
+    fs.renameSync(req.file.path, newPath);
+    idProofPath = `uploads/${uniqueName}`;
+  }
 
   // Input validation
   if (!fullName || !email || !password || !userType) {
@@ -562,10 +572,11 @@ app.post('/api/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // SQL query for inserting a new user
-    const query = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number) VALUES (?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number, org_name, id_proof) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
     // Execute the query
-    db.query(query, [fullName, email, passwordHash, userType, contactNumber || null], (err, result) => {
+    db.query(query, [fullName, email, passwordHash, userType, contactNumber || null, orgName || null, idProofPath], (err, result) => {
       if (err) {
         console.error(err);
         if (err.code === 'ER_DUP_ENTRY') {
@@ -581,6 +592,7 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ message: 'An error occurred during registration.' });
   }
 });
+
 
 app.get('/api/facility/:id', (req, res) => {
   const facilityId = req.params.id;
@@ -679,6 +691,12 @@ app.post("/login", (req, res) => {
     }
 
     const user = results[0];
+
+    // Check if the user is verified
+    if (user.verified !== "YES") {
+      return res.status(403).json({ message: "User is not verified." });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isPasswordValid) {
@@ -690,6 +708,7 @@ app.post("/login", (req, res) => {
       JWT_SECRET,
       { expiresIn: "1h" }
     );
+
     // Log login event with timestamp
     const logQuery =
       "INSERT INTO LoginLogoutHistory (user_id, login_time) VALUES (?, NOW())";
@@ -707,7 +726,25 @@ app.post("/login", (req, res) => {
         console.error("Failed to delete old log entries:", err);
       }
     });
+
     res.status(200).json({ token });
+  });
+});
+
+app.get("/api/users/not-verified", (req, res) => {
+  const query = "SELECT * FROM Users WHERE verified = 'NO'";
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ message: "Server error." });
+    res.status(200).json(results);
+  });
+});
+
+app.post("/api/users/verify/:userId", (req, res) => {
+  const { userId } = req.params;
+  const query = "UPDATE Users SET verified = 'YES' WHERE user_id = ?";
+  db.query(query, [userId], (err, result) => {
+    if (err) return res.status(500).json({ message: "Server error." });
+    res.status(200).json({ message: "User verified successfully." });
   });
 });
 

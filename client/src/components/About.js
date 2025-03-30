@@ -35,16 +35,6 @@ function About() {
   return (
     <section className="about bg-gray-100">
       <div className="container mx-auto px-4 py-12">
-        {/* Message from the Director */}
-        <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">{aboutContent.messageFromDirector.title}</h2>
-        <div className="flex flex-col md:flex-row items-center mb-16">
-          <img src="/assets/director.jpg" alt="Director" className="w-64 h-64 rounded-full object-cover shadow-lg mb-8 md:mb-0 md:mr-12" />
-          <div className="about-text space-y-4">
-            {aboutContent.messageFromDirector.content.map((para, index) => (
-              <p key={index} className="text-lg text-gray-700 leading-relaxed">{para}</p>
-            ))}
-          </div>
-        </div>
 
         {/* Department Introduction */}
         <section className="mb-16">

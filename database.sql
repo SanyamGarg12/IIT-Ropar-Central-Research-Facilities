@@ -87,24 +87,19 @@ VALUES
 
 
 -- Create the Users table
-CREATE TABLE Users (
+CREATE TABLE Users ( 
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     user_type ENUM('Internal', 'External Academic', 'R&D Lab', 'Industry') NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     contact_number VARCHAR(15),
-    profile_details TEXT,
+    org_name VARCHAR(255),  -- Organization name column
+    id_proof VARCHAR(512),  -- File path of ID proof (increased length to store full path)
+    verified ENUM('YES', 'NO') DEFAULT 'NO',  -- Verification status column
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default data into Users table
-INSERT INTO Users (user_type, full_name, email, password_hash, contact_number, profile_details)
-VALUES
-    ('Internal', 'Alice Smith', 'alice@internal.com', 'hashed_password_1', '1234567890', 'Internal researcher specializing in physics.'),
-    ('External Academic', 'Bob Johnson', 'bob@academic.com', 'hashed_password_2', '0987654321', 'Visiting professor from XYZ University.'),
-    ('R&D Lab', 'Charlie Lee', 'charlie@rdlab.com', 'hashed_password_3', '5678901234', 'Researcher working in nanotechnology.'),
-    ('Industry', 'Diana Brown', 'diana@industry.com', 'hashed_password_4', '6789012345', 'Industry professional in the field of AI.');
 
 CREATE TABLE facility_publications (
   facility_id INT,
@@ -314,7 +309,7 @@ VALUES
 CREATE TABLE management_cred (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    pass VARCHAR(255) NOT NULL,
+    Pass VARCHAR(255) NOT NULL,
     Position VARCHAR(255) NOT NULL
 );
 
@@ -347,3 +342,4 @@ CREATE TABLE User_Publications (
     status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
+
