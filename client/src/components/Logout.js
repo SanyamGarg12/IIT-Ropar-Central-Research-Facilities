@@ -27,6 +27,7 @@ const Logout = () => {
 
                 // Clear user data from local storage
                 localStorage.removeItem("authToken");
+                localStorage.removeItem("ClientUserId");
                 navigate("/login");
             }
         } catch (error) {

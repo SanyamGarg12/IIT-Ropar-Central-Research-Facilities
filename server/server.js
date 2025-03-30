@@ -692,9 +692,8 @@ app.post("/login", (req, res) => {
 
     const user = results[0];
 
-    // Check if the user is verified
     if (user.verified !== "YES") {
-      return res.status(403).json({ message: "User is not verified." });
+      return res.status(403).json({ message: "User email ID is not verified. If you have registered recently please wait for approval or contact the admin directly(if urgent)!" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
@@ -782,6 +781,23 @@ app.post('/api/admin/login', (req, res) => {
       position: user.Position,
       email: user.email,
     });
+  });
+});
+
+app.get("/api/UserProfile/:email", (req, res) => {
+  const { email } = req.params;
+
+  const query = `SELECT * FROM Users WHERE email = ?`;
+
+  db.query(query, [email], (err, result) => {
+    if (err) {
+      console.error("Error fetching user:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+    if (result.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(result[0]);
   });
 });
 
@@ -907,7 +923,7 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/op-change-password',  (req, res) => {
+app.post('/api/op-change-password', (req, res) => {
   const { oldPassword, newPassword, userEmail } = req.body;
 
   // Validate input
@@ -1541,7 +1557,7 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   });
 });
 
-app.get('/api/weekly-slots',  (req, res) => {
+app.get('/api/weekly-slots', (req, res) => {
   const { facilityId } = req.query;  // Changed from operatorId to facilityId
 
   if (!facilityId) {

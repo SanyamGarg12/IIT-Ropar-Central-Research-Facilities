@@ -1,10 +1,12 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Clock, FileText, Calendar } from 'lucide-react';
+import { Clock, FileText, Calendar, User } from 'lucide-react';
 
 function Sidebar({ setActiveOption, activeOption, navItems }) {
   const getIcon = (item) => {
     switch (item) {
+      case "User Profile":
+        return <User className="h-5 w-5" />;
       case "Booking History":
         return <Clock className="h-5 w-5" />;
       case "Publications":

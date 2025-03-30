@@ -12,7 +12,7 @@ import { User, ChevronDown } from 'lucide-react';
 
 function Booking() {
   const authToken = localStorage.getItem("authToken");
-  const [activeOption, setActiveOption] = useState("Booking History");
+  const [activeOption, setActiveOption] = useState("User Profile");
   const [userType, setUserType] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -33,18 +33,18 @@ function Booking() {
     return <Navigate to="/login" />;
   }
 
-  const navItems = ["Booking History", "Publications", "Booking Facility"];
+  const navItems = ["User Profile","Booking History", "Publications", "Booking Facility"];
 
   const renderActiveSection = () => {
     switch (activeOption) {
+      case "User Profile":
+        return <UserProfile />;
       case "Booking History":
         return <BookingHistory />;
       case "Publications":
         return <UserPublications />;
       case "Booking Facility":
         return <BookingFacility />;
-      case "User Profile":
-        return <UserProfile />;
       case "Change Password":
         return <ChangePassword />;
       case "Logout":
