@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 import {
   fetchFacilities,

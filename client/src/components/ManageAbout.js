@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ManageAbout.css';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const ManageAbout = () => {
   const [aboutContent, setAboutContent] = useState(null);
 
   useEffect(() => {
     // Fetch the current about content from the backend
-    axios.get('http://localhost:5000/api/aboutContent')
+    axios.get(`${API_BASED_URL}api/aboutContent`)
       .then(response => {
         setAboutContent(response.data);
       })
@@ -62,7 +62,7 @@ const ManageAbout = () => {
 
   const handleSaveChanges = () => {
     // Send the updated about content to the server to save it
-    axios.post('http://localhost:5000/api/saveAboutContent', aboutContent)
+    axios.post(`${API_BASED_URL}api/saveAboutContent`, aboutContent)
       .then(() => {
         alert('Changes saved successfully');
       })

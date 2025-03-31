@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PrinterIcon as Printer3d, Info, Settings, User, Mail, Phone, ExternalLink, Facebook, Twitter, Instagram } from 'lucide-react';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `http://localhost:5000/uploads/${imagePath}`;
+  return `${API_BASED_URL}uploads/${imagePath}`;
 };
 
 const fadeInUp = {
@@ -48,7 +48,7 @@ export default function FacilityDetail() {
   useEffect(() => {
     const fetchFacilityDetails = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/facility/${id}`);
+        const response = await fetch(`${API_BASED_URL}api/facility/${id}`);
         const data = await response.json();
         console.log(data);
         if (data) {

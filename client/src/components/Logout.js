@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const Logout = () => {
     const navigate = useNavigate();

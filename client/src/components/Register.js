@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import './Register.css';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 function Register() {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ function Register() {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/register', formData, {
+      const response = await axios.post(`${API_BASED_URL}api/register`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       alert(response.data.message);

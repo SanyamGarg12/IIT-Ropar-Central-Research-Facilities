@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, Upload, Eye } from 'lucide-react';
 import UserHistoryModal from './UserHistoryModal';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const ManageBooking = () => {
   const [bookingRequests, setBookingRequests] = useState([]);
@@ -24,7 +24,7 @@ const ManageBooking = () => {
   const fetchBookingRequests = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/booking-requests', {
+      const response = await axios.get(`${API_BASED_URL}api/booking-requests`, {
         params: { operatorEmail },
         headers: { Authorization: `${authToken}` }
       });
@@ -38,7 +38,7 @@ const ManageBooking = () => {
 
   const handleBookingAction = async (bookingId, action) => {
     try {
-      await axios.post('http://localhost:5000/api/handle-booking', {
+      await axios.post(`${API_BASED_URL}api/handle-booking`, {
         bookingId,
         action,
         operatorEmail
@@ -76,7 +76,7 @@ const ManageBooking = () => {
 
     try {
       setUploadingId(bookingId);
-      await axios.post('http://localhost:5000/api/upload-results', formData, {
+      await axios.post(`${API_BASED_URL}api/upload-results`, formData, {
         headers: { 
           'Content-Type': 'multipart/form-data',
           Authorization: `${authToken}`

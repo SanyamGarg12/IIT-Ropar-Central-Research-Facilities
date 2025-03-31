@@ -1,4 +1,4 @@
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 

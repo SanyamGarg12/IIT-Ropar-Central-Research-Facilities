@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import axios from 'axios'
 import { motion } from 'framer-motion'
 import { toast, Toaster } from 'react-hot-toast'
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const AddOperator = () => {
     const [operatorId, setOperatorId] = useState('')

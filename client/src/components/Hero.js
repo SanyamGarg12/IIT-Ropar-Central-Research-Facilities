@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 // import Videos from "./Videos";
 import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from "./Footer";
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `http://localhost:5000/uploads/${imagePath}`;
+  return `${API_BASED_URL}uploads/${imagePath}`;
 };
 const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(0);

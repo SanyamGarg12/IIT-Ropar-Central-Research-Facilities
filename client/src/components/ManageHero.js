@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Trash2 } from 'lucide-react'
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `http://localhost:5000/uploads/${imagePath}`;
+  return `${API_BASED_URL}uploads/${imagePath}`;
 };
 
 export default function ManageHero() {

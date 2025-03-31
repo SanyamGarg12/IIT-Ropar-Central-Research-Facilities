@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { FaPhone, FaEnvelope, FaBuilding, FaGraduationCap } from 'react-icons/fa';
 import Footer from './Footer';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const People = () => {
   const [members, setMembers] = useState([]);
@@ -14,8 +14,8 @@ const People = () => {
   useEffect(() => {
     setIsLoading(true);
     Promise.all([
-      axios.get('http://localhost:5000/api/members'),
-      axios.get('http://localhost:5000/api/staff')
+      axios.get(`${API_BASED_URL}api/members`),
+      axios.get(`${API_BASED_URL}api/staff`)
     ])
       .then(([membersResponse, staffResponse]) => {
         setMembers(membersResponse.data);
@@ -59,7 +59,7 @@ const People = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    return `http://localhost:5000/uploads/${imagePath}`;
+    return `${API_BASED_URL}uploads/${imagePath}`;
   };
 
   const containerVariants = {

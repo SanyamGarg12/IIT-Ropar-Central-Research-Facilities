@@ -3,7 +3,7 @@ import axios from 'axios'
 import { motion } from 'framer-motion'
 import Footer from './Footer'
 import { Loader2 } from 'lucide-react'
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 function Forms() {
   const [forms, setForms] = useState([])

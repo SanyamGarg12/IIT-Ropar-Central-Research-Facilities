@@ -3,7 +3,7 @@ import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download } from 'lucide-react'
 import { jwtDecode } from "jwt-decode";
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 export default function BookingHistory() {
   const [history, setHistory] = useState([])
@@ -28,7 +28,7 @@ export default function BookingHistory() {
   const fetchBookingHistory = async () => {
     setIsLoading(true)
     try {
-      const response = await axios.get('http://localhost:5000/api/booking-history', {
+      const response = await axios.get(`${API_BASED_URL}api/booking-history`, {
         headers: { Authorization: `${authToken}` },
       })
       setHistory(response.data)
@@ -43,7 +43,7 @@ export default function BookingHistory() {
   const fetchResults = async (bookingId) => {
     setLoadingResults(prev => ({ ...prev, [bookingId]: true }))
     try {
-      const response = await axios.get(`http://localhost:5000/api/results/${userId}/${bookingId}`, {
+      const response = await axios.get(`${API_BASED_URL}api/results/${userId}/${bookingId}`, {
         headers: { Authorization: `${authToken}` },
       })
       setResults(prevResults => ({
@@ -64,7 +64,7 @@ export default function BookingHistory() {
   const downloadResults = async (bookingId) => {
     try {
       // First, get the file path from the API
-      const filePathResponse = await axios.get(`http://localhost:5000/api/results/${userId}/${bookingId}`, {
+      const filePathResponse = await axios.get(`${API_BASED_URL}api/results/${userId}/${bookingId}`, {
         headers: { Authorization: `${authToken}` },
       });
       
@@ -76,7 +76,7 @@ export default function BookingHistory() {
       }
       
       // Now, download the file using the obtained file path
-      const downloadResponse = await axios.get(`http://localhost:5000/uploads/${filePath}`, {
+      const downloadResponse = await axios.get(`${API_BASED_URL}uploads/${filePath}`, {
         headers: { Authorization: `${authToken}` },
         responseType: 'blob', // Important for file download
       });

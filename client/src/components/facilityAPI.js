@@ -1,7 +1,7 @@
 import axios from 'axios';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = `${API_BASED_URL}api`;
 
 export const fetchFacilities = async () => {
   try {

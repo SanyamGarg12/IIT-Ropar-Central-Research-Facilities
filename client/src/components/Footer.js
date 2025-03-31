@@ -1,7 +1,7 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram } from 'lucide-react';
 import { motion } from 'framer-motion';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const Footer = () => {
   const containerVariants = {

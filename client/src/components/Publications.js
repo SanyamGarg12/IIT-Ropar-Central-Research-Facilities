@@ -1,10 +1,9 @@
-"use client"
-
-import React, { useEffect, useState } from 'react'
-import axios from 'axios'
-import { motion } from 'framer-motion'
-import { Loader2 } from 'lucide-react'
-import Footer from './Footer'
+import { API_BASED_URL } from '../config.js';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
+import Footer from './Footer';
 
 const Publications = () => {
   const [publications, setPublications] = useState([])
@@ -14,7 +13,7 @@ const Publications = () => {
   useEffect(() => {
     const fetchPublications = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/publications')
+        const response = await axios.get(`${API_BASED_URL}api/publications`)
         setPublications(response.data)
         setIsLoading(false)
       } catch (error) {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Footer from './Footer';
 import { Mail, MapPin, Plane, Train } from 'lucide-react';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const ContactUs = () => {
   const fadeInUp = {

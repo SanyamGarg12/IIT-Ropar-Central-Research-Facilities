@@ -1,4 +1,4 @@
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 import { useEffect, useState } from "react"
 import axios from "axios"
 
@@ -143,7 +143,7 @@ const UsersRequests = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {user.id_proof ? (
                       <a
-                        href={`http://localhost:5000/${user.id_proof}`}
+                        href={`${API_BASED_URL}${user.id_proof}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"

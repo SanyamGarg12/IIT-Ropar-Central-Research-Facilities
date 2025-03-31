@@ -1,4 +1,4 @@
-import {API_BASED_URL} from '../App.js'; 
+import { API_BASED_URL } from '../config.js';
 import { useState, useEffect } from 'react'
 
 export default function ManagePublication() {
@@ -75,7 +75,7 @@ export default function ManagePublication() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Manage Publications</h1>
-      
+
       <form onSubmit={handleSubmit} className="mb-8">
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title</label>

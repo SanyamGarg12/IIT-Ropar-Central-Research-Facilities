@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 function BookingFacility({ authToken }) {
   const [facilityId, setFacilityId] = useState("");
@@ -65,7 +65,7 @@ function BookingFacility({ authToken }) {
     setIsLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/slots?facility_id=${facilityId}&date=${date}`
+        `${API_BASED_URL}api/slots?facility_id=${facilityId}&date=${date}`
       );
       setAvailableSlots(response.data.slots);
     } catch (err) {
@@ -84,7 +84,7 @@ function BookingFacility({ authToken }) {
     setIsLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/weekly-slots?facilityId=${facilityId}`
+        `${API_BASED_URL}api/weekly-slots?facilityId=${facilityId}`
       );
       setWeeklySlots(response.data.facility);
     } catch (err) {
@@ -98,7 +98,7 @@ function BookingFacility({ authToken }) {
   useEffect(() => {
     const fetchFacilities = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/facilities");
+        const response = await axios.get(`${API_BASED_URL}api/facilities`);
         setFacilities(response.data);
         if (response.data.length > 0) {
           setFacilityId(response.data[0].id);
@@ -133,7 +133,7 @@ function BookingFacility({ authToken }) {
 
     axios
       .post(
-        "http://localhost:5000/api/booking",
+        `${API_BASED_URL}api/booking`,
         {
           facility_id: facilityId,
           date,

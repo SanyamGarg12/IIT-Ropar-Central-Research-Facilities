@@ -4,7 +4,7 @@ import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const Facilities = () => {
   const [facilitiesByCategory, setFacilitiesByCategory] = useState({});
@@ -15,7 +15,7 @@ const Facilities = () => {
   useEffect(() => {
     setIsLoading(true);
     axios
-      .get('http://localhost:5000/api/facilities')
+      .get(`${API_BASED_URL}api/facilities`)
       .then((response) => {
         const facilities = response.data;
         const groupedFacilities = facilities.reduce((grouped, facility) => {

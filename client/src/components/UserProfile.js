@@ -1,11 +1,11 @@
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 import { useEffect, useState } from "react"
 
 const UserProfile = () => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const BASE_URL = "http://localhost:5000/"
+  const BASE_URL = `${API_BASED_URL}`
 
   useEffect(() => {
     const userId = localStorage.getItem("ClientUserId")

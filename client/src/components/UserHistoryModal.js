@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const UserHistoryModal = ({ isOpen, onClose, userId, userName }) => {
   const [userHistory, setUserHistory] = useState([]);
@@ -18,7 +18,7 @@ const UserHistoryModal = ({ isOpen, onClose, userId, userName }) => {
   const fetchUserHistory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/user-history/${userId}`, {
+      const response = await axios.get(`${API_BASED_URL}api/user-history/${userId}`, {
         headers: { Authorization: `${localStorage.getItem('userToken')}` }
       });
       setUserHistory(response.data);

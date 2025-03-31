@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import {API_BASED_URL} from '../App.js'; 
+import {API_BASED_URL} from '../config.js'; 
 
 const ManageMembers = () => {
   const [members, setMembers] = useState([]);
@@ -24,14 +24,14 @@ const ManageMembers = () => {
   // Fetch existing members and staff
   const fetchMembers = () => {
     axios
-      .get("http://localhost:5000/api/members")
+      .get(`${API_BASED_URL}api/members`)
       .then((response) => setMembers(response.data))
       .catch((error) => console.error("Error fetching members:", error));
   };
 
   const fetchStaff = () => {
     axios
-      .get("http://localhost:5000/api/staff")
+      .get(`${API_BASED_URL}api/staff`)
       .then((response) => setStaff(response.data))
       .catch((error) => console.error("Error fetching staff:", error));
   };
@@ -50,7 +50,7 @@ const ManageMembers = () => {
     formData.append("image", newMember.image);
   
     axios
-      .post("http://localhost:5000/api/members", formData, {
+      .post(`${API_BASED_URL}api/members`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       .then(() => {
@@ -68,7 +68,7 @@ const ManageMembers = () => {
     });
   
     axios
-      .post("http://localhost:5000/api/staff", formData, {
+      .post(`${API_BASED_URL}api/staff`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       .then(() => {
@@ -88,14 +88,14 @@ const ManageMembers = () => {
 
   const handleDeleteMember = (id) => {
     axios
-      .delete(`http://localhost:5000/api/members/${id}`)
+      .delete(`${API_BASED_URL}api/members/${id}`)
       .then(() => fetchMembers())
       .catch((error) => console.error("Error deleting member:", error));
   };
 
   const handleDeleteStaff = (id) => {
     axios
-      .delete(`http://localhost:5000/api/staff/${id}`)
+      .delete(`${API_BASED_URL}api/staff/${id}`)
       .then(() => fetchStaff())
       .catch((error) => console.error("Error deleting staff:", error));
   };
@@ -164,7 +164,7 @@ const ManageMembers = () => {
                 <p className="text-gray-600">{member.designation}</p>
                 {member.image_path && (
                   <img
-                    src={`http://localhost:5000/uploads/${member.image_path}`}
+                    src={`${API_BASED_URL}uploads/${member.image_path}`}
                     alt={member.name}
                     className="w-24 h-24 object-cover rounded-full mt-2"
                   />
@@ -227,7 +227,7 @@ const ManageMembers = () => {
                 <p className="text-gray-600">{staffMember.phone}</p>
                 {staffMember.image_name && (
                   <img
-                    src={`http://localhost:5000/uploads/${staffMember.image_name}`}
+                    src={`${API_BASED_URL}uploads/${staffMember.image_name}`}
                     alt={staffMember.name}
                     className="w-24 h-24 object-cover rounded-full mt-2"
                   />
