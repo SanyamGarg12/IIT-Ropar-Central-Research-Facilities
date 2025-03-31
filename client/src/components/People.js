@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { FaPhone, FaEnvelope, FaBuilding, FaGraduationCap } from 'react-icons/fa';
 import Footer from './Footer';
+import {API_BASED_URL} from '../App.js'; 
 
 const People = () => {
   const [members, setMembers] = useState([]);

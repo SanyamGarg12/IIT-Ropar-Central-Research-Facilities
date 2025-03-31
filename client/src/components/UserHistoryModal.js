@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
+import {API_BASED_URL} from '../App.js'; 
 
 const UserHistoryModal = ({ isOpen, onClose, userId, userName }) => {
   const [userHistory, setUserHistory] = useState([]);

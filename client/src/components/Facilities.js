@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
+import {API_BASED_URL} from '../App.js'; 
 
 const Facilities = () => {
   const [facilitiesByCategory, setFacilitiesByCategory] = useState({});

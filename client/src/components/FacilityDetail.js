@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PrinterIcon as Printer3d, Info, Settings, User, Mail, Phone, ExternalLink, Facebook, Twitter, Instagram } from 'lucide-react';
+import {API_BASED_URL} from '../App.js'; 
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;

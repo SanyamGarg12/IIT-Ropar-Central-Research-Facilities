@@ -3,6 +3,7 @@ import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download } from 'lucide-react'
 import { jwtDecode } from "jwt-decode";
+import {API_BASED_URL} from '../App.js'; 
 
 export default function BookingHistory() {
   const [history, setHistory] = useState([])

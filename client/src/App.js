@@ -26,7 +26,7 @@ import OperatorChangePassword from "./components/operatorChangePassword";
 import ModPassword from "./components/ModPassword";
 import AddSlots from "./components/AddSlots"; 
 import UsersRequests from "./components/UsersRequests";
-
+export const API_BASED_URL = "http://localhost:5000/";
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
 

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, Upload, Eye } from 'lucide-react';
 import UserHistoryModal from './UserHistoryModal';
+import {API_BASED_URL} from '../App.js'; 
 
 const ManageBooking = () => {
   const [bookingRequests, setBookingRequests] = useState([]);

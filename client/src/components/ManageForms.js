@@ -1,5 +1,4 @@
-'use client'
-
+import {API_BASED_URL} from '../App.js'; 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 

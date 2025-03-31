@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+import {API_BASED_URL} from '../App.js'; 
 
 function BookingFacility({ authToken }) {
   const [facilityId, setFacilityId] = useState("");
@@ -19,7 +20,7 @@ function BookingFacility({ authToken }) {
   const calculateDuration = useCallback((startTime, endTime) => {
     const start = new Date(`2000-01-01T${startTime}`);
     const end = new Date(`2000-01-01T${endTime}`);
-    return (end - start) / (1000 * 60 * 60); // Convert milliseconds to hours
+    return (end - start) / (1000 * 60 * 60);
   }, []);
 
   const calculateTotalCost = useCallback((startTime, endTime) => {

@@ -1,5 +1,4 @@
-"use client"
-
+import {API_BASED_URL} from '../App.js'; 
 import { useEffect, useState } from "react"
 
 const UserProfile = () => {

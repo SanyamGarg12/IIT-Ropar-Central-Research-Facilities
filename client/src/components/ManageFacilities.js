@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import {API_BASED_URL} from '../App.js'; 
+
 import {
   fetchFacilities,
   fetchPublications,

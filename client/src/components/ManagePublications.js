@@ -1,5 +1,4 @@
-'use client'
-
+import {API_BASED_URL} from '../App.js'; 
 import { useState, useEffect } from 'react'
 
 export default function ManagePublication() {

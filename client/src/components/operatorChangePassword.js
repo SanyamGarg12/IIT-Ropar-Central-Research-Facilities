@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import {API_BASED_URL} from '../App.js'; 
 
 const OperatorChangePassword = () => {
     const [oldPassword, setOldPassword] = useState('');

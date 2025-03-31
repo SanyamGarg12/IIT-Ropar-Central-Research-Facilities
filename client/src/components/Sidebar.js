@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Clock, FileText, Calendar, User } from 'lucide-react';
+import {API_BASED_URL} from '../App.js'; 
 
 function Sidebar({ setActiveOption, activeOption, navItems }) {
   const getIcon = (item) => {

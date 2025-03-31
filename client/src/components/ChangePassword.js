@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { jwtDecode } from "jwt-decode";
+import {API_BASED_URL} from '../App.js'; 
+
 function ChangePassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

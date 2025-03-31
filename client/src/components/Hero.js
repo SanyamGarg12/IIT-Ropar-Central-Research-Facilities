@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // import Videos from "./Videos";
 import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from "./Footer";
+import {API_BASED_URL} from '../App.js'; 
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;

@@ -9,6 +9,7 @@ import UserPublications from "./UserPublications";
 import BookingFacility from "./BookingFacility";
 import Logout from "./Logout";
 import { User, ChevronDown } from 'lucide-react';
+import {API_BASED_URL} from '../App.js'; 
 
 function Booking() {
   const authToken = localStorage.getItem("authToken");

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Footer from './Footer';
-
+import {API_BASED_URL} from '../App.js'; 
 function About() {
   const [aboutContent, setAboutContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/aboutContent')
+    axios.get(`${API_BASED_URL}api/aboutContent`)
       .then((response) => {
         setAboutContent(response.data);
         setLoading(false);

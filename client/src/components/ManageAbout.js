@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ManageAbout.css';
+import {API_BASED_URL} from '../App.js'; 
 
 const ManageAbout = () => {
   const [aboutContent, setAboutContent] = useState(null);

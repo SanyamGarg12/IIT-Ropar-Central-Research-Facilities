@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Trash2 } from 'lucide-react'
+import {API_BASED_URL} from '../App.js'; 
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
