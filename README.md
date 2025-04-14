@@ -126,7 +126,7 @@ cd IIT-Ropar-Central-Research-Facilities
 2. Install dependencies:
 ```bash
 # Install backend dependencies
-cd backend
+cd server
 npm install
 
 # Install frontend dependencies
@@ -136,11 +136,8 @@ npm install
 
 3. Set up environment variables:
 ```bash
-# Backend (.env)
-cp backend/.env.example backend/.env
-
-# Frontend (.env)
-cp frontend/.env.example frontend/.env
+# Server (.env)
+cp server/.env.example server/.env
 ```
 
 4. Configure the environment variables with your specific settings.
@@ -151,14 +148,14 @@ cp frontend/.env.example frontend/.env
 mysql -u your_username -p < database.sql
 
 # Run migrations
-cd backend
+cd server
 npx sequelize-cli db:migrate
 ```
 
 6. Start the development servers:
 ```bash
-# Start backend server
-cd backend
+# Start server
+cd server
 npm run dev
 
 # Start frontend server
@@ -167,10 +164,25 @@ npm start
 ```
 
 ### Configuration
-- Update database credentials in `backend/.env`
-- Configure AWS credentials for S3 access
-- Set up email service credentials
-- Configure JWT secret key
+
+#### Environment Variables
+The project uses environment variables for sensitive configuration. These are stored in the `server/.env` file which is not tracked by Git for security reasons. You'll need to create this file based on the provided example:
+
+Server `.env` file should include:
+- Database credentials
+- JWT secret key
+- AWS credentials
+- Email service credentials
+- Other API keys
+
+**Important**: Never commit your `server/.env` file to version control. The `.gitignore` file is configured to prevent this.
+
+#### Security Measures
+- All sensitive credentials are stored in environment variables
+- Database credentials are encrypted
+- JWT tokens are used for authentication
+- API endpoints are protected with proper authentication
+- File uploads are secured with proper validation
 
 ## Usage
 [Usage instructions to be added]
