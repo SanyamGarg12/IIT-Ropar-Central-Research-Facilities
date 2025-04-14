@@ -386,13 +386,16 @@ app.post('/api/homecontent', upload.single('image'), (req, res) => {
 
     case 'addNews': {
       const { title: newsTitle, summary, link } = req.body;
-      if (!newsTitle || !summary || !link || !imagePath) {
+      if (!newsTitle || !summary || !imagePath) {
         return res.status(400).json({ error: 'Missing required fields for news addition' });
       }
 
+      const defaultLink = 'https://iitrpr.ac.in';
+      const newsLink = link || defaultLink;
+
       db.query(
         `INSERT INTO heroNews (news_title, summary, imagepath, link) VALUES (?, ?, ?, ?)`,
-        [newsTitle, summary, imagePath, link],
+        [newsTitle, summary, imagePath, newsLink],
         (error, results) => {
           if (error) {
             console.error('Error adding news:', error);

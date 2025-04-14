@@ -268,7 +268,7 @@ CREATE TABLE heroNews (
     news_title VARCHAR(255) NOT NULL,
     summary TEXT NOT NULL,
     imagepath VARCHAR(255) NOT NULL,
-    link VARCHAR(255) NOT NULL
+    link VARCHAR(255) DEFAULT 'https://iitrpr.ac.in'
 );
 
 -- Create the thought table

@@ -168,11 +168,14 @@ const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * index, duration: 0.5 }}
             >
-              <img src={getImageUrl(news.imagepath)} alt={news.title} className="w-full h-48 object-cover" />
-              <div className="p-4">
-                <h3 className="text-xl font-semibold mb-2">{news.title}</h3>
-                <p className="text-gray-600">{news.summary}</p>
-                <a href={news.link} className="mt-4 inline-block text-blue-600 hover:underline">Read more</a>
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">{news.title}</h3>
+                <p className="text-gray-600 mb-4">{news.summary}</p>
+                <img 
+                  src={getImageUrl(news.imagepath)} 
+                  alt={news.title} 
+                  className="w-full h-48 object-cover rounded-lg"
+                />
               </div>
             </motion.div>
           ))}
