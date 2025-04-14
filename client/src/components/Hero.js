@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 // import Videos from "./Videos";
-import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight, Archive } from 'lucide-react';
 import Footer from "./Footer";
+import { Link } from 'react-router-dom';
 import {API_BASED_URL} from '../config.js'; 
 
 const getImageUrl = (imagePath) => {
@@ -148,7 +149,16 @@ const Hero = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.5 }}
       >
-        <h2 className="text-3xl font-bold text-gray-900 mb-6">Latest News and Events</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-3xl font-bold text-gray-900">Latest News and Events</h2>
+          <Link 
+            to="/archived-news" 
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors duration-200"
+          >
+            <Archive className="w-5 h-5" />
+            <span className="font-medium">View Archived News</span>
+          </Link>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {newsFeed.map((news, index) => (
             <motion.div

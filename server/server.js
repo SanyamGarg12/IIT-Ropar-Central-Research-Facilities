@@ -322,6 +322,27 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
   });
 });
 
+// Create archived news table if it doesn't exist
+const createArchivedNewsTable = `
+  CREATE TABLE IF NOT EXISTS archived_news (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    news_title VARCHAR(255) NOT NULL,
+    summary TEXT,
+    imagepath VARCHAR(255),
+    link VARCHAR(255),
+    archived_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+db.query(createArchivedNewsTable, (err) => {
+  if (err) {
+    console.error('Error creating archived_news table:', err);
+  } else {
+    console.log('Archived news table created or already exists');
+  }
+});
+
+// Modify the delete news endpoint to archive instead of delete
 app.post('/api/homecontent', upload.single('image'), (req, res) => {
   const { action } = req.body;
   const imagePath = req.file ? req.file.filename : null;
@@ -333,7 +354,6 @@ app.post('/api/homecontent', upload.single('image'), (req, res) => {
         return res.status(400).json({ error: 'Thought text is required' });
       }
 
-      // Using callback style for db.query
       db.query(`UPDATE thought SET thought_text = ? WHERE id = 1`, [thought], (error, results) => {
         if (error) {
           console.error('Error updating thought:', error);
@@ -389,22 +409,53 @@ app.post('/api/homecontent', upload.single('image'), (req, res) => {
       if (!type || typeof id !== 'number') {
         return res.status(400).json({ error: 'Invalid delete parameters' });
       }
-      let query;
-      if (type === 'sliderImages') {
-        query = `DELETE FROM heroImages WHERE id = ?`;
-      } else if (type === 'NewsFeed') {
-        query = `DELETE FROM heroNews WHERE id = ?`;
+
+      if (type === 'NewsFeed') {
+        // First get the news details
+        db.query('SELECT * FROM heroNews WHERE id = ?', [id], (err, results) => {
+          if (err) {
+            console.error('Error fetching news for archiving:', err);
+            return res.status(500).json({ error: 'Internal Server Error' });
+          }
+
+          if (results.length === 0) {
+            return res.status(404).json({ error: 'News not found' });
+          }
+
+          const news = results[0];
+          
+          // Insert into archived_news table
+          db.query(
+            'INSERT INTO archived_news (news_title, summary, imagepath, link) VALUES (?, ?, ?, ?)',
+            [news.news_title, news.summary, news.imagepath, news.link],
+            (err) => {
+              if (err) {
+                console.error('Error archiving news:', err);
+                return res.status(500).json({ error: 'Internal Server Error' });
+              }
+
+              // Now delete from heroNews
+              db.query('DELETE FROM heroNews WHERE id = ?', [id], (err) => {
+                if (err) {
+                  console.error('Error deleting news:', err);
+                  return res.status(500).json({ error: 'Internal Server Error' });
+                }
+                return res.json({ message: 'News archived successfully' });
+              });
+            }
+          );
+        });
+      } else if (type === 'sliderImages') {
+        db.query('DELETE FROM heroImages WHERE id = ?', [id], (error, results) => {
+          if (error) {
+            console.error('Error deleting content:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+          }
+          return res.json({ message: 'Content deleted successfully' });
+        });
       } else {
         return res.status(400).json({ error: 'Invalid delete type' });
       }
-
-      db.query(query, [id], (error, results) => {
-        if (error) {
-          console.error('Error deleting content:', error);
-          return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        return res.json({ message: 'Content deleted successfully' });
-      });
       break;
     }
 
@@ -413,60 +464,17 @@ app.post('/api/homecontent', upload.single('image'), (req, res) => {
   }
 });
 
-
-
-// app.post('/api/hero', upload.single('image'), (req, res) => {
-//   const { action } = req.body;
-//   const imagePath = req.file ? req.file.filename : null;
-//   if (action === 'updateSlider') {
-//     const { title, subtitle } = req.body;
-//     var data = { imagePath, title, subtitle };
-//   } else if (action === 'updateThought') {
-//     const { thought } = req.body;
-//     var data = thought;
-//   } else if (action === 'addNews') {
-//     const { action, title, summary, link } = req.body;
-//     var data = { action, title, summary, imagePath, link };
-//   }
-//   const filePath = path.join(__dirname, 'homeContent.json');
-
-//   fs.readFile(filePath, 'utf-8', (readErr, fileContent) => {
-//     if (readErr) {
-//       console.error('Error reading hero content:', readErr);
-//       return res.status(500).json({ error: 'Internal Server Error' });
-//     }
-
-//     let heroContent;
-//     try {
-//       heroContent = JSON.parse(fileContent);
-//     } catch (parseErr) {
-//       console.error('Error parsing hero content:', parseErr);
-//       return res.status(500).json({ error: 'Internal Server Error' });
-//     }
-
-//     switch (action) {
-//       case 'updateSlider':
-//         heroContent.sliderImages.push(data);
-//         break;
-//       case 'updateThought':
-//         heroContent.Thought = data;
-//         break;
-//       case 'addNews':
-//         heroContent.NewsFeed.push(data);
-//         break;
-//       default:
-//         return res.status(400).json({ error: 'Invalid action' });
-//     }
-
-//     fs.writeFile(filePath, JSON.stringify(heroContent, null, 2), (writeErr) => {
-//       if (writeErr) {
-//         console.error('Error writing hero content:', writeErr);
-//         return res.status(500).json({ error: 'Internal Server Error' });
-//       }
-//       res.json({ message: 'Hero content updated successfully' });
-//     });
-//   });
-// });
+// Add new endpoint to get archived news
+app.get('/api/archived-news', (req, res) => {
+  const query = 'SELECT * FROM archived_news ORDER BY archived_date DESC';
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching archived news:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    res.json(results);
+  });
+});
 
 app.get('/api/forms', (req, res) => {
   const query = 'SELECT * FROM forms';
