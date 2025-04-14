@@ -130,8 +130,10 @@ const AdminLinks = () => {
     { to: "/admin/about", text: "Manage About Page" },
     { to: "/admin/hero", text: "Manage Home Page" },
     { to: "/admin/addoperator", text: "Add Operator" },
+    { to: "/admin/deleteoperator", text: "Delete Operator" },
     { to: "/admin/modpass", text: "Change Operator Password" },
     { to: "/admin/approveUsers", text: "Approve New User Registration Requests" },
+    { to: "/admin/adminManageBooking", text: "Manage Bookings" },
   ];
 
   return (

@@ -17,6 +17,14 @@ function BookingFacility({ authToken }) {
   const [showWeeklySlots, setShowWeeklySlots] = useState(false);
   const [weeklySlots, setWeeklySlots] = useState(null);
 
+  const isWithin24Hours = useCallback((selectedDate, startTime) => {
+    const now = new Date();
+    const bookingDateTime = new Date(`${selectedDate}T${startTime}`);
+    const timeDifference = bookingDateTime - now;
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    return hoursDifference < 24;
+  }, []);
+
   const calculateDuration = useCallback((startTime, endTime) => {
     const start = new Date(`2000-01-01T${startTime}`);
     const end = new Date(`2000-01-01T${endTime}`);
@@ -29,11 +37,15 @@ function BookingFacility({ authToken }) {
   }, [calculateDuration, costPerHour]);
 
   const handleSlotClick = useCallback((slot) => {
+    if (isWithin24Hours(date, slot.start_time)) {
+      alert("Cannot book slots that start within the next 24 hours. Please select a different slot.");
+      return;
+    }
     setSelectedSlot(`${slot.start_time} - ${slot.end_time}`);
     setSelectedScheduleId(slot.schedule_id || "");
     const totalCost = calculateTotalCost(slot.start_time, slot.end_time);
     setFacilityPrice(totalCost);
-  }, [calculateTotalCost]);
+  }, [calculateTotalCost, date, isWithin24Hours]);
 
   const getFacilityPrice = useCallback((facility, userType) => {
     let price;
@@ -230,24 +242,28 @@ function BookingFacility({ authToken }) {
               <h3 className="text-xl font-semibold mb-4 text-gray-700">Available Slots</h3>
               <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto pr-2">
                 {availableSlots.length !== 0 ? (
-                  availableSlots.map((slot) => (
-                    <button
-                      key={slot.schedule_id}
-                      onClick={() => handleSlotClick(slot)}
-                      disabled={!slot.available}
-                      className={`p-3 rounded-lg text-center text-sm font-medium transition duration-300 ease-in-out ${
-                        slot.available
-                          ? "bg-white hover:bg-green-100 text-gray-800 border border-gray-300 hover:border-green-500"
-                          : "bg-gray-200 cursor-not-allowed text-gray-500"
-                      } ${
-                        selectedScheduleId === slot.schedule_id
-                          ? "ring-2 ring-green-500 bg-green-100"
-                          : ""
-                      }`}
-                    >
-                      {slot.start_time} - {slot.end_time}
-                    </button>
-                  ))
+                  availableSlots.map((slot) => {
+                    const isSlotWithin24Hours = isWithin24Hours(date, slot.start_time);
+                    return (
+                      <button
+                        key={slot.schedule_id}
+                        onClick={() => handleSlotClick(slot)}
+                        disabled={!slot.available || isSlotWithin24Hours}
+                        className={`p-3 rounded-lg text-center text-sm font-medium transition duration-300 ease-in-out ${
+                          slot.available && !isSlotWithin24Hours
+                            ? "bg-white hover:bg-green-100 text-gray-800 border border-gray-300 hover:border-green-500"
+                            : "bg-gray-200 cursor-not-allowed text-gray-500"
+                        } ${
+                          selectedScheduleId === slot.schedule_id
+                            ? "ring-2 ring-green-500 bg-green-100"
+                            : ""
+                        }`}
+                        title={isSlotWithin24Hours ? "Cannot book slots that start within 24 hours" : ""}
+                      >
+                        {slot.start_time} - {slot.end_time}
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="col-span-3 text-center text-gray-500 py-8">
                     {isLoading ? "Loading slots..." : "No slots available. Click 'Fetch Available Slots' to check."}

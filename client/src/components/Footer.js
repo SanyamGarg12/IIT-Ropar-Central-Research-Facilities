@@ -50,6 +50,9 @@ const Footer = () => {
               <motion.li whileHover={{ x: 5 }} whileTap={{ scale: 0.95 }}>
                 <a href="/publications" className="hover:text-gray-300 transition-colors duration-300">Publications</a>
               </motion.li>
+              <motion.li whileHover={{ x: 5 }} whileTap={{ scale: 0.95 }}>
+                <a href="/forms" className="hover:text-gray-300 transition-colors duration-300">Forms</a>
+              </motion.li>
             </ul>
           </motion.div>
           <motion.div className="footer-contact" variants={itemVariants}>

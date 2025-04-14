@@ -923,7 +923,66 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/op-change-password', (req, res) => {
+app.get('/api/admin/operators-bookings', authenticateToken, (req, res) => {
+  console.log("Fetching operators and bookings...");
+  const query = `
+    SELECT 
+      mc.email,
+      mc.Position,
+      (
+        SELECT f.operator_name 
+        FROM Facilities f 
+        WHERE f.operator_email = mc.email 
+        LIMIT 1
+      ) as operator_name,
+      COALESCE(
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'booking_id', bh.booking_id,
+            'user_id', bh.user_id,
+            'user_name', u.full_name,
+            'facility_id', bh.facility_id,
+            'facility_name', f.name,
+            'booking_date', bh.booking_date,
+            'status', bh.status,
+            'cost', bh.cost,
+            'schedule_id', bh.schedule_id
+          )
+        ),
+        ''
+      ) as bookings
+    FROM 
+      management_cred mc
+    LEFT JOIN 
+      BookingHistory bh ON mc.email = bh.operator_email
+    LEFT JOIN 
+      Users u ON bh.user_id = u.user_id
+    LEFT JOIN 
+      Facilities f ON bh.facility_id = f.id
+    WHERE 
+      mc.Position = 'Operator'
+    GROUP BY 
+      mc.email, mc.Position
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send('Error fetching operators and bookings.');
+    }
+
+    // Parse the bookings JSON string into an array, handling empty bookings
+    const formattedResults = results.map(operator => ({
+      email: operator.email,
+      name: operator.operator_name || operator.Position, // Use operator_name if available, fallback to Position
+      bookings: operator.bookings ? JSON.parse(`[${operator.bookings}]`).filter(booking => booking.booking_id !== null) : []
+    }));
+
+    res.status(200).json(formattedResults);
+  });
+});
+
+app.post('/api/op-change-password', authenticateToken, (req, res) => {
   const { oldPassword, newPassword, userEmail } = req.body;
 
   // Validate input
@@ -1557,7 +1616,7 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   });
 });
 
-app.get('/api/weekly-slots', (req, res) => {
+app.get('/api/weekly-slots', authenticateToken, (req, res) => {
   const { facilityId } = req.query;  // Changed from operatorId to facilityId
 
   if (!facilityId) {
@@ -1684,7 +1743,7 @@ app.post('/operator/slots', authenticateToken, (req, res) => {
 });
 
 // Delete a slot
-app.delete('/operator/slots', (req, res) => {
+app.delete('/operator/slots', authenticateToken, (req, res) => {
   const { facilityId, weekday, slot, operatorId } = req.body;
 
   if (!facilityId || !weekday || !slot || !operatorId) {
@@ -1753,4 +1812,75 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Start the server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
+});
+
+app.post('/api/change-booking-status', authenticateToken, (req, res) => {
+  const { bookingId, newStatus } = req.body;
+  
+  // First check if the booking exists and has a non-Pending status
+  const checkQuery = `SELECT status FROM BookingHistory WHERE booking_id = ?`;
+  
+  db.query(checkQuery, [bookingId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error checking booking status" });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    const currentStatus = results[0].status;
+    if (currentStatus === 'Pending') {
+      return res.status(400).json({ message: "Cannot change status of pending bookings. Use handle-booking endpoint instead." });
+    }
+    
+    // Update the booking status
+    const updateQuery = `UPDATE BookingHistory SET status = ? WHERE booking_id = ?`;
+    db.query(updateQuery, [newStatus, bookingId], (err, result) => {
+      if (err) {
+        return res.status(500).json({ message: "Error updating booking status" });
+      }
+      res.json({ message: "Booking status updated successfully" });
+    });
+  });
+});
+
+app.delete('/api/admin/operators/:email', authenticateToken, (req, res) => {
+  const { email } = req.params;
+
+  // First check if the operator has any active bookings
+  const checkBookingsQuery = `
+    SELECT COUNT(*) as bookingCount 
+    FROM BookingHistory 
+    WHERE operator_email = ? AND status = 'Approved'
+  `;
+
+  db.query(checkBookingsQuery, [email], (err, results) => {
+    if (err) {
+      console.error('Error checking bookings:', err);
+      return res.status(500).json({ message: 'Error checking operator bookings' });
+    }
+
+    if (results[0].bookingCount > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete operator with active bookings. Please handle all bookings first.' 
+      });
+    }
+
+    // If no active bookings, proceed with deletion
+    const deleteQuery = 'DELETE FROM management_cred WHERE email = ? AND Position = "Operator"';
+    
+    db.query(deleteQuery, [email], (err, result) => {
+      if (err) {
+        console.error('Error deleting operator:', err);
+        return res.status(500).json({ message: 'Error deleting operator' });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Operator not found' });
+      }
+
+      res.json({ message: 'Operator deleted successfully' });
+    });
+  });
 });
