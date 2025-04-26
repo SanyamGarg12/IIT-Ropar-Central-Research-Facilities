@@ -35,6 +35,12 @@ db.getConnection((err) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Check if upload directories exist, if not create them
+fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'uploads/results'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'uploads/publications'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'uploads/receipts'), { recursive: true });
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, 'uploads'); // Ensure this is the correct path
@@ -47,6 +53,37 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+// Storage configuration for receipt uploads
+const receiptStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const receiptPath = path.join(__dirname, 'uploads/receipts');
+    cb(null, receiptPath); // Use absolute path to ensure directory is found
+  },
+  filename: function (req, file, cb) {
+    // Use tempId for pre-booking uploads or bookingId for post-booking uploads
+    const id = req.body.tempId || req.body.bookingId || 'temp';
+    const uniqueId = `${Date.now()}_${id}`;
+    cb(null, `${uniqueId}_receipt${path.extname(file.originalname)}`);
+  }
+});
+
+// Create a multer upload instance specifically for receipts
+const receiptUpload = multer({ 
+  storage: receiptStorage,
+  fileFilter: function (req, file, cb) {
+    // Accept PDF files and common image formats as receipts
+    if (file.mimetype === 'application/pdf' || 
+        file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files and images are allowed for receipts'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5 MB file size limit
+  }
+});
 
 // API endpoint to get all facilities
 app.get('/api/facilities', (req, res) => {
@@ -936,60 +973,76 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 
 app.get('/api/admin/operators-bookings', authenticateToken, (req, res) => {
   console.log("Fetching operators and bookings...");
-  const query = `
-    SELECT 
-      mc.email,
-      mc.Position,
-      (
-        SELECT f.operator_name 
-        FROM Facilities f 
-        WHERE f.operator_email = mc.email 
-        LIMIT 1
-      ) as operator_name,
-      COALESCE(
-        GROUP_CONCAT(
-          JSON_OBJECT(
-            'booking_id', bh.booking_id,
-            'user_id', bh.user_id,
-            'user_name', u.full_name,
-            'facility_id', bh.facility_id,
-            'facility_name', f.name,
-            'booking_date', bh.booking_date,
-            'status', bh.status,
-            'cost', bh.cost,
-            'schedule_id', bh.schedule_id
-          )
-        ),
-        ''
-      ) as bookings
-    FROM 
-      management_cred mc
-    LEFT JOIN 
-      BookingHistory bh ON mc.email = bh.operator_email
-    LEFT JOIN 
-      Users u ON bh.user_id = u.user_id
-    LEFT JOIN 
-      Facilities f ON bh.facility_id = f.id
-    WHERE 
-      mc.Position = 'Operator'
-    GROUP BY 
-      mc.email, mc.Position
-  `;
-
-  db.query(query, (err, results) => {
+  
+  // First set the group_concat_max_len to a larger value to accommodate more data
+  db.query('SET SESSION group_concat_max_len = 1000000;', (err) => {
     if (err) {
-      console.error(err);
-      return res.status(500).send('Error fetching operators and bookings.');
+      console.error('Error setting group_concat_max_len:', err);
+      return res.status(500).send('Error configuring database settings.');
     }
+    
+    const query = `
+      SELECT 
+        mc.email,
+        mc.Position,
+        (
+          SELECT f.operator_name 
+          FROM Facilities f 
+          WHERE f.operator_email = mc.email 
+          LIMIT 1
+        ) as operator_name,
+        COALESCE(
+          GROUP_CONCAT(
+            JSON_OBJECT(
+              'booking_id', bh.booking_id,
+              'user_id', bh.user_id,
+              'user_name', u.full_name,
+              'facility_id', bh.facility_id,
+              'facility_name', f.name,
+              'booking_date', bh.booking_date,
+              'status', bh.status,
+              'cost', bh.cost,
+              'schedule_id', bh.schedule_id,
+              'receipt_path', bh.receipt_path
+            )
+          ),
+          ''
+        ) as bookings
+      FROM 
+        management_cred mc
+      LEFT JOIN 
+        BookingHistory bh ON mc.email = bh.operator_email
+      LEFT JOIN 
+        Users u ON bh.user_id = u.user_id
+      LEFT JOIN 
+        Facilities f ON bh.facility_id = f.id
+      WHERE 
+        mc.Position = 'Operator'
+      GROUP BY 
+        mc.email, mc.Position
+    `;
 
-    // Parse the bookings JSON string into an array, handling empty bookings
-    const formattedResults = results.map(operator => ({
-      email: operator.email,
-      name: operator.operator_name || operator.Position, // Use operator_name if available, fallback to Position
-      bookings: operator.bookings ? JSON.parse(`[${operator.bookings}]`).filter(booking => booking.booking_id !== null) : []
-    }));
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error fetching operators and bookings:', err);
+        return res.status(500).send('Error fetching operators and bookings.');
+      }
 
-    res.status(200).json(formattedResults);
+      try {
+        // Parse the bookings JSON string into an array, handling empty bookings
+        const formattedResults = results.map(operator => ({
+          email: operator.email,
+          name: operator.operator_name || operator.Position, // Use operator_name if available, fallback to Position
+          bookings: operator.bookings ? JSON.parse(`[${operator.bookings}]`).filter(booking => booking.booking_id !== null) : []
+        }));
+
+        res.status(200).json(formattedResults);
+      } catch (jsonErr) {
+        console.error('Error parsing bookings JSON:', jsonErr);
+        console.error('Raw bookings data:', results.map(op => op.bookings.substring(0, 500) + '...'));
+        return res.status(500).send('Error processing booking data.');
+      }
+    });
   });
 });
 
@@ -1034,50 +1087,130 @@ app.post('/api/op-change-password', authenticateToken, (req, res) => {
   });
 });
 
-//removed authenticate token from this route
-app.post('/api/booking', (req, res) => {
-  const { facility_id, date, schedule_id, user_id, operator_email, cost } = req.body;
-  const query = `INSERT INTO bookinghistory (facility_id, booking_date, schedule_id, user_id, operator_email, cost) VALUES (?, ?, ?, ?, ?, ?)`;
+// API endpoint to upload facility booking receipt before booking is created
+app.post('/api/upload-receipt-pre-booking', receiptUpload.single('receipt'), async (req, res) => {
   try {
-    db.query(query, [facility_id, date, schedule_id, user_id, operator_email, cost], (err, result) => {
-      if (err) return res.status(500).json({ message: "Booking failed" });
-      res.json({ message: "Booking successful" });
+    const uploadedFile = req.file;
+
+    if (!uploadedFile) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    console.log('Pre-booking receipt upload:', { 
+      file: uploadedFile.filename,
+      mimetype: uploadedFile.mimetype,
+      size: uploadedFile.size
+    });
+
+    const relativeFilePath = `/receipts/${uploadedFile.filename}`;
+    
+    res.status(200).json({ 
+      message: 'Receipt uploaded successfully.',
+      path: relativeFilePath 
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Booking failed' });
+    console.error('Error uploading receipt:', error);
+    return res.status(500).json({ error: 'Failed to upload receipt: ' + (error.message || 'Unknown error') });
   }
+});
+
+// API endpoint to upload/update receipt for an existing booking
+app.post('/api/upload-receipt', receiptUpload.single('receipt'), async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const uploadedFile = req.file;
+
+    if (!bookingId || !uploadedFile) {
+      return res.status(400).json({ error: 'No file uploaded or missing booking ID.' });
+    }
+
+    console.log('Receipt upload for existing booking:', { 
+      bookingId, 
+      file: uploadedFile.filename,
+      mimetype: uploadedFile.mimetype,
+      size: uploadedFile.size
+    });
+
+    const relativeFilePath = `/receipts/${uploadedFile.filename}`;
+
+    // Update the booking with the receipt path
+    const updateQuery = `UPDATE BookingHistory SET receipt_path = ? WHERE booking_id = ?`;
+    db.query(updateQuery, [relativeFilePath, bookingId], (err, result) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Failed to update receipt information.' });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Booking not found.' });
+      }
+      
+      res.status(200).json({ 
+        message: 'Receipt uploaded successfully.',
+        path: relativeFilePath 
+      });
+    });
+  } catch (error) {
+    console.error('Error uploading receipt:', error);
+    return res.status(500).json({ error: 'Failed to upload receipt: ' + (error.message || 'Unknown error') });
+  }
+});
+
+// Find the booking API endpoint
+app.post('/api/booking', (req, res) => {
+  const { facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path } = req.body;
+  
+  // Validate receipt path
+  if (!receipt_path) {
+    return res.status(400).json({ message: "Receipt is required for booking" });
+  }
+  
+  // Create the booking with receipt path
+  const query = `INSERT INTO bookinghistory (facility_id, booking_date, schedule_id, user_id, operator_email, cost, receipt_path) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  
+  db.query(query, [facility_id, date, schedule_id, user_id, operator_email, cost, receipt_path], (err, result) => {
+    if (err) {
+      console.error('Error creating booking:', err);
+      return res.status(500).json({ message: "Booking failed" });
+    }
+    res.json({ message: "Booking successful", bookingId: result.insertId });
+  });
 });
 
 // Get booking history
 app.get('/api/booking-history', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
   const query = `
-    SELECT 
-      BookingHistory.*,
-      Facilities.name AS facility_name
-    FROM 
-      BookingHistory
-    JOIN 
-      Facilities 
-    ON 
-      BookingHistory.facility_id = Facilities.id
-    WHERE 
-      BookingHistory.user_id = ?
+  SELECT
+    BookingHistory.*,
+    Facilities.name as facility_name,
+    FacilitySchedule.start_time,
+    FacilitySchedule.end_time
+  FROM
+    BookingHistory
+  INNER JOIN
+    Facilities ON BookingHistory.facility_id = Facilities.id
+  INNER JOIN
+    FacilitySchedule ON BookingHistory.schedule_id = FacilitySchedule.schedule_id
+  WHERE
+    BookingHistory.user_id = ?
+  ORDER BY BookingHistory.booking_date DESC
   `;
-
-  db.query(query, [req.user.userId], (err, results) => {
+  
+  db.query(query, [userId], (err, results) => {
     if (err) {
       console.error(err);
       return res.status(500).send('Error fetching booking history.');
     }
-
-    // Map the results to include the facility name
+    
     const formattedResults = results.map(booking => ({
       ...booking,
       facility_name: booking.facility_name,
+      slot: `${booking.start_time} - ${booking.end_time}`
     }));
-
-    res.status(200).json(formattedResults);
+    
+    res.json(formattedResults);
   });
 });
 
@@ -1094,7 +1227,8 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
       BookingHistory.status,
       BookingHistory.cost,
       BookingHistory.schedule_id,
-      BookingHistory.booking_id
+      BookingHistory.booking_id,
+      BookingHistory.receipt_path
     FROM 
       BookingHistory
     JOIN 

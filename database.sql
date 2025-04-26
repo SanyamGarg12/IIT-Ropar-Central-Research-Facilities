@@ -209,6 +209,7 @@ CREATE TABLE BookingHistory (
     booking_date DATE NOT NULL,
     status ENUM('Pending', 'Approved', 'Cancelled') DEFAULT 'Pending',
     cost DECIMAL(10, 2),
+    receipt_path VARCHAR(255),
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
     FOREIGN KEY (schedule_id) REFERENCES FacilitySchedule(schedule_id) ON DELETE CASCADE,
@@ -342,4 +343,7 @@ CREATE TABLE User_Publications (
     status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
+
+-- Add receipt_path column to BookingHistory if it doesn't exist
+ALTER TABLE BookingHistory ADD COLUMN receipt_path VARCHAR(255);
 

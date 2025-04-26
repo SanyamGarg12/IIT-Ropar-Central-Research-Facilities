@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, Loader2, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Eye, Download } from 'lucide-react';
 import UserHistoryModal from './UserHistoryModal';
 import {API_BASED_URL} from '../config.js';
 
@@ -13,6 +13,7 @@ const AdminManageBooking = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [expandedOperator, setExpandedOperator] = useState(null);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(null);
 
   const authToken = localStorage.getItem('userToken');
 
@@ -27,7 +28,22 @@ const AdminManageBooking = () => {
       const response = await axios.get(`${API_BASED_URL}api/admin/operators-bookings`, {
         headers: { Authorization: `${authToken}` }
       });
-      setOperators(response.data);
+      
+      // Sort bookings for each operator by date (newest first)
+      const sortedOperators = response.data.map(operator => {
+        const sortedBookings = [...operator.bookings].sort((a, b) => {
+          const dateA = new Date(a.booking_date);
+          const dateB = new Date(b.booking_date);
+          return dateB - dateA;
+        });
+        
+        return {
+          ...operator,
+          bookings: sortedBookings
+        };
+      });
+      
+      setOperators(sortedOperators);
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch operators and bookings. Please try again later.');
@@ -95,6 +111,36 @@ const AdminManageBooking = () => {
 
   const toggleOperator = (operatorEmail) => {
     setExpandedOperator(expandedOperator === operatorEmail ? null : operatorEmail);
+  };
+
+  const downloadReceipt = async (bookingId, receiptPath) => {
+    if (!receiptPath) {
+      setError('No receipt available for this booking');
+      return;
+    }
+
+    try {
+      setDownloadingReceipt(bookingId);
+      const downloadResponse = await axios.get(`${API_BASED_URL}uploads${receiptPath}`, {
+        headers: { Authorization: `${authToken}` },
+        responseType: 'blob' // Important for file download
+      });
+  
+      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `receipt-${bookingId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setSuccessMessage('Receipt downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      setError('Error downloading receipt. Please try again.');
+    } finally {
+      setDownloadingReceipt(null);
+    }
   };
 
   if (loading) {
@@ -206,6 +252,37 @@ const AdminManageBooking = () => {
                                     <p className="text-gray-600">
                                       <span className="font-medium">Date:</span> {booking.booking_date}
                                     </p>
+                                    <p className="text-gray-600">
+                                      <span className="font-medium">Cost:</span> {booking.cost} Rs.
+                                    </p>
+                                    
+                                    {/* Receipt Download */}
+                                    <div className="mt-2">
+                                      {booking.receipt_path ? (
+                                        <button
+                                          onClick={() => downloadReceipt(booking.booking_id, booking.receipt_path)}
+                                          className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-1 px-3 rounded-full text-sm transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50 flex items-center"
+                                          disabled={downloadingReceipt === booking.booking_id}
+                                        >
+                                          {downloadingReceipt === booking.booking_id ? (
+                                            <>
+                                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                              Downloading...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Download className="w-4 h-4 mr-1" />
+                                              View Receipt
+                                            </>
+                                          )}
+                                        </button>
+                                      ) : (
+                                        <span className="text-amber-500 font-medium flex items-center text-sm">
+                                          <XCircle className="w-4 h-4 mr-1" />
+                                          No receipt uploaded
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex flex-col items-end">
                                     <p className="text-gray-600">

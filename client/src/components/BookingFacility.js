@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import {API_BASED_URL} from '../config.js'; 
@@ -16,6 +16,11 @@ function BookingFacility({ authToken }) {
   const [costPerHour, setCostPerHour] = useState(0);
   const [showWeeklySlots, setShowWeeklySlots] = useState(false);
   const [weeklySlots, setWeeklySlots] = useState(null);
+  const [receipt, setReceipt] = useState(null);
+  const [receiptUploaded, setReceiptUploaded] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [bookingId, setBookingId] = useState(null);
+  const fileInputRef = useRef(null);
 
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
     const now = new Date();
@@ -136,15 +141,95 @@ function BookingFacility({ authToken }) {
     fetchSlots();
   };
 
-  const handleBooking = (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("authToken");
-    const decoded = jwtDecode(token);
-    const userId = decoded.userId;
-    const userType = decoded.userType;
+  const handleFileChange = (e) => {
+    if (e.target.files.length > 0) {
+      const file = e.target.files[0];
+      // Accept PDF and common image types
+      if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+        alert('Please upload PDF or image files only for receipts.');
+        fileInputRef.current.value = '';
+        return;
+      }
+      
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB. Please upload a smaller file.');
+        fileInputRef.current.value = '';
+        return;
+      }
+      
+      setReceipt(file);
+    }
+  };
 
-    axios
-      .post(
+  const uploadReceipt = async () => {
+    if (!receipt) {
+      alert('Please select a receipt file to upload');
+      return null;
+    }
+
+    setUploadingReceipt(true);
+    
+    const formData = new FormData();
+    formData.append('receipt', receipt);
+    // Use a temporary ID for pre-booking upload
+    formData.append('tempId', Date.now().toString());
+
+    try {
+      console.log('Uploading receipt...');
+      const response = await axios.post(
+        `${API_BASED_URL}api/upload-receipt-pre-booking`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: authToken
+          }
+        }
+      );
+      
+      setReceiptUploaded(true);
+      console.log('Receipt uploaded successfully');
+      // Return the path for booking creation
+      return response.data.path;
+    } catch (error) {
+      console.error('Error uploading receipt:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
+      alert(`Failed to upload receipt: ${errorMsg}. Please try again.`);
+      return null;
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  const handleBooking = async (e) => {
+    e.preventDefault();
+    
+    if (!receipt) {
+      alert("Please upload a payment receipt before booking");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // First upload the receipt
+      const receiptPath = await uploadReceipt();
+      
+      // If receipt upload failed, abort booking
+      if (!receiptPath) {
+        alert("Booking failed: Receipt upload unsuccessful");
+        setIsLoading(false);
+        return;
+      }
+      
+      const token = localStorage.getItem("authToken");
+      const decoded = jwtDecode(token);
+      const userId = decoded.userId;
+      const userType = decoded.userType;
+      
+      // Now proceed with booking with the receipt path
+      const response = await axios.post(
         `${API_BASED_URL}api/booking`,
         {
           facility_id: facilityId,
@@ -153,13 +238,27 @@ function BookingFacility({ authToken }) {
           user_id: userId,
           operator_email: operatorEmail,
           cost: facilityPrice,
-          user_type: userType
+          user_type: userType,
+          receipt_path: receiptPath
         },
         { headers: { Authorization: authToken } }
-      )
-      .then((response) => alert("Booking successful"))
-      .catch((err) => alert("Booking failed", err));
+      );
+      
+      alert("Booking submitted for approval");
+      // Reset form state
+      setSelectedSlot("");
+      setSelectedScheduleId("");
+      setReceipt(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      alert("Booking failed: " + (err.response?.data?.message || err.message));
+    } finally {
+      setIsLoading(false);
+    }
   };
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
       <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-200">
@@ -273,6 +372,52 @@ function BookingFacility({ authToken }) {
             </div>
           </div>
 
+          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
+            <h3 className="text-xl font-semibold mb-4 text-gray-700">Payment Receipt</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Please upload a receipt of your payment for booking this facility. 
+              Supported formats: PDF, JPEG, PNG, and other common image formats. Maximum file size: 5MB.
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="application/pdf,image/*"
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm text-gray-500"
+                disabled={uploadingReceipt || receiptUploaded || isLoading}
+              />
+              {receipt && (
+                <div className="flex items-center space-x-2 bg-green-50 p-2 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-green-600 text-sm font-medium">
+                    {receipt.name} selected
+                  </span>
+                </div>
+              )}
+              {uploadingReceipt && (
+                <div className="flex items-center space-x-2">
+                  <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-blue-600 text-sm">Uploading receipt...</span>
+                </div>
+              )}
+              {receiptUploaded && (
+                <div className="flex items-center space-x-2 bg-green-50 p-2 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-green-600 text-sm font-medium">Receipt uploaded successfully!</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row justify-between items-center mt-8 space-y-4 sm:space-y-0">
             <div className="text-sm text-gray-600 bg-gray-100 p-3 rounded-lg">
               Selected: <span className="font-medium">{date} {selectedSlot}</span>
@@ -280,9 +425,19 @@ function BookingFacility({ authToken }) {
             <button
               onClick={handleBooking}
               className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-md"
-              disabled={!selectedScheduleId || !facilityId}
+              disabled={!selectedScheduleId || !facilityId || !receipt || isLoading}
             >
-              Book Now
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : (
+                "Book Now"
+              )}
             </button>
           </div>
 

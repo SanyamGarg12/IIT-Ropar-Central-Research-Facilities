@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download } from 'lucide-react'
+import { Download, Calendar, DollarSign, Mail, FileText, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader } from 'lucide-react'
 import { jwtDecode } from "jwt-decode";
 import {API_BASED_URL} from '../config.js'; 
 
@@ -12,6 +12,8 @@ export default function BookingHistory() {
   const [error, setError] = useState(null)
   const [expandedBooking, setExpandedBooking] = useState(null)
   const [loadingResults, setLoadingResults] = useState({})
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
 
   const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
   const userId = authToken ? jwtDecode(authToken).userId : null
@@ -24,6 +26,41 @@ export default function BookingHistory() {
       setIsLoading(false)
     }
   }, [authToken, userId])
+
+  // Fetch results for all approved bookings
+  useEffect(() => {
+    const fetchAllResults = async () => {
+      const approvedBookings = history.filter(booking => booking.status === 'Approved');
+      
+      // Create an object to track loading state for all bookings
+      const newLoadingState = {};
+      approvedBookings.forEach(booking => {
+        newLoadingState[booking.booking_id] = true;
+      });
+      
+      if (approvedBookings.length > 0) {
+        setLoadingResults(newLoadingState);
+        
+        // Fetch results for each approved booking
+        const resultsPromises = approvedBookings.map(booking => 
+          fetchResults(booking.booking_id, false) // Pass false to not update loading state here
+        );
+        
+        await Promise.all(resultsPromises);
+        
+        // Reset loading state for all bookings
+        const completedLoadingState = {};
+        approvedBookings.forEach(booking => {
+          completedLoadingState[booking.booking_id] = false;
+        });
+        setLoadingResults(completedLoadingState);
+      }
+    };
+    
+    if (history.length > 0) {
+      fetchAllResults();
+    }
+  }, [history]);
 
   const fetchBookingHistory = async () => {
     setIsLoading(true)
@@ -40,8 +77,11 @@ export default function BookingHistory() {
     }
   }
 
-  const fetchResults = async (bookingId) => {
-    setLoadingResults(prev => ({ ...prev, [bookingId]: true }))
+  const fetchResults = async (bookingId, updateLoadingState = true) => {
+    if (updateLoadingState) {
+      setLoadingResults(prev => ({ ...prev, [bookingId]: true }))
+    }
+    
     try {
       const response = await axios.get(`${API_BASED_URL}api/results/${userId}/${bookingId}`, {
         headers: { Authorization: `${authToken}` },
@@ -50,19 +90,24 @@ export default function BookingHistory() {
         ...prevResults,
         [bookingId]: response.data
       }))
+      return response.data;
     } catch (err) {
       console.error(`Failed to fetch results for booking ${bookingId}`, err)
       setResults(prevResults => ({
         ...prevResults,
         [bookingId]: null
       }))
+      return null;
     } finally {
-      setLoadingResults(prev => ({ ...prev, [bookingId]: false }))
+      if (updateLoadingState) {
+        setLoadingResults(prev => ({ ...prev, [bookingId]: false }))
+      }
     }
   }
 
   const downloadResults = async (bookingId) => {
     try {
+      setDownloadingId(bookingId);
       // First, get the file path from the API
       const filePathResponse = await axios.get(`${API_BASED_URL}api/results/${userId}/${bookingId}`, {
         headers: { Authorization: `${authToken}` },
@@ -92,6 +137,37 @@ export default function BookingHistory() {
     } catch (error) {
       console.error('Error downloading results:', error);
       // You might want to show an error message to the user here
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
+  const downloadReceipt = async (bookingId, receiptPath) => {
+    if (!receiptPath) {
+      alert('No receipt available for this booking');
+      return;
+    }
+
+    try {
+      setDownloadingReceiptId(bookingId);
+      const downloadResponse = await axios.get(`${API_BASED_URL}uploads${receiptPath}`, {
+        headers: { Authorization: `${authToken}` },
+        responseType: 'blob', // Important for file download
+      });
+  
+      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `receipt-${bookingId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Error downloading receipt. Please try again.');
+    } finally {
+      setDownloadingReceiptId(null);
     }
   }
 
@@ -114,24 +190,54 @@ export default function BookingHistory() {
     return <ErrorMessage message={error} />
   }
 
+  // Sort bookings by date (newest first)
+  const sortedHistory = [...history].sort((a, b) => new Date(b.booking_date) - new Date(a.booking_date));
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <motion.h2
-        className="text-3xl font-bold mb-6 text-center text-gray-800"
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <motion.div
+        className="flex items-center justify-between mb-8"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        Booking History
-      </motion.h2>
-      <BookingTable
-        history={history}
-        expandedBooking={expandedBooking}
-        toggleExpand={toggleExpand}
-        results={results}
-        loadingResults={loadingResults}
-        downloadResults={downloadResults}
-      />
+        <h2 className="text-3xl font-bold text-gray-800">My Bookings</h2>
+        <div className="text-sm text-gray-500">
+          {sortedHistory.length} {sortedHistory.length === 1 ? 'booking' : 'bookings'} found
+        </div>
+      </motion.div>
+
+      {sortedHistory.length === 0 ? (
+        <motion.div 
+          className="bg-white rounded-xl shadow-md p-8 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="text-gray-400 mb-4">
+            <Calendar className="w-16 h-16 mx-auto" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Bookings Found</h3>
+          <p className="text-gray-500">You haven't made any facility bookings yet.</p>
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {sortedHistory.map((booking, index) => (
+            <BookingCard
+              key={booking.booking_id}
+              booking={booking}
+              index={index}
+              expanded={expandedBooking === booking.booking_id}
+              toggleExpand={() => toggleExpand(booking.booking_id)}
+              result={results[booking.booking_id]}
+              loadingResult={loadingResults[booking.booking_id]}
+              downloadResult={() => downloadResults(booking.booking_id)}
+              downloadReceipt={() => downloadReceipt(booking.booking_id, booking.receipt_path)}
+              isDownloading={downloadingId === booking.booking_id}
+              isDownloadingReceipt={downloadingReceiptId === booking.booking_id}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -143,9 +249,10 @@ function LoadingSpinner() {
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="text-2xl font-semibold text-gray-700"
+        className="flex flex-col items-center"
       >
-        Loading...
+        <Loader className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+        <p className="text-xl text-gray-600">Loading your bookings...</p>
       </motion.div>
     </div>
   )
@@ -158,151 +265,253 @@ function ErrorMessage({ message }) {
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="text-2xl font-semibold text-red-600"
+        className="bg-red-50 p-6 rounded-xl border border-red-200 shadow-md max-w-md w-full"
       >
-        {message}
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-red-700 text-center mb-2">Error</h3>
+        <p className="text-red-600 text-center">{message}</p>
       </motion.div>
     </div>
   )
 }
 
-function BookingTable({ history, expandedBooking, toggleExpand, results, loadingResults, downloadResults }) {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
+function BookingCard({ 
+  booking, 
+  index, 
+  expanded, 
+  toggleExpand, 
+  result, 
+  loadingResult, 
+  downloadResult, 
+  downloadReceipt,
+  isDownloading,
+  isDownloadingReceipt
+}) {
+  // Format date properly
+  const formattedDate = new Date(booking.booking_date).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 100,
-      },
+  // Get time slot if available
+  const timeSlot = booking.slot || 'N/A';
+
+  const statusClasses = {
+    Approved: {
+      bg: 'bg-green-50',
+      border: 'border-green-200',
+      icon: <CheckCircle className="w-5 h-5 text-green-500 mr-2" />,
+      text: 'text-green-700',
+      badge: 'bg-green-100 text-green-800'
     },
-  }
+    Pending: {
+      bg: 'bg-yellow-50',
+      border: 'border-yellow-200',
+      icon: <Clock className="w-5 h-5 text-yellow-500 mr-2" />,
+      text: 'text-yellow-700',
+      badge: 'bg-yellow-100 text-yellow-800'
+    },
+    Cancelled: {
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      icon: <XCircle className="w-5 h-5 text-red-500 mr-2" />,
+      text: 'text-red-700',
+      badge: 'bg-red-100 text-red-800'
+    }
+  };
+
+  const statusStyle = statusClasses[booking.status] || statusClasses.Pending;
 
   return (
     <motion.div
-      className="bg-white shadow-md rounded-lg overflow-hidden overflow-x-auto"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+      className={`rounded-xl shadow-md overflow-hidden border ${statusStyle.border} ${statusStyle.bg}`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.3 }}
     >
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facility</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operator Email</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {history.map((booking, index) => (
-            <React.Fragment key={booking.booking_id}>
-              <BookingRow
-                booking={booking}
-                index={index}
-                expandedBooking={expandedBooking}
-                toggleExpand={toggleExpand}
-                results={results}
-                loadingResults={loadingResults}
-                downloadResults={downloadResults}
-                itemVariants={itemVariants}
-              />
-              <BookingDetails
-                booking={booking}
-                expandedBooking={expandedBooking}
-                results={results}
-                loadingResults={loadingResults}
-              />
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
-    </motion.div>
-  )
-}
-
-function BookingRow({ booking, index, expandedBooking, toggleExpand, results, loadingResults, downloadResults, itemVariants }) {
-  return (
-    <motion.tr
-      variants={itemVariants}
-      custom={index}
-      initial="hidden"
-      animate="visible"
-      transition={{ delay: index * 0.1 }}
-    >
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.facility_name}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(booking.booking_date).toLocaleDateString()}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          booking.status === 'Approved' ? 'bg-green-100 text-green-800' :
-          booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
-        }`}>
-          {booking.status}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${booking.cost}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.operator_email}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        <div className="flex space-x-2">
-          <button
-            onClick={() => toggleExpand(booking.booking_id)}
-            className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
-          >
-            {expandedBooking === booking.booking_id ? 'Hide Details' : 'Show Details'}
-          </button>
-          {results[booking.booking_id] && (
-            <button
-              onClick={() => downloadResults(booking.booking_id)}
-              className="px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors flex items-center"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Results
-            </button>
-          )}
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-bold text-gray-800">{booking.facility_name}</h3>
+          <span className={`px-3 py-1 inline-flex items-center rounded-full text-xs font-medium ${statusStyle.badge}`}>
+            {statusStyle.icon}
+            {booking.status}
+          </span>
         </div>
-      </td>
-    </motion.tr>
-  )
-}
 
-function BookingDetails({ booking, expandedBooking, results, loadingResults }) {
-  return (
-    <AnimatePresence>
-      {expandedBooking === booking.booking_id && (
-        <motion.tr
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <td colSpan={6} className="px-6 py-4">
-            {loadingResults[booking.booking_id] ? (
-              <div className="text-sm text-gray-500">Loading results...</div>
-            ) : results[booking.booking_id] ? (
-              <div className="text-sm text-gray-900">
-                <p><strong>Latest Result Uploaded Date:</strong> {new Date(results[booking.booking_id].result_date).toLocaleDateString()}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* Date and Time */}
+          <div className="flex items-center text-gray-600">
+            <Calendar className="w-5 h-5 text-gray-400 mr-2" />
+            <div>
+              <div className="font-medium">{formattedDate}</div>
+              <div className="text-sm text-gray-500">{timeSlot}</div>
+            </div>
+          </div>
+
+          {/* Cost */}
+          <div className="flex items-center text-gray-600">
+            <DollarSign className="w-5 h-5 text-gray-400 mr-2" />
+            <div>
+              <div className="font-medium">{booking.cost} Rs.</div>
+              <div className="text-sm text-gray-500">Booking Fee</div>
+            </div>
+          </div>
+
+          {/* Operator */}
+          <div className="flex items-center text-gray-600">
+            <Mail className="w-5 h-5 text-gray-400 mr-2" />
+            <div>
+              <div className="font-medium truncate max-w-xs">{booking.operator_email}</div>
+              <div className="text-sm text-gray-500">Operator</div>
+            </div>
+          </div>
+
+          {/* Receipt */}
+          <div className="flex items-center text-gray-600">
+            <FileText className="w-5 h-5 text-gray-400 mr-2" />
+            <div>
+              {booking.receipt_path ? (
+                <button
+                  onClick={downloadReceipt}
+                  disabled={isDownloadingReceipt}
+                  className="font-medium text-blue-600 hover:text-blue-800 flex items-center transition-colors"
+                >
+                  {isDownloadingReceipt ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-1 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-1" />
+                      Download Receipt
+                    </>
+                  )}
+                </button>
+              ) : (
+                <span className="text-gray-500">No receipt available</span>
+              )}
+              <div className="text-sm text-gray-500">Payment Receipt</div>
+            </div>
+          </div>
+        </div>
+
+        {booking.status === 'Approved' && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+            {result ? (
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-blue-700 font-medium">Results Available</p>
+                  <p className="text-xs text-blue-600">
+                    Uploaded on {new Date(result.result_date).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={downloadResult}
+                  disabled={isDownloading}
+                  className="bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center"
+                >
+                  {isDownloading ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-1 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-1" />
+                      Download Results
+                    </>
+                  )}
+                </button>
               </div>
             ) : (
-              <div className="text-sm text-gray-500">No results available.</div>
+              <div className="text-sm text-blue-700">
+                {loadingResult ? (
+                  <div className="flex items-center">
+                    <Loader className="w-4 h-4 mr-2 animate-spin text-blue-600" />
+                    Checking for results...
+                  </div>
+                ) : (
+                  "No results have been uploaded for this booking yet."
+                )}
+              </div>
             )}
-          </td>
-        </motion.tr>
-      )}
-    </AnimatePresence>
-  )
+          </div>
+        )}
+
+        <div className="flex justify-center">
+          <button
+            onClick={toggleExpand}
+            className="text-sm flex items-center text-gray-600 hover:text-gray-900 transition-colors focus:outline-none"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="w-4 h-4 mr-1" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4 mr-1" />
+                Show More
+              </>
+            )}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mt-4 pt-4 border-t border-gray-100"
+            >
+              <div className="text-sm text-gray-600 space-y-3">
+                <div>
+                  <span className="font-semibold">Booking ID:</span> #{booking.booking_id}
+                </div>
+                {booking.slot && (
+                  <div>
+                    <span className="font-semibold">Time Slot:</span> {booking.slot}
+                  </div>
+                )}
+                {booking.schedule_id && (
+                  <div>
+                    <span className="font-semibold">Schedule ID:</span> {booking.schedule_id}
+                  </div>
+                )}
+                {result && (
+                  <div>
+                    <span className="font-semibold">Results Upload Date:</span> {new Date(result.result_date).toLocaleDateString()}
+                  </div>
+                )}
+                <div>
+                  <span className="font-semibold">User ID:</span> {booking.user_id}
+                </div>
+                <div>
+                  <span className="font-semibold">Status Notes:</span> {getStatusMessage(booking.status)}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
+function getStatusMessage(status) {
+  switch (status) {
+    case 'Approved':
+      return 'Your booking has been approved by the facility operator. The facility is reserved for you on the specified date and time.';
+    case 'Pending':
+      return 'Your booking is awaiting approval from the facility operator. You will be notified once it is approved.';
+    case 'Cancelled':
+      return 'This booking has been cancelled and is no longer valid.';
+    default:
+      return 'No additional information available.';
+  }
 }
 
