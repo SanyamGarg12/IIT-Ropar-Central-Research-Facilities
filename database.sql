@@ -347,3 +347,31 @@ CREATE TABLE User_Publications (
 -- Add receipt_path column to BookingHistory if it doesn't exist
 ALTER TABLE BookingHistory ADD COLUMN receipt_path VARCHAR(255);
 
+CREATE TABLE Supervisor (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    department_name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE InternalUsers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    supervisor_id INT NOT NULL,
+    department_name VARCHAR(100) NOT NULL,
+    verification_token VARCHAR(128),
+    verified TINYINT(1) DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id),
+    FOREIGN KEY (supervisor_id) REFERENCES Supervisor(id)
+);
+
+CREATE TABLE SupervisorVerifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(128) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+);
+

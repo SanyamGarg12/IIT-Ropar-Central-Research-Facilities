@@ -29,6 +29,8 @@ import AddSlots from "./components/AddSlots";
 import UsersRequests from "./components/UsersRequests";
 import AdminManageBooking from "./components/AdminManageBooking";
 import ArchivedNews from './components/ArchivedNews';
+import SupervisorVerify from "./components/SupervisorVerify";
+
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
 
@@ -79,6 +81,7 @@ const App = () => {
                       <Route path="/register" element={<Register onRegister={handleLogin} />} />
                       <Route path="/login" element={<Login onLogin={handleLogin} />} />
                       <Route path="/archived-news" element={<ArchivedNews />} />
+                      <Route path="/supervisor-verify" element={<SupervisorVerify />} />
                     </Routes>
                   </div>
                 </main>

@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 require("dotenv").config();
 const app = express();
 const port = 5000;
@@ -598,9 +599,8 @@ app.post('/api/modifypassword', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/register', upload.single('idProof'), async (req, res) => {
-  const { fullName, email, password, userType, contactNumber, orgName } = req.body;
+  const { fullName, email, password, userType, contactNumber, orgName, department, supervisor_id } = req.body;
   const uploadDir = path.join(__dirname, 'uploads');
-  // Generate a unique filename to avoid conflicts
   let idProofPath = null;
   if (req.file) {
     const uniqueName = `${Date.now()}-${crypto.randomUUID()}${path.extname(req.file.originalname)}`;
@@ -609,21 +609,15 @@ app.post('/api/register', upload.single('idProof'), async (req, res) => {
     idProofPath = `uploads/${uniqueName}`;
   }
 
-  // Input validation
   if (!fullName || !email || !password || !userType) {
     return res.status(400).json({ message: 'All required fields must be provided.' });
   }
 
   try {
-    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-
-    // SQL query for inserting a new user
     const query = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number, org_name, id_proof) 
                    VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-    // Execute the query
     db.query(query, [fullName, email, passwordHash, userType, contactNumber || null, orgName || null, idProofPath], (err, result) => {
       if (err) {
         console.error(err);
@@ -632,8 +626,62 @@ app.post('/api/register', upload.single('idProof'), async (req, res) => {
         }
         return res.status(500).json({ message: 'Registration failed.' });
       }
-
-      res.status(201).json({ message: 'User registered successfully.' });
+      const user_id = result.insertId;
+      if (userType === 'Internal') {
+        // Insert into InternalUsers (no verification columns)
+        db.query('INSERT INTO InternalUsers (user_id, email, full_name, supervisor_id, department_name) VALUES (?, ?, ?, ?, ?)',
+          [user_id, email, fullName, supervisor_id, department], (err2) => {
+            if (err2) {
+              console.error(err2);
+              return res.status(500).json({ message: 'Internal user registration failed.' });
+            }
+            // Generate verification token and store in SupervisorVerifications
+            const verificationToken = crypto.randomBytes(32).toString('hex');
+            db.query('INSERT INTO SupervisorVerifications (user_id, token) VALUES (?, ?)', [user_id, verificationToken], (err3) => {
+              if (err3) {
+                console.error(err3);
+                return res.status(500).json({ message: 'Failed to store verification token.' });
+              }
+              // Get supervisor email
+              db.query('SELECT email, name FROM Supervisor WHERE id = ?', [supervisor_id], (err4, supRes) => {
+                if (err4 || !supRes.length) {
+                  return res.status(500).json({ message: 'Supervisor not found.' });
+                }
+                const supervisorEmail = supRes[0].email;
+                const supervisorName = supRes[0].name;
+                // Send verification email
+                const transporter = nodemailer.createTransport({
+                  service: 'gmail',
+                  auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
+                  }
+                });
+                const verifyUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-verify?token=${verificationToken}`;
+                const mailOptions = {
+                  from: process.env.EMAIL_USER,
+                  to: supervisorEmail,
+                  subject: 'Internal User Verification Request',
+                  html: `<p>Dear ${supervisorName},</p>
+                    <p>${fullName} (${email}) has registered as an internal user in the facility booking system under your supervision.</p>
+                    <p>Department: ${department}</p>
+                    <p>Please click the button below to verify this user:</p>
+                    <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;">Verify User</a>
+                    <p>Thank you.</p>`
+                };
+                transporter.sendMail(mailOptions, (err5, info) => {
+                  if (err5) {
+                    console.error('Failed to send supervisor verification email:', err5);
+                    return res.status(500).json({ message: 'Failed to send verification email to supervisor.' });
+                  }
+                  res.status(201).json({ message: 'User registered successfully. Awaiting supervisor verification.' });
+                });
+              });
+            });
+          });
+      } else {
+        res.status(201).json({ message: 'User registered successfully.' });
+      }
     });
   } catch (error) {
     console.error(error);
@@ -2026,6 +2074,73 @@ app.delete('/api/admin/operators/:email', authenticateToken, (req, res) => {
       }
 
       res.json({ message: 'Operator deleted successfully' });
+    });
+  });
+});
+
+// API to get all unique departments from Supervisor table
+app.get('/api/departments', (req, res) => {
+  db.query('SELECT DISTINCT department_name FROM Supervisor', (err, results) => {
+    if (err) return res.status(500).json([]);
+    res.json(results.map(r => r.department_name));
+  });
+});
+
+// API to get all supervisors for a department
+app.get('/api/supervisors', (req, res) => {
+  const { department } = req.query;
+  if (!department) return res.status(400).json([]);
+  db.query('SELECT id, name, email FROM Supervisor WHERE department_name = ?', [department], (err, results) => {
+    if (err) return res.status(500).json([]);
+    res.json(results);
+  });
+});
+
+// Supervisor verification endpoint
+app.get('/api/supervisor-verify', (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).send('Invalid verification link.');
+  db.query('SELECT user_id FROM SupervisorVerifications WHERE token = ?', [token], (err, results) => {
+    if (err || !results.length) return res.status(400).send('Invalid or expired verification link.');
+    const user_id = results[0].user_id;
+    db.query('UPDATE Users SET verified = "YES" WHERE user_id = ?', [user_id], (err2) => {
+      if (err2) return res.status(500).send('Failed to verify user.');
+      // Optionally, delete the token row
+      db.query('DELETE FROM SupervisorVerifications WHERE token = ?', [token], (err3) => {
+        if (err3) console.error('Failed to delete verification token:', err3);
+        res.send('<h2>User has been successfully verified by supervisor.</h2>');
+      });
+    });
+  });
+});
+
+// Get user info for supervisor verification (no verification yet)
+app.get('/api/supervisor-verify-info', (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: 'Invalid verification link.' });
+  db.query('SELECT user_id FROM SupervisorVerifications WHERE token = ?', [token], (err, results) => {
+    if (err || !results.length) return res.status(400).json({ error: 'Invalid or expired verification link.' });
+    const user_id = results[0].user_id;
+    db.query('SELECT full_name, email, user_type, org_name, contact_number FROM Users WHERE user_id = ?', [user_id], (err2, userRes) => {
+      if (err2 || !userRes.length) return res.status(400).json({ error: 'User not found.' });
+      res.json({ ...userRes[0], user_id });
+    });
+  });
+});
+
+// Supervisor confirms verification (POST)
+app.post('/api/supervisor-verify', (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Invalid verification link.' });
+  db.query('SELECT user_id FROM SupervisorVerifications WHERE token = ?', [token], (err, results) => {
+    if (err || !results.length) return res.status(400).json({ error: 'Invalid or expired verification link.' });
+    const user_id = results[0].user_id;
+    db.query('UPDATE Users SET verified = ? WHERE user_id = ?', ['YES', user_id], (err2) => {
+      if (err2) return res.status(500).json({ error: 'Failed to verify user.' });
+      db.query('DELETE FROM SupervisorVerifications WHERE token = ?', [token], (err3) => {
+        if (err3) console.error('Failed to delete verification token:', err3);
+        res.json({ message: 'User has been successfully verified by supervisor.' });
+      });
     });
   });
 });
