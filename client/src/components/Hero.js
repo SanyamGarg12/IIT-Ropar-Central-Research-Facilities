@@ -77,14 +77,14 @@ const Hero = () => {
       transition={{ duration: 0.5 }}
     >
       {/* Image Slider Section */}
-      <div className="relative h-96 overflow-hidden">
+      <div className="relative h-96 overflow-hidden flex flex-col items-center justify-center">
         <motion.button
-          className="absolute left-2 md:left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-90 rounded-full w-10 h-10 flex items-center justify-center transition-all duration-200 ease-in-out z-10 shadow-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-blue-600 hover:text-white rounded-full w-14 h-14 flex items-center justify-center transition-all duration-200 ease-in-out z-10 shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-2 border-blue-200 hover:border-blue-600"
           onClick={() => handleScroll("left")}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.95 }}
         >
-          <ChevronLeft className="w-6 h-6 text-gray-800" />
+          <ChevronLeft className="w-7 h-7" />
         </motion.button>
 
         <AnimatePresence initial={false} custom={currentIndex}>
@@ -103,26 +103,45 @@ const Hero = () => {
                 className="object-cover w-full h-full"
               />
               <motion.div
-                className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-8"
+                className="absolute inset-0 flex flex-col justify-end items-start p-8 bg-gradient-to-t from-black/60 via-black/30 to-transparent"
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
-                <h2 className="text-white text-3xl font-bold">{images[currentIndex].title}</h2>
-                <p className="text-white text-xl">{images[currentIndex].subtitle}</p>
+                <div className="backdrop-blur-sm bg-black/40 rounded-lg px-6 py-4 mb-6 max-w-xl">
+                  <h2 className="text-white text-3xl font-bold drop-shadow-lg">{images[currentIndex].title}</h2>
+                  <p className="text-white text-xl drop-shadow-lg">{images[currentIndex].subtitle}</p>
+                </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
         <motion.button
-          className="absolute right-2 md:right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-90 rounded-full w-10 h-10 flex items-center justify-center transition-all duration-200 ease-in-out z-10 shadow-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-blue-600 hover:text-white rounded-full w-14 h-14 flex items-center justify-center transition-all duration-200 ease-in-out z-10 shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-2 border-blue-200 hover:border-blue-600"
           onClick={() => handleScroll("right")}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.95 }}
         >
-          <ChevronRight className="w-6 h-6 text-gray-800" />
+          <ChevronRight className="w-7 h-7" />
         </motion.button>
+
+        {/* Dot Indicators */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
+                idx === currentIndex
+                  ? 'bg-blue-600 border-blue-600 scale-110 shadow-lg'
+                  : 'bg-white border-blue-200 hover:bg-blue-200'
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+              style={{ outline: 'none' }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Thought of the Day Section */}
