@@ -47,7 +47,7 @@ INSERT INTO Facilities (name, make_year, model, faculty_in_charge, operator_cont
 -- Create the Users table
 CREATE TABLE Users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_type ENUM('Internal', 'External Academic', 'R&D Lab', 'Industry') NOT NULL,
+    user_type ENUM('Internal', 'Internal Consultancy', 'Government R&D Lab or External Academics', 'Private Industry or Private R&D Lab') NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
