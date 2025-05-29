@@ -48,6 +48,54 @@ const App = () => {
     return authToken ? children : <Navigate to="/login" />;
   };
 
+  const AdminProtectedRoute = ({ children }) => {
+    const userPosition = localStorage.getItem("userPosition");
+    const userToken = localStorage.getItem("userToken");
+
+    if (!userToken || userPosition !== "Admin") {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+          <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Unauthorized Access</h2>
+            <p className="text-gray-600 mb-4">You do not have permission to access this page. Only administrators can access this area.</p>
+            <Link 
+              to="/" 
+              className="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Return to Home
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    return children;
+  };
+
+  const OperatorProtectedRoute = ({ children }) => {
+    const userPosition = localStorage.getItem("userPosition");
+    const userToken = localStorage.getItem("userToken");
+
+    if (!userToken || userPosition !== "Operator") {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+          <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Unauthorized Access</h2>
+            <p className="text-gray-600 mb-4">You do not have permission to access this page. Only operators can access this area.</p>
+            <Link 
+              to="/" 
+              className="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Return to Home
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    return children;
+  };
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-100">
@@ -108,21 +156,81 @@ const App = () => {
                   <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                     <Routes>
                       <Route path="/" element={<AdminPanel />} />
-                      <Route path="/members" element={<ManageMembers />} />
-                      <Route path="/facilities" element={<ManageFacilities />} />
-                      <Route path="/forms" element={<ManageForms />} />
-                      <Route path="/publications" element={<ManagePublications />} />
-                      <Route path="/about" element={<ManageAbout />} />
-                      <Route path="/hero" element={<ManageHero />} />
-                      <Route path="/booking" element={<ManageBooking />} />
-                      <Route path="/opfacilities" element={<ManageLimFacilities />} />
-                      <Route path="/addoperator" element={<AddOperator />} />
-                      <Route path="/deleteoperator" element={<DeleteOperator />} />
-                      <Route path="/opchangepass" element={<OperatorChangePassword />} />
-                      <Route path="/modpass" element={<ModPassword />} />
-                      <Route path="/approveUsers" element={<UsersRequests />} />
-                      <Route path="/addslots" element={<AddSlots />} />
-                      <Route path="/adminManageBooking" element={<AdminManageBooking />} />
+                      <Route path="/members" element={
+                        <AdminProtectedRoute>
+                          <ManageMembers />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/facilities" element={
+                        <AdminProtectedRoute>
+                          <ManageFacilities />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/forms" element={
+                        <AdminProtectedRoute>
+                          <ManageForms />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/publications" element={
+                        <AdminProtectedRoute>
+                          <ManagePublications />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/about" element={
+                        <AdminProtectedRoute>
+                          <ManageAbout />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/hero" element={
+                        <AdminProtectedRoute>
+                          <ManageHero />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/booking" element={
+                        <OperatorProtectedRoute>
+                          <ManageBooking />
+                        </OperatorProtectedRoute>
+                      } />
+                      <Route path="/opfacilities" element={
+                        <AdminProtectedRoute>
+                          <ManageLimFacilities />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/addoperator" element={
+                        <AdminProtectedRoute>
+                          <AddOperator />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/deleteoperator" element={
+                        <AdminProtectedRoute>
+                          <DeleteOperator />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/opchangepass" element={
+                        <OperatorProtectedRoute>
+                          <OperatorChangePassword />
+                        </OperatorProtectedRoute>
+                      } />
+                      <Route path="/modpass" element={
+                        <AdminProtectedRoute>
+                          <ModPassword />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/approveUsers" element={
+                        <AdminProtectedRoute>
+                          <UsersRequests />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/addslots" element={
+                        <OperatorProtectedRoute>
+                          <AddSlots />
+                        </OperatorProtectedRoute>
+                      } />
+                      <Route path="/adminManageBooking" element={
+                        <AdminProtectedRoute>
+                          <AdminManageBooking />
+                        </AdminProtectedRoute>
+                      } />
                     </Routes>
                   </div>
                 </main>

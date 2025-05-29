@@ -1,12 +1,13 @@
 import {API_BASED_URL} from '../config.js'; 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom';
 
 const UserProfile = () => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const BASE_URL = `${API_BASED_URL}`
-
+  const navigate = useNavigate();
   useEffect(() => {
     const userId = localStorage.getItem("ClientUserId")
 
@@ -19,7 +20,13 @@ const UserProfile = () => {
     const fetchUserDetails = async () => {
       try {
         const response = await fetch(`${BASE_URL}api/UserProfile/${userId}`)
-
+        if (response.status && (response.status === 401 || response.status===403)) {
+          alert("Session expired. Please log in again.");
+          localStorage.clear(); // Clear localStorage to logout user
+          // Redirect to login page
+          navigate("/login");
+          return;
+        }
         if (!response.ok) {
           throw new Error("Failed to fetch user details")
         }

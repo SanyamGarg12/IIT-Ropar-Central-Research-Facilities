@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 import Sidebar from "./Sidebar";
 import UserProfile from "./UserProfile";
 import ChangePassword from "./ChangePassword";
@@ -10,6 +11,22 @@ import BookingFacility from "./BookingFacility";
 import Logout from "./Logout";
 import { User, ChevronDown } from 'lucide-react';
 import {API_BASED_URL} from '../config.js'; 
+
+// Add axios interceptor to handle authentication errors
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      // Clear local storage
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("ClientUserId");
+      
+      // Redirect to login page
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
 
 function Booking() {
   const authToken = localStorage.getItem("authToken");
@@ -26,6 +43,10 @@ function Booking() {
         setUserId(tokenPayload.userId || "Unknown");
       } catch (error) {
         console.error("Invalid token:", error);
+        // Clear local storage and redirect to login if token is invalid
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("ClientUserId");
+        window.location.href = "/login";
       }
     }
   }, [authToken]);

@@ -1,25 +1,20 @@
 {
-  "messageFromDirector": {
-    "title": "Message from the Director",
-    "content": [
-      "hello",
-      "hello"
-    ]
-  },
   "departmentIntro": {
     "title": "Department Introduction",
-    "content": "hello",
-    "image": "/assets/department-building.jpg"
+    "content": "The Central Research Facilities at IIT Ropar provide access to sophisticated analytical instruments for academicians and researchers through its Sophisticated Analytical Instrument Facilities. A wide range of analytical, spectroscopic and microscopic techniques for chemical, materials and compound analysis, testing, and characterization are available. These include qualitative and quantitative elemental analysis, molecular and compound analysis, structure determination, surface topographic studies and the study of physical, mechanical and electrical properties of materials. These facilities support internal and external researchers in their work by offering advanced tools and expertise.",
+    "image": "/uploads/1748502987140.jpeg"
   },
   "labObjectives": {
     "title": "Lab Objectives",
     "items": [
-      "hello",
-      "hello"
+      "To provide access to sophisticated analytical instruments for academicians, scientists, and other users from academic institutes, R&D laboratories and industries, enabling them to carry out measurements for R&D work.",
+      "To organize short-term courses and workshops on the use and application of various instruments and analytical techniques.",
+      "To develop new techniques and methods of analysis to maximize the utilization of instruments, thereby exploring new dimensions in various areas of science and technology.",
+      "To support sponsored research and consultancy projects."
     ]
   },
   "visionMission": {
-    "vision": "hello",
-    "mission": "Hello"
+    "vision": "Vision content",
+    "mission": "mission contents"
   }
 }

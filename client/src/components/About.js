@@ -43,7 +43,7 @@ function About() {
             <div className="md:w-1/2 mb-8 md:mb-0 md:pr-8">
               <p className="text-lg text-gray-700 leading-relaxed">{aboutContent.departmentIntro.content}</p>
             </div>
-            <img src="/assets/DepartmentImage.jpg" alt="Department Building" className="md:w-1/2 rounded-lg shadow-lg object-cover h-64 md:h-auto" />
+            <img src={aboutContent.departmentIntro.image} alt="Department Building" className="md:w-1/2 rounded-lg shadow-lg object-cover h-64 md:h-auto" />
           </div>
         </section>
 

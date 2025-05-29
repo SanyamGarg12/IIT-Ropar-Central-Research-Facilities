@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import {API_BASED_URL} from '../config.js'; 
-
+import { useNavigate } from 'react-router-dom';
 function UserPublications() {
   const [formData, setFormData] = useState({
     author_name: '',
@@ -18,7 +18,7 @@ function UserPublications() {
   const [publications, setPublications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (token) {
@@ -36,6 +36,8 @@ function UserPublications() {
         }
       } catch (error) {
         console.error('Error decoding token:', error);
+        localStorage.clear();
+        navigate("/login");
         setMessage('Error authenticating user. Please log in again.');
       }
     } else {
@@ -53,6 +55,13 @@ function UserPublications() {
           'Authorization': `${token}`
         }
       });
+      if (response.status && (response.status === 401 || response.status===403)) {
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        alert("Session expired. Please log in again.");
+        return;
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch publications');
       }
@@ -118,6 +127,14 @@ function UserPublications() {
         body: formDataToSend,
       });
 
+      if (response.status && (response.status === 401 || response.status===403)) {
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        alert("Session expired. Please log in again.");
+        return;
+      }
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to submit publication');
@@ -156,6 +173,14 @@ function UserPublications() {
           }
         });
 
+        if (response.status && (response.status === 401 || response.status===403)) {
+          localStorage.clear(); // Clear localStorage to logout user
+          // Redirect to login page
+          navigate("/login");
+          alert("Session expired. Please log in again.");
+          return;
+        }
+        
         if (!response.ok) {
           throw new Error('Failed to delete publication');
         }

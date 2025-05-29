@@ -1,9 +1,9 @@
 -- Create the database if it doesn't exist
-DROP DATABASE IF EXISTS iitrpr_dummy;
-CREATE DATABASE iitrpr_dummy;
+DROP DATABASE IF EXISTS iitrpr;
+CREATE DATABASE iitrpr;
 
 -- Switch to the newly created database
-USE iitrpr_dummy;
+USE iitrpr;
 
 -- Create the Categories table
 CREATE TABLE IF NOT EXISTS Categories (
@@ -11,13 +11,8 @@ CREATE TABLE IF NOT EXISTS Categories (
   name VARCHAR(255) NOT NULL,
   description TEXT
 );
-
 -- Insert data into Categories table
 INSERT INTO Categories (name, description) VALUES
-('Advanced Materials Characterization', 'Techniques for analyzing material properties.'),
-('Biological Imaging', 'Microscopy and imaging for biological samples.'),
-('Chemical Analysis', 'Spectroscopy and chromatography for chemical identification.'),
-('Fabrication & Prototyping', 'Tools for creating prototypes and custom parts.'),
 ('Miscellaneous', ''),
 ('Spectroscopy', ''),
 ('Microscopy', '');
@@ -46,6 +41,9 @@ CREATE TABLE IF NOT EXISTS Facilities (
   FOREIGN KEY (category_id) REFERENCES Categories(id) ON DELETE CASCADE
 );
 
+-- insert data into facilities
+INSERT INTO Facilities (name, make_year, model, faculty_in_charge, operator_contact, description, specifications, usage_details, image_url, category_id, price_industry, price_internal, price_external, price_r_and_d, Faculty_contact, Faculty_email, operator_name, operator_email) VALUES
+('High-Res SEM', 2022, 'Zeiss GeminiSEM 500', 'Dr. A. B. Charan', '9000011111', 'High-Resolution Scanning Electron Microscope', 'Resolution: 0.6nm, Max Mag: 2,000,000x', 'Sample prep required. Training mandatory.', 'uploads/facility_images/sem.jpg', 1, 5000.00, 500.00, 2500.00, 1000.00, '9112233445', 'ab.charan@iitrpr.ac.in', 'Rakesh Kumar', 'rakesh.op@iitrpr.ac.in');
 -- Create the Users table
 CREATE TABLE Users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,

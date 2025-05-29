@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { jwtDecode } from "jwt-decode";
 import {API_BASED_URL} from '../config.js'; 
+import { useNavigate } from 'react-router-dom';
 
 function ChangePassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
+  const navigate = useNavigate();
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setError('');
@@ -38,19 +39,27 @@ function ChangePassword() {
         },
         body: JSON.stringify({ userId:userId , newPassword: password }),
       });
-
+      if (response.status && (response.status === 401 || response.status===403)) {
+        alert("Session expired. Please log in again.");
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        return;
+      }
       if (!response.ok) {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to change password');
         return;
       }
-
+      
+      // console.log(response);
       setSuccess('Password changed successfully');
       setPassword('');
       setConfirmPassword('');
     } catch (err) {
-      console.error('Error changing password:', err);
-      setError('An error occurred. Please try again later.');
+      // console.log(err.status);
+      // console.error('Error changing password:', err);
+      setError('An error occurred. Please try again later. You can also try logging in again');
     }
   };
 

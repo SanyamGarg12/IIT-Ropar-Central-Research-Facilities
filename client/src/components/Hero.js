@@ -3,18 +3,33 @@ import { motion, AnimatePresence } from "framer-motion";
 // import Videos from "./Videos";
 import { Facebook, Twitter, Instagram, ChevronLeft, ChevronRight, Archive } from 'lucide-react';
 import Footer from "./Footer";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {API_BASED_URL} from '../config.js'; 
+import { 
+  sanitizeInput, 
+  secureFetch,
+  createRateLimiter,
+  escapeHtml 
+} from '../utils/security';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
   return `${API_BASED_URL}uploads/${imagePath}`;
 };
+
 const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [images, setImages] = useState([]);
   const [thought, setThought] = useState('');
   const [newsFeed, setNewsFeed] = useState([]);
+  const [facilities, setFacilities] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+
+  // Create rate limiter for search operations
+  const rateLimiter = createRateLimiter(1000, 60 * 1000); // 20 searches per minute
 
   useEffect(() => {
     const fetchSliderImages = async () => {
@@ -57,9 +72,27 @@ const Hero = () => {
       }
     };
 
+    const fetchFacilities = async () => {
+      try {
+        setIsLoading(true);
+        const response = await secureFetch(`${API_BASED_URL}api/facilities`);
+        if (response.ok) {
+          const data = await response.json();
+          setFacilities(data);
+        } else {
+          setErrorMessage("Failed to fetch facilities");
+        }
+      } catch (error) {
+        setErrorMessage("Error fetching facilities");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchSliderImages();
     fetchThought();
     fetchNews();
+    fetchFacilities();
   }, []);
 
   const handleScroll = (direction) => {
@@ -69,6 +102,24 @@ const Hero = () => {
       setCurrentIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
     }
   };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    
+    // Check rate limit
+    if (!rateLimiter.check('search_operation')) {
+      setErrorMessage("Too many searches. Please wait a moment.");
+      return;
+    }
+
+    const sanitizedQuery = sanitizeInput(searchQuery);
+    navigate(`/search?q=${encodeURIComponent(sanitizedQuery)}`);
+  };
+
+  const handleFacilityClick = (facilityId) => {
+    navigate(`/facility/${facilityId}`);
+  };
+
   return (
     <motion.div
       className="bg-gray-100 min-h-screen"
@@ -199,6 +250,59 @@ const Hero = () => {
             </motion.div>
           ))}
         </div>
+      </motion.div>
+
+      {/* Featured Facilities Section */}
+      <motion.div
+        className="bg-gray-100 py-12"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+      >
+        {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">Featured Facilities</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {facilities.slice(0, 3).map((facility) => (
+              <motion.div
+                key={facility.id}
+                className="bg-white rounded-lg shadow-md overflow-hidden"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * facility.id, duration: 0.5 }}
+              >
+                <div
+                  className="h-48 overflow-hidden rounded-t-lg"
+                  style={{ backgroundImage: `url(${facility.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                >
+                  <div className="h-full flex items-end p-4">
+                    <div className="w-full bg-black bg-opacity-50 rounded-lg px-4 py-2">
+                      <h3 className="text-white text-lg font-semibold">{escapeHtml(facility.name)}</h3>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="text-gray-600 mb-4">{escapeHtml(facility.description?.substring(0, 100) + '...')}</p>
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => handleFacilityClick(facility.id)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      View Facility
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/facilities')}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              View All Facilities
+            </button>
+          </div>
+        </div> */}
       </motion.div>
 
       {/* Footer Section */}

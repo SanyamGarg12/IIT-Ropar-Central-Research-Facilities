@@ -532,4 +532,3 @@ const ManageBooking = () => {
 };
 
 export default ManageBooking;
-

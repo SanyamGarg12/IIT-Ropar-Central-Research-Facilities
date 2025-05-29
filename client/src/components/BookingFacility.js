@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import {API_BASED_URL} from '../config.js'; 
+import { useNavigate } from 'react-router-dom';
 
 function BookingFacility({ authToken }) {
   const [facilityId, setFacilityId] = useState("");
@@ -21,7 +22,7 @@ function BookingFacility({ authToken }) {
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [bookingId, setBookingId] = useState(null);
   const fileInputRef = useRef(null);
-
+  const navigate = useNavigate();
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
     const now = new Date();
     const bookingDateTime = new Date(`${selectedDate}T${startTime}`);
@@ -58,13 +59,13 @@ function BookingFacility({ authToken }) {
       case 'internal':
         price = facility.price_internal;
         break;
-      case 'external':
+      case 'internal consultancy':
         price = facility.price_external;
         break;
-      case 'r_and_d':
+      case 'government r&d lab or external academics':
         price = facility.price_r_and_d;
         break;
-      case 'industry':
+      case 'private industry or private r&d lab':
         price = facility.price_industry;
         break;
       default:
@@ -81,9 +82,28 @@ function BookingFacility({ authToken }) {
     }
     setIsLoading(true);
     try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Authentication token not found. Please log in again.');
+        navigate("/login");
+        return;
+      }
       const response = await axios.get(
-        `${API_BASED_URL}api/slots?facility_id=${facilityId}&date=${date}`
+        `${API_BASED_URL}api/slots?facility_id=${facilityId}&date=${date}`,
+        {
+          header: {
+            Authorization: authToken
+          }
+        }
       );
+
+      if (response.status && (response.status === 401 || response.status === 403)) {
+        alert("Session expired. Please log in again.");
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        return;
+      }
       setAvailableSlots(response.data.slots);
     } catch (err) {
       console.error(err);
@@ -100,12 +120,31 @@ function BookingFacility({ authToken }) {
     }
     setIsLoading(true);
     try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Authentication token not found. Please log in again.');
+        navigate("/login");
+        return;
+      }
+
       const response = await axios.get(
-        `${API_BASED_URL}api/weekly-slots?facilityId=${facilityId}`
+        `${API_BASED_URL}api/weekly-slots?facilityId=${facilityId}`,
+        {
+          headers: {
+            Authorization: authToken
+          }
+        }
       );
+      if (response.status && (response.status === 401 || response.status === 403)) {
+        alert("Session expired. Please log in again.");
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        return;
+      }
       setWeeklySlots(response.data.facility);
     } catch (err) {
-      console.error(err);
+      // console.error(err);
       alert("Failed to fetch weekly slots. Please try again.");
     } finally {
       setIsLoading(false);
@@ -187,7 +226,13 @@ function BookingFacility({ authToken }) {
           }
         }
       );
-      
+      if (response.status && (response.status === 401 || response.status === 403)) {
+        alert("Session expired. Please log in again.");
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        return;
+      }
       setReceiptUploaded(true);
       console.log('Receipt uploaded successfully');
       // Return the path for booking creation
@@ -243,7 +288,13 @@ function BookingFacility({ authToken }) {
         },
         { headers: { Authorization: authToken } }
       );
-      
+      if (response.status && (response.status === 401 || response.status === 403)) {
+        alert("Session expired. Please log in again.");
+        localStorage.clear(); // Clear localStorage to logout user
+        // Redirect to login page
+        navigate("/login");
+        return;
+      }
       alert("Booking submitted for approval");
       // Reset form state
       setSelectedSlot("");
@@ -486,4 +537,3 @@ function BookingFacility({ authToken }) {
 }
 
 export default BookingFacility;
-

@@ -8,10 +8,60 @@ const fs = require('fs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const xss = require('xss-clean');
+const hpp = require('hpp');
 require("dotenv").config();
 const app = express();
-const port = 5000;
-const JWT_SECRET = 'sdfadfs';
+const port = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'sdfadfs';
+
+// Security middleware
+app.use(helmet());
+app.use(xss());
+app.use(hpp());
+
+// Rate limiting configurations
+const loginLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 200, // 100 attempts per window
+  message: 'Too many login attempts, please try again after 30 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 200, // 100 requests per window
+  message: 'Too many requests from this IP, please try again after 30 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 200, // 100 uploads per 30 minutes
+  message: 'Too many file uploads, please try again after 30 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Add a specific rate limiter for registration
+const registerLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 200, // 100 registration attempts per 30 minutes
+  message: 'Too many registration attempts, please try again after 30 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiters to specific routes
+app.use('/login', loginLimiter);
+app.use('/api/upload', uploadLimiter);
+app.use('/api/register', registerLimiter); // Apply registration rate limiter
+app.use('/api/', apiLimiter);
+
 // Enable CORS for cross-origin requests
 app.use(cors());
 
@@ -33,8 +83,8 @@ db.getConnection((err) => {
 });
 
 // Middleware to parse JSON request bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Check if upload directories exist, if not create them
 fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
@@ -42,18 +92,48 @@ fs.mkdirSync(path.join(__dirname, 'uploads/results'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'uploads/publications'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'uploads/receipts'), { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, 'uploads'); // Ensure this is the correct path
-    cb(null, uploadPath);
+// Create a directory for temporary chunk storage
+fs.mkdirSync(path.join(__dirname, 'uploads/temp'), { recursive: true });
+
+// Configure multer storage for file uploads
+const uploadStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
   },
-  filename: (req, file, cb) => {
-    const fileName = Date.now() + path.extname(file.originalname);
-    cb(null, fileName);
-  },
+  filename: function (req, file, cb) {
+    const uniqueId = Date.now();
+    const originalExt = path.extname(file.originalname);
+    cb(null, `${uniqueId}${originalExt}`);
+  }
 });
 
-const upload = multer({ storage });
+const upload = multer({ 
+  storage: uploadStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB file size limit
+  }
+});
+
+// Handle file upload for registration
+app.post('/api/upload-id-proof', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    res.json({ 
+      success: true, 
+      filePath: req.file.filename,
+      message: 'File uploaded successfully'
+    });
+  } catch (error) {
+    console.error('Error handling file upload:', error);
+    res.status(500).json({ 
+      error: 'Failed to process file upload',
+      details: error.message 
+    });
+  }
+});
 
 // Storage configuration for receipt uploads
 const receiptStorage = multer.diskStorage({
@@ -83,6 +163,37 @@ const receiptUpload = multer({
   },
   limits: {
     fileSize: 5 * 1024 * 1024 // 5 MB file size limit
+  }
+});
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+const tempDir = path.join(uploadsDir, 'temp');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+
+// Configure multer storage for chunk uploads
+const chunkStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, tempDir);
+  },
+  filename: function (req, file, cb) {
+    const fileId = req.body.fileId;
+    const chunk = req.body.chunk;
+    const originalExt = path.extname(file.originalname);
+    cb(null, `${fileId}_chunk_${chunk}${originalExt}`);
+  }
+});
+
+const uploadChunk = multer({ 
+  storage: chunkStorage,
+  limits: {
+    fileSize: 1024 * 1024 // 1MB chunk size limit
   }
 });
 
@@ -568,6 +679,7 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
+      // localStorage.clear();
       console.error("Token verification failed:", err);
       return res.status(403).send("Invalid Token");
     }
@@ -598,16 +710,115 @@ app.post('/api/modifypassword', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/register', upload.single('idProof'), async (req, res) => {
-  const { fullName, email, password, userType, contactNumber, orgName, department, supervisor_id } = req.body;
-  const uploadDir = path.join(__dirname, 'uploads');
-  let idProofPath = null;
-  if (req.file) {
-    const uniqueName = `${Date.now()}-${crypto.randomUUID()}${path.extname(req.file.originalname)}`;
-    const newPath = path.join(uploadDir, uniqueName);
-    fs.renameSync(req.file.path, newPath);
-    idProofPath = `uploads/${uniqueName}`;
-  }
+// app.post('/api/register', upload.single('idProof'), async (req, res) => {
+//   console.log(req.body);
+//   const { fullName, email, password, userType, contactNumber, orgName, department, supervisor_id, idProof} = req.body;
+//   const uploadDir = path.join(__dirname, 'uploads');
+//   let idProofPath = null;
+
+//   // Handle file upload
+//   if(idProof){
+//     idProofPath = `uploads/${idProof}`; // Store relative path
+//   }
+
+//   if (!fullName || !email || !password || !userType) {
+//     return res.status(400).json({ message: 'All required fields must be provided.' });
+//   }
+
+//   try {
+//     const salt = await bcrypt.genSalt(10);
+//     const passwordHash = await bcrypt.hash(password, salt);
+    
+//     // Log the values being inserted
+//     console.log('Inserting user with values:', {
+//       fullName,
+//       email,
+//       userType,
+//       contactNumber,
+//       orgName,
+//       idProofPath
+//     });
+
+//     const query = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number, org_name, id_proof) 
+//                    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    
+//     db.query(query, [fullName, email, passwordHash, userType, contactNumber || null, orgName || null, idProofPath], (err, result) => {
+//       if (err) {
+//         console.error('Database error:', err);
+//         if (err.code === 'ER_DUP_ENTRY') {
+//           return res.status(400).json({ message: 'Email already exists.' });
+//         }
+//         return res.status(500).json({ message: 'Registration failed.' });
+//       }
+
+//       const user_id = result.insertId;
+//       if (userType === 'Internal') {
+//         // Insert into InternalUsers (no verification columns)
+//         db.query('INSERT INTO InternalUsers (user_id, email, full_name, supervisor_id, department_name) VALUES (?, ?, ?, ?, ?)',
+//           [user_id, email, fullName, supervisor_id, department], (err2) => {
+//             if (err2) {
+//               console.error('Error inserting internal user:', err2);
+//               return res.status(500).json({ message: 'Internal user registration failed.' });
+//             }
+//             // Generate verification token and store in SupervisorVerifications
+//             const verificationToken = crypto.randomBytes(32).toString('hex');
+//             db.query('INSERT INTO SupervisorVerifications (user_id, token) VALUES (?, ?)', [user_id, verificationToken], (err3) => {
+//               if (err3) {
+//                 console.error('Error storing verification token:', err3);
+//                 return res.status(500).json({ message: 'Failed to store verification token.' });
+//               }
+//               // Get supervisor email
+//               db.query('SELECT email, name FROM Supervisor WHERE id = ?', [supervisor_id], (err4, supRes) => {
+//                 if (err4 || !supRes.length) {
+//                   return res.status(500).json({ message: 'Supervisor not found.' });
+//                 }
+//                 const supervisorEmail = supRes[0].email;
+//                 const supervisorName = supRes[0].name;
+//                 // Send verification email
+//                 const transporter = nodemailer.createTransport({
+//                   service: 'gmail',
+//                   auth: {
+//                     user: process.env.EMAIL_USER,
+//                     pass: process.env.EMAIL_PASS
+//                   }
+//                 });
+//                 const verifyUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-verify?token=${verificationToken}`;
+//                 const mailOptions = {
+//                   from: process.env.EMAIL_USER,
+//                   to: supervisorEmail,
+//                   subject: 'Internal User Verification Request',
+//                   html: `<p>Dear ${supervisorName},</p>
+//                     <p>${fullName} (${email}) has registered as an internal user in the facility booking system under your supervision.</p>
+//                     <p>Department: ${department}</p>
+//                     <p>Please click the button below to verify this user:</p>
+//                     <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;">Verify User</a>
+//                     <p>Thank you.</p>`
+//                 };
+//                 transporter.sendMail(mailOptions, (err5, info) => {
+//                   if (err5) {
+//                     console.error('Failed to send supervisor verification email:', err5);
+//                     return res.status(500).json({ message: 'Failed to send verification email to supervisor.' });
+//                   }
+//                   res.status(201).json({ message: 'User registered successfully. Awaiting supervisor verification.' });
+//                 });
+//               });
+//             });
+//           });
+//       } else {
+//         res.status(201).json({ message: 'User registered successfully.' });
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Registration error:', error);
+//     res.status(500).json({ message: 'An error occurred during registration.' });
+//   }
+// });
+app.post('/api/register', async (req, res) => {
+  // console.log(req.body);
+  const { fullName, email, password, userType, contactNumber, orgName, department, supervisor, idProof } = req.body;
+  const supervisor_id = supervisor;
+
+  const idProofPath = idProof ? `uploads/${idProof}` : null;
 
   if (!fullName || !email || !password || !userType) {
     return res.status(400).json({ message: 'All required fields must be provided.' });
@@ -616,75 +827,143 @@ app.post('/api/register', upload.single('idProof'), async (req, res) => {
   try {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    const query = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number, org_name, id_proof) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
-    db.query(query, [fullName, email, passwordHash, userType, contactNumber || null, orgName || null, idProofPath], (err, result) => {
+
+    // Use a transaction to handle atomic inserts
+    db.getConnection((err, connection) => {
       if (err) {
-        console.error(err);
-        if (err.code === 'ER_DUP_ENTRY') {
-          return res.status(400).json({ message: 'Email already exists.' });
-        }
-        return res.status(500).json({ message: 'Registration failed.' });
+        console.error('Connection error:', err);
+        return res.status(500).json({ message: 'Database connection error.' });
       }
-      const user_id = result.insertId;
-      if (userType === 'Internal') {
-        // Insert into InternalUsers (no verification columns)
-        db.query('INSERT INTO InternalUsers (user_id, email, full_name, supervisor_id, department_name) VALUES (?, ?, ?, ?, ?)',
-          [user_id, email, fullName, supervisor_id, department], (err2) => {
-            if (err2) {
-              console.error(err2);
-              return res.status(500).json({ message: 'Internal user registration failed.' });
-            }
-            // Generate verification token and store in SupervisorVerifications
-            const verificationToken = crypto.randomBytes(32).toString('hex');
-            db.query('INSERT INTO SupervisorVerifications (user_id, token) VALUES (?, ?)', [user_id, verificationToken], (err3) => {
-              if (err3) {
-                console.error(err3);
-                return res.status(500).json({ message: 'Failed to store verification token.' });
+
+      connection.beginTransaction(async (txErr) => {
+        if (txErr) {
+          connection.release();
+          return res.status(500).json({ message: 'Failed to start transaction.' });
+        }
+
+        const insertUserQuery = `INSERT INTO Users (full_name, email, password_hash, user_type, contact_number, org_name, id_proof) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+        connection.query(insertUserQuery, [fullName, email, passwordHash, userType, contactNumber || null, orgName || null, idProofPath], (err1, result) => {
+          if (err1) {
+            connection.rollback(() => {
+              connection.release();
+              if (err1.code === 'ER_DUP_ENTRY') {
+                return res.status(400).json({ message: 'Email already exists.' });
               }
-              // Get supervisor email
-              db.query('SELECT email, name FROM Supervisor WHERE id = ?', [supervisor_id], (err4, supRes) => {
-                if (err4 || !supRes.length) {
-                  return res.status(500).json({ message: 'Supervisor not found.' });
-                }
-                const supervisorEmail = supRes[0].email;
-                const supervisorName = supRes[0].name;
-                // Send verification email
-                const transporter = nodemailer.createTransport({
-                  service: 'gmail',
-                  auth: {
-                    user: process.env.EMAIL_USER,
-                    pass: process.env.EMAIL_PASS
-                  }
+              console.error('Insert user failed:', err1);
+              return res.status(500).json({ message: 'User registration failed.' });
+            });
+            return;
+          }
+
+          const user_id = result.insertId;
+
+          if (userType === 'Internal') {
+            console.log(supervisor_id, department);
+            if (!supervisor_id || !department) {
+              connection.rollback(() => {
+                connection.release();
+                return res.status(400).json({ message: 'Supervisor and department required for internal users.' });
+              });
+              return;
+            }
+
+            const insertInternalUserQuery = `INSERT INTO InternalUsers (user_id, email, full_name, supervisor_id, department_name) 
+                                             VALUES (?, ?, ?, ?, ?)`;
+            connection.query(insertInternalUserQuery, [user_id, email, fullName, supervisor_id, department], (err2) => {
+              if (err2) {
+                connection.rollback(() => {
+                  connection.release();
+                  console.error('InternalUsers insert failed:', err2);
+                  return res.status(500).json({ message: 'Internal user registration failed.' });
                 });
-                const verifyUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-verify?token=${verificationToken}`;
-                const mailOptions = {
-                  from: process.env.EMAIL_USER,
-                  to: supervisorEmail,
-                  subject: 'Internal User Verification Request',
-                  html: `<p>Dear ${supervisorName},</p>
-                    <p>${fullName} (${email}) has registered as an internal user in the facility booking system under your supervision.</p>
-                    <p>Department: ${department}</p>
-                    <p>Please click the button below to verify this user:</p>
-                    <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;">Verify User</a>
-                    <p>Thank you.</p>`
-                };
-                transporter.sendMail(mailOptions, (err5, info) => {
-                  if (err5) {
-                    console.error('Failed to send supervisor verification email:', err5);
-                    return res.status(500).json({ message: 'Failed to send verification email to supervisor.' });
+                return;
+              }
+
+              const verificationToken = crypto.randomBytes(32).toString('hex');
+              connection.query('INSERT INTO SupervisorVerifications (user_id, token) VALUES (?, ?)', [user_id, verificationToken], (err3) => {
+                if (err3) {
+                  connection.rollback(() => {
+                    connection.release();
+                    console.error('Verification token insert failed:', err3);
+                    return res.status(500).json({ message: 'Failed to create verification token.' });
+                  });
+                  return;
+                }
+
+                connection.query('SELECT email, name FROM Supervisor WHERE id = ?', [supervisor_id], (err4, supRes) => {
+                  if (err4 || !supRes.length) {
+                    connection.rollback(() => {
+                      connection.release();
+                      console.error('Supervisor lookup failed:', err4);
+                      return res.status(500).json({ message: 'Supervisor not found.' });
+                    });
+                    return;
                   }
-                  res.status(201).json({ message: 'User registered successfully. Awaiting supervisor verification.' });
+
+                  const supervisorEmail = supRes[0].email;
+                  const supervisorName = supRes[0].name;
+
+                  const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                      user: process.env.EMAIL_USER,
+                      pass: process.env.EMAIL_PASS
+                    }
+                  });
+
+                  const verifyUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-verify?token=${verificationToken}`;
+                  const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: supervisorEmail,
+                    subject: 'Internal User Verification Request',
+                    html: `<p>Dear ${supervisorName},</p>
+                           <p>${fullName} (${email}) has registered as an internal user in the facility booking system under your supervision.</p>
+                           <p>Department: ${department}</p>
+                           <p>Please click the button below to verify this user:</p>
+                           <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#4CAF50;color:#fff;text-decoration:none;border-radius:5px;">Verify User</a>
+                           <p>Thank you.</p>`
+                  };
+
+                  transporter.sendMail(mailOptions, (err5, info) => {
+                    if (err5) {
+                      connection.rollback(() => {
+                        connection.release();
+                        console.error('Failed to send email:', err5);
+                        return res.status(500).json({ message: 'Failed to send verification email.' });
+                      });
+                      return;
+                    }
+
+                    // All succeeded — commit transaction
+                    connection.commit((commitErr) => {
+                      connection.release();
+                      if (commitErr) {
+                        return res.status(500).json({ message: 'Commit failed.' });
+                      }
+                      return res.status(201).json({ message: 'Internal user registered successfully. Awaiting supervisor verification.' });
+                    });
+                  });
                 });
               });
             });
-          });
-      } else {
-        res.status(201).json({ message: 'User registered successfully.' });
-      }
+          } else {
+            // External user — just commit and finish
+            connection.commit((commitErr) => {
+              connection.release();
+              if (commitErr) {
+                return res.status(500).json({ message: 'Commit failed.' });
+              }
+              return res.status(201).json({ message: 'User registered successfully.' });
+            });
+          }
+        });
+      });
     });
+
   } catch (error) {
-    console.error(error);
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'An error occurred during registration.' });
   }
 });
@@ -1351,6 +1630,13 @@ app.get("/api/staff", (req, res) => {
   });
 });
 
+app.get("/api/categories", (req, res) => {
+  db.query("SELECT * FROM Categories", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
 app.post("/api/members", upload.single("image"), (req, res) => {
   const { name, designation, profileLink } = req.body;
   const imagePath = req.file ? req.file.filename : null;
@@ -1489,20 +1775,39 @@ app.get('/api/aboutContent', (req, res) => {
   res.sendFile(path.join(__dirname, 'aboutContent.json'));
 });
 
-app.post('/api/saveAboutContent', (req, res) => {
-  const aboutContent = req.body;
+// app.post('/api/saveAboutContent', (req, res) => {
+//   const aboutContent = req.body;
 
-  // Save the updated about content to a JSON file
-  fs.writeFile(path.join(__dirname, 'aboutContent.json'), JSON.stringify(aboutContent, null, 2), (err) => {
-    if (err) {
-      console.error('Error saving about content:', err);
-      res.status(500).send('Error saving about content');
-    } else {
-      res.send('About content saved successfully');
+//   // Save the updated about content to a JSON file
+//   fs.writeFile(path.join(__dirname, 'aboutContent.json'), JSON.stringify(aboutContent, null, 2), (err) => {
+//     if (err) {
+//       console.error('Error saving about content:', err);
+//       res.status(500).send('Error saving about content');
+//     } else {
+//       res.send('About content saved successfully');
+//     }
+//   });
+// });
+
+app.post('/api/saveAboutContent', upload.single('image'),authenticateToken,(req, res) => {
+  try {
+    console.log(req.body);
+    const content = JSON.parse(req.body.content); // parse JSON string
+
+    // If a new image is uploaded, update the image path
+    if (req.file) {
+      content.departmentIntro.image = `/uploads/${req.file.filename}`;
     }
-  });
-});
 
+    const filePath = path.join(__dirname, 'aboutContent.json');
+    fs.writeFileSync(filePath, JSON.stringify(content, null, 2));
+    
+    return res.status(200).json({ message: 'Content saved successfully' });
+  } catch (error) {
+    console.error('Error saving about content:', error);
+    return res.status(500).json({ message: 'Failed to save about content' });
+  }
+});
 // get available slots for a facility on a particular date
 function getWeekday(dateString) {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -1510,7 +1815,7 @@ function getWeekday(dateString) {
   return days[date.getDay()];
 }
 
-app.get("/api/slots", async (req, res) => {
+app.get("/api/slots", authenticateToken, async (req, res) => {
   const { facility_id, date } = req.query;
 
   // Check if the facility can be available on that weekday and find the number of slots
@@ -2080,8 +2385,12 @@ app.delete('/api/admin/operators/:email', authenticateToken, (req, res) => {
 
 // API to get all unique departments from Supervisor table
 app.get('/api/departments', (req, res) => {
-  db.query('SELECT DISTINCT department_name FROM Supervisor', (err, results) => {
-    if (err) return res.status(500).json([]);
+  const query = 'SELECT DISTINCT department_name FROM supervisor ORDER BY department_name';
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching departments:', err);
+      return res.status(500).json({ error: 'Failed to fetch departments' });
+    }
     res.json(results.map(r => r.department_name));
   });
 });
@@ -2089,9 +2398,16 @@ app.get('/api/departments', (req, res) => {
 // API to get all supervisors for a department
 app.get('/api/supervisors', (req, res) => {
   const { department } = req.query;
-  if (!department) return res.status(400).json([]);
-  db.query('SELECT id, name, email FROM Supervisor WHERE department_name = ?', [department], (err, results) => {
-    if (err) return res.status(500).json([]);
+  if (!department) {
+    return res.status(400).json({ error: 'Department is required' });
+  }
+
+  const query = 'SELECT id, name, email FROM Supervisor WHERE department_name = ? ORDER BY name';
+  db.query(query, [department], (err, results) => {
+    if (err) {
+      console.error('Error fetching supervisors:', err);
+      return res.status(500).json({ error: 'Failed to fetch supervisors' });
+    }
     res.json(results);
   });
 });
@@ -2143,4 +2459,82 @@ app.post('/api/supervisor-verify', (req, res) => {
       });
     });
   });
+});
+
+// Handle chunk uploads
+app.post('/api/upload-chunk', uploadChunk.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.body.fileId || !req.body.chunk || !req.body.totalChunks) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const { fileId, chunk, totalChunks } = req.body;
+    const originalExt = path.extname(req.file.originalname);
+    const chunkPath = path.join(tempDir, `${fileId}_chunk_${chunk}${originalExt}`);
+    
+    // Ensure the chunk was saved successfully
+    if (!fs.existsSync(req.file.path)) {
+      throw new Error(`Failed to save chunk ${chunk}`);
+    }
+
+    // If this is the last chunk, combine all chunks
+    if (parseInt(chunk) === parseInt(totalChunks) - 1) {
+      const finalPath = path.join(uploadsDir, `${fileId}${originalExt}`);
+      const writeStream = fs.createWriteStream(finalPath);
+      
+      // Combine all chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const currentChunkPath = path.join(tempDir, `${fileId}_chunk_${i}${originalExt}`);
+        if (!fs.existsSync(currentChunkPath)) {
+          throw new Error(`Chunk ${i} not found. Please try uploading again.`);
+        }
+        const chunkData = fs.readFileSync(currentChunkPath);
+        writeStream.write(chunkData);
+        // Delete the chunk file after reading
+        fs.unlinkSync(currentChunkPath);
+      }
+      
+      writeStream.end();
+      
+      // Wait for the write stream to finish
+      await new Promise((resolve, reject) => {
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      });
+
+      res.json({ 
+        success: true, 
+        filePath: `${fileId}${originalExt}`,
+        message: 'File upload completed successfully'
+      });
+    } else {
+      // For non-final chunks, just acknowledge receipt
+      res.json({ 
+        success: true, 
+        message: 'Chunk uploaded successfully' 
+      });
+    }
+  } catch (error) {
+    console.error('Error handling chunk upload:', error);
+    // Clean up any temporary files if there's an error
+    try {
+      const { fileId } = req.body;
+      if (fileId) {
+        const originalExt = path.extname(req.file.originalname);
+        const files = fs.readdirSync(tempDir);
+        files.forEach(file => {
+          if (file.startsWith(`${fileId}_chunk_`)) {
+            fs.unlinkSync(path.join(tempDir, file));
+          }
+        });
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up temporary files:', cleanupError);
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to process chunk upload',
+      details: error.message 
+    });
+  }
 });
