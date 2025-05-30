@@ -1815,7 +1815,7 @@ function getWeekday(dateString) {
   return days[date.getDay()];
 }
 
-app.get("/api/slots", authenticateToken, async (req, res) => {
+app.get("/api/slots", async (req, res) => {
   const { facility_id, date } = req.query;
 
   // Check if the facility can be available on that weekday and find the number of slots

@@ -129,11 +129,6 @@ function BookingFacility({ authToken }) {
 
       const response = await axios.get(
         `${API_BASED_URL}api/weekly-slots?facilityId=${facilityId}`,
-        {
-          headers: {
-            Authorization: authToken
-          }
-        }
       );
       if (response.status && (response.status === 401 || response.status === 403)) {
         alert("Session expired. Please log in again.");
