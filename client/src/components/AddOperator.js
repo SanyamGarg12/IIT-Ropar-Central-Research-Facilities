@@ -25,6 +25,7 @@ const AddOperator = () => {
                 {
                     headers: {
                         Authorization: `${authToken}`,
+                        Position: localStorage.getItem('userPosition')
                     },
                 }
             )

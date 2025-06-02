@@ -3,6 +3,9 @@ import { motion } from "framer-motion";
 import Footer from './Footer';
 import { Mail, MapPin, Plane, Train } from 'lucide-react';
 import {API_BASED_URL} from '../config.js'; 
+import { useNavigate } from 'react-router-dom';
+import './ContactUs.css';
+import { sanitizeInput, validateEmail, validatePhone } from '../utils/security';
 
 const ContactUs = () => {
   const fadeInUp = {
@@ -16,6 +19,74 @@ const ContactUs = () => {
       transition: {
         staggerChildren: 0.2
       }
+    }
+  };
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    contactNumber: '',
+    query: ''
+  });
+
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: sanitizeInput(value)
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    // Validate email
+    if (!validateEmail(formData.email)) {
+      setErrorMessage('Please enter a valid email address');
+      return;
+    }
+
+    // Validate phone number if provided
+    if (formData.contactNumber && !validatePhone(formData.contactNumber)) {
+      setErrorMessage('Please enter a valid phone number');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(`${API_BASED_URL}api/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSuccessMessage('Thank you for your feedback! We will get back to you soon.');
+        setFormData({
+          name: '',
+          email: '',
+          contactNumber: '',
+          query: ''
+        });
+      } else {
+        setErrorMessage(data.message || 'Failed to send feedback. Please try again.');
+      }
+    } catch (error) {
+      setErrorMessage('Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -289,6 +360,82 @@ const ContactUs = () => {
             </motion.div>
           </div>
         </motion.div>
+
+        <div className="contact-container">
+          <h2>Contact Us</h2>
+          <p className="contact-intro">
+            We value your feedback! Please fill out the form below to share your thoughts about our website or facilities.
+          </p>
+          
+          <form onSubmit={handleSubmit} className="contact-form">
+            <div className="form-group">
+              <label htmlFor="name">Full Name:</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
+                autoComplete="name"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="email">Email:</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="contactNumber">Contact Number:</label>
+              <input
+                type="tel"
+                id="contactNumber"
+                name="contactNumber"
+                value={formData.contactNumber}
+                onChange={handleInputChange}
+                autoComplete="tel"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="query">Your Feedback:</label>
+              <textarea
+                id="query"
+                name="query"
+                value={formData.query}
+                onChange={handleInputChange}
+                required
+                rows="5"
+                placeholder="Please share your thoughts about our website or facilities..."
+              />
+            </div>
+
+            {errorMessage && (
+              <div className="error-message">
+                {errorMessage}
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="success-message">
+                {successMessage}
+              </div>
+            )}
+
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? 'Sending...' : 'Submit Feedback'}
+            </button>
+          </form>
+        </div>
       </div>
       <Footer />
     </div>

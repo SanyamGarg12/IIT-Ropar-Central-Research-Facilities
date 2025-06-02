@@ -13,16 +13,19 @@ function BookingFacility({ authToken }) {
   const [facilities, setFacilities] = useState([]);
   const [operatorEmail, setOperatorEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [facilityPrice, setFacilityPrice] = useState(0);
-  const [costPerHour, setCostPerHour] = useState(0);
   const [showWeeklySlots, setShowWeeklySlots] = useState(false);
   const [weeklySlots, setWeeklySlots] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [receiptUploaded, setReceiptUploaded] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [bookingId, setBookingId] = useState(null);
+  const [bifurcations, setBifurcations] = useState([]);
+  const [selectedBifurcations, setSelectedBifurcations] = useState([]);
+  const [sampleCounts, setSampleCounts] = useState({});
+  const [totalCost, setTotalCost] = useState(0);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
     const now = new Date();
     const bookingDateTime = new Date(`${selectedDate}T${startTime}`);
@@ -37,10 +40,58 @@ function BookingFacility({ authToken }) {
     return (end - start) / (1000 * 60 * 60);
   }, []);
 
+  const getBifurcationPrice = useCallback((bifurcation) => {
+    const token = localStorage.getItem("authToken");
+    const decoded = jwtDecode(token);
+    const userType = decoded.userType.toLowerCase();
+    
+    switch (userType) {
+      case 'internal':
+        return bifurcation.price_internal;
+      case 'internal consultancy':
+        return bifurcation.price_internal_consultancy;
+      case 'government r&d lab or external academics':
+        return bifurcation.price_external;
+      case 'private industry or private r&d lab':
+        return bifurcation.price_industry;
+      default:
+        return bifurcation.price_external;
+    }
+  }, []);
+
   const calculateTotalCost = useCallback((startTime, endTime) => {
+    if (!startTime || !endTime) return 0;
+    
     const duration = calculateDuration(startTime, endTime);
-    return costPerHour * duration;
-  }, [calculateDuration, costPerHour]);
+    let total = 0;
+    
+    selectedBifurcations.forEach(bifurcationId => {
+      const bifurcation = bifurcations.find(b => b.id === bifurcationId);
+      if (!bifurcation) return;
+      
+      const price = getBifurcationPrice(bifurcation);
+      const sampleCount = sampleCounts[bifurcationId] || 1;
+      
+      let bifurcationCost = 0;
+      switch (bifurcation.pricing_type) {
+        case 'slot':
+          bifurcationCost = price * sampleCount;
+          break;
+        case 'hour':
+          bifurcationCost = price * duration * sampleCount;
+          break;
+        case 'half-hour':
+          bifurcationCost = price * (duration * 2) * sampleCount;
+          break;
+        default:
+          bifurcationCost = price * sampleCount;
+      }
+      
+      total += bifurcationCost;
+    });
+    
+    return total;
+  }, [calculateDuration, selectedBifurcations, bifurcations, getBifurcationPrice, sampleCounts]);
 
   const handleSlotClick = useCallback((slot) => {
     if (isWithin24Hours(date, slot.start_time)) {
@@ -49,30 +100,46 @@ function BookingFacility({ authToken }) {
     }
     setSelectedSlot(`${slot.start_time} - ${slot.end_time}`);
     setSelectedScheduleId(slot.schedule_id || "");
-    const totalCost = calculateTotalCost(slot.start_time, slot.end_time);
-    setFacilityPrice(totalCost);
+    const cost = calculateTotalCost(slot.start_time, slot.end_time);
+    setTotalCost(cost);
   }, [calculateTotalCost, date, isWithin24Hours]);
 
-  const getFacilityPrice = useCallback((facility, userType) => {
-    let price;
-    switch (userType.toLowerCase()) {
-      case 'internal':
-        price = facility.price_internal;
-        break;
-      case 'internal consultancy':
-        price = facility.price_external;
-        break;
-      case 'government r&d lab or external academics':
-        price = facility.price_r_and_d;
-        break;
-      case 'private industry or private r&d lab':
-        price = facility.price_industry;
-        break;
-      default:
-        price = facility.price_external; // default to external price
+  const fetchBifurcations = useCallback(async (facilityId) => {
+    try {
+      const response = await axios.get(`${API_BASED_URL}api/facility/${facilityId}/bifurcations`);
+      setBifurcations(response.data);
+    } catch (err) {
+      console.error('Error fetching bifurcations:', err);
+      alert("Failed to fetch facility bifurcations. Please try again.");
     }
-    setCostPerHour(price);
-    return price;
+  }, []);
+
+  const handleBifurcationChange = useCallback((bifurcationId) => {
+    setSelectedBifurcations(prev => {
+      const isSelected = prev.includes(bifurcationId);
+      if (isSelected) {
+        setSampleCounts(prev => {
+          const newCounts = { ...prev };
+          delete newCounts[bifurcationId];
+          return newCounts;
+        });
+        return prev.filter(id => id !== bifurcationId);
+      } else {
+        setSampleCounts(prev => ({
+          ...prev,
+          [bifurcationId]: 1
+        }));
+        return [...prev, bifurcationId];
+      }
+    });
+  }, []);
+
+  const handleSampleCountChange = useCallback((bifurcationId, count) => {
+    const numCount = parseInt(count) || 0;
+    setSampleCounts(prev => ({
+      ...prev,
+      [bifurcationId]: numCount
+    }));
   }, []);
 
   const fetchSlots = useCallback(async () => {
@@ -99,8 +166,7 @@ function BookingFacility({ authToken }) {
 
       if (response.status && (response.status === 401 || response.status === 403)) {
         alert("Session expired. Please log in again.");
-        localStorage.clear(); // Clear localStorage to logout user
-        // Redirect to login page
+        localStorage.clear();
         navigate("/login");
         return;
       }
@@ -111,7 +177,7 @@ function BookingFacility({ authToken }) {
     } finally {
       setIsLoading(false);
     }
-  }, [facilityId, date]);
+  }, [facilityId, date, navigate]);
 
   const fetchWeeklySlots = useCallback(async () => {
     if (!facilityId) {
@@ -132,19 +198,17 @@ function BookingFacility({ authToken }) {
       );
       if (response.status && (response.status === 401 || response.status === 403)) {
         alert("Session expired. Please log in again.");
-        localStorage.clear(); // Clear localStorage to logout user
-        // Redirect to login page
+        localStorage.clear();
         navigate("/login");
         return;
       }
       setWeeklySlots(response.data.facility);
     } catch (err) {
-      // console.error(err);
       alert("Failed to fetch weekly slots. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [facilityId]);
+  }, [facilityId, navigate]);
 
   useEffect(() => {
     const fetchFacilities = async () => {
@@ -152,14 +216,10 @@ function BookingFacility({ authToken }) {
         const response = await axios.get(`${API_BASED_URL}api/facilities`);
         setFacilities(response.data);
         if (response.data.length > 0) {
-          setFacilityId(response.data[0].id);
-          setOperatorEmail(response.data[0].operator_email);
-
-          // Get user type from token and set initial price
-          const token = localStorage.getItem("authToken");
-          const decoded = jwtDecode(token);
-          const userType = decoded.userType;
-          getFacilityPrice(response.data[0], userType);
+          const firstFacility = response.data[0];
+          setFacilityId(firstFacility.id);
+          setOperatorEmail(firstFacility.operator_email);
+          fetchBifurcations(firstFacility.id);
         }
       } catch (err) {
         console.error(err);
@@ -167,7 +227,15 @@ function BookingFacility({ authToken }) {
       }
     };
     fetchFacilities();
-  }, [getFacilityPrice]);
+  }, [fetchBifurcations]);
+
+  useEffect(() => {
+    if (selectedSlot) {
+      const [startTime, endTime] = selectedSlot.split(" - ");
+      const cost = calculateTotalCost(startTime, endTime);
+      setTotalCost(cost);
+    }
+  }, [selectedBifurcations, selectedSlot, calculateTotalCost]);
 
   const handleFetchSlots = () => {
     setSelectedSlot("");
@@ -178,14 +246,12 @@ function BookingFacility({ authToken }) {
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
       const file = e.target.files[0];
-      // Accept PDF and common image types
       if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
         alert('Please upload PDF or image files only for receipts.');
         fileInputRef.current.value = '';
         return;
       }
       
-      // Check file size (5MB limit)
       if (file.size > 5 * 1024 * 1024) {
         alert('File size exceeds 5MB. Please upload a smaller file.');
         fileInputRef.current.value = '';
@@ -206,11 +272,9 @@ function BookingFacility({ authToken }) {
     
     const formData = new FormData();
     formData.append('receipt', receipt);
-    // Use a temporary ID for pre-booking upload
     formData.append('tempId', Date.now().toString());
 
     try {
-      console.log('Uploading receipt...');
       const response = await axios.post(
         `${API_BASED_URL}api/upload-receipt-pre-booking`,
         formData,
@@ -223,14 +287,11 @@ function BookingFacility({ authToken }) {
       );
       if (response.status && (response.status === 401 || response.status === 403)) {
         alert("Session expired. Please log in again.");
-        localStorage.clear(); // Clear localStorage to logout user
-        // Redirect to login page
+        localStorage.clear();
         navigate("/login");
         return;
       }
       setReceiptUploaded(true);
-      console.log('Receipt uploaded successfully');
-      // Return the path for booking creation
       return response.data.path;
     } catch (error) {
       console.error('Error uploading receipt:', error);
@@ -249,14 +310,17 @@ function BookingFacility({ authToken }) {
       alert("Please upload a payment receipt before booking");
       return;
     }
+
+    if (selectedBifurcations.length === 0) {
+      alert("Please select at least one facility bifurcation");
+      return;
+    }
     
     setIsLoading(true);
     
     try {
-      // First upload the receipt
       const receiptPath = await uploadReceipt();
       
-      // If receipt upload failed, abort booking
       if (!receiptPath) {
         alert("Booking failed: Receipt upload unsuccessful");
         setIsLoading(false);
@@ -268,8 +332,8 @@ function BookingFacility({ authToken }) {
       const userId = decoded.userId;
       const userType = decoded.userType;
       
-      // Now proceed with booking with the receipt path
-      const response = await axios.post(
+      // First create the booking
+      const bookingResponse = await axios.post(
         `${API_BASED_URL}api/booking`,
         {
           facility_id: facilityId,
@@ -277,28 +341,69 @@ function BookingFacility({ authToken }) {
           schedule_id: selectedScheduleId,
           user_id: userId,
           operator_email: operatorEmail,
-          cost: facilityPrice,
+          cost: totalCost,
           user_type: userType,
-          receipt_path: receiptPath
+          receipt_path: receiptPath,
+          bifurcation_ids: selectedBifurcations
         },
-        { headers: { Authorization: authToken } }
+        { 
+          headers: { 
+            Authorization: token 
+          } 
+        }
       );
-      if (response.status && (response.status === 401 || response.status === 403)) {
+
+      if (bookingResponse.status && (bookingResponse.status === 401 || bookingResponse.status === 403)) {
         alert("Session expired. Please log in again.");
-        localStorage.clear(); // Clear localStorage to logout user
-        // Redirect to login page
+        localStorage.clear();
         navigate("/login");
         return;
       }
+
+      console.log('Booking response:', bookingResponse.data);
+
+      // Get the booking_id from the response
+      const booking_id = bookingResponse.data.booking_id || bookingResponse.data.bookingId;
+      
+      if (!booking_id) {
+        throw new Error('No booking ID received from server');
+      }
+
+      // Then create the bifurcation entries with sample counts
+      const bifurcations = selectedBifurcations.map(bifurcationId => ({
+        bifurcation_id: bifurcationId,
+        sample_count: sampleCounts[bifurcationId] || 1
+      }));
+
+      console.log('Sending bifurcations data:', {
+        booking_id,
+        bifurcations
+      });
+
+      await axios.post(
+        `${API_BASED_URL}api/booking-bifurcations`,
+        {
+          booking_id,
+          bifurcations
+        },
+        { 
+          headers: { 
+            Authorization: token 
+          } 
+        }
+      );
+
       alert("Booking submitted for approval");
-      // Reset form state
       setSelectedSlot("");
       setSelectedScheduleId("");
       setReceipt(null);
+      setSelectedBifurcations([]);
+      setSampleCounts({});
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     } catch (err) {
+      console.error('Booking error:', err);
       alert("Booking failed: " + (err.response?.data?.message || err.message));
     } finally {
       setIsLoading(false);
@@ -321,14 +426,12 @@ function BookingFacility({ authToken }) {
                 const selectedFacility = facilities.find(f => String(f.id) === String(selectedFacilityId));
                 if (selectedFacility) {
                   setOperatorEmail(selectedFacility.operator_email);
-                  const token = localStorage.getItem("authToken");
-                  const decoded = jwtDecode(token);
-                  const userType = decoded.userType;
-                  getFacilityPrice(selectedFacility, userType);
+                  fetchBifurcations(selectedFacilityId);
                 }
                 setSelectedSlot("");
                 setSelectedScheduleId("");
                 setAvailableSlots([]);
+                setSelectedBifurcations([]);
               }}
               required
             >
@@ -341,11 +444,55 @@ function BookingFacility({ authToken }) {
             </select>
           </div>
 
-          {costPerHour > 0 && (
-            <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
+          {bifurcations.length > 0 && (
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
+              <h3 className="text-xl font-semibold mb-4 text-gray-700">Select Facility Bifurcations</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {bifurcations.map((bifurcation) => (
+                  <div key={bifurcation.id} className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div className="flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        id={`bifurcation-${bifurcation.id}`}
+                        checked={selectedBifurcations.includes(bifurcation.id)}
+                        onChange={() => handleBifurcationChange(bifurcation.id)}
+                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </div>
+                    <div className="flex-grow">
+                      <label htmlFor={`bifurcation-${bifurcation.id}`} className="font-medium text-gray-700">
+                        {bifurcation.bifurcation_name}
+                      </label>
+                      <p className="text-sm text-gray-500">{bifurcation.description}</p>
+                      <p className="text-sm text-gray-600">
+                        Pricing: {getBifurcationPrice(bifurcation)} Rs. per {bifurcation.pricing_type.replace('-', ' ')}
+                      </p>
+                      {selectedBifurcations.includes(bifurcation.id) && (
+                        <div className="mt-2">
+                          <label className="text-sm text-gray-600">Number of Samples:</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={sampleCounts[bifurcation.id] || 1}
+                            onChange={(e) => handleSampleCountChange(bifurcation.id, e.target.value)}
+                            className="ml-2 w-20 p-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedSlot && (
+            <div className="bg-blue-50 p-6 rounded-xl border border-blue-200 mt-4">
               <p className="text-lg text-blue-800">
-                Facility Cost: <span className="font-bold text-xl">{Math.round(facilityPrice * 100) / 100} Rs.</span> 
-                <span className="text-sm ml-2">({Math.round(costPerHour * 100) / 100} Rs. per hour)</span>
+                Total Cost: <span className="font-bold text-xl">{Math.round(totalCost * 100) / 100} Rs.</span>
+              </p>
+              <p className="text-sm text-blue-600 mt-2">
+                Based on {selectedSlot} slot duration
               </p>
             </div>
           )}
@@ -464,14 +611,14 @@ function BookingFacility({ authToken }) {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-between items-center mt-8 space-y-4 sm:space-y-0">
+          <div className="flex flex-col space-y-4">
             <div className="text-sm text-gray-600 bg-gray-100 p-3 rounded-lg">
               Selected: <span className="font-medium">{date} {selectedSlot}</span>
             </div>
             <button
               onClick={handleBooking}
               className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-md"
-              disabled={!selectedScheduleId || !facilityId || !receipt || isLoading}
+              disabled={!selectedScheduleId || !facilityId || !receipt || isLoading || selectedBifurcations.length === 0}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
@@ -487,7 +634,7 @@ function BookingFacility({ authToken }) {
             </button>
           </div>
 
-          <div className="flex justify-end space-x-4 mt-6">
+          <div className="flex space-x-4">
             <button
               onClick={() => {
                 setShowWeeklySlots(true);

@@ -256,6 +256,33 @@ const AdminManageBooking = () => {
                                       <span className="font-medium">Cost:</span> {booking.cost} Rs.
                                     </p>
                                     
+                                    {/* Bifurcation Selections */}
+                                    {booking.bifurcations && booking.bifurcations.length > 0 && (
+                                      <div className="mt-4">
+                                        <p className="text-sm font-semibold text-gray-700 mb-2">Selected Options:</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                          {booking.bifurcations.map((bifurcation, idx) => (
+                                            <div
+                                              key={idx}
+                                              className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                                            >
+                                              <div className="flex justify-between items-start">
+                                                <div>
+                                                  <p className="font-medium text-gray-800">{bifurcation.bifurcation_name}</p>
+                                                  <p className="text-sm text-gray-500">
+                                                    {bifurcation.sample_count} {bifurcation.sample_count === 1 ? 'sample' : 'samples'}
+                                                  </p>
+                                                </div>
+                                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                  {bifurcation.pricing_type}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
                                     {/* Receipt Download */}
                                     <div className="mt-2">
                                       {booking.receipt_path ? (

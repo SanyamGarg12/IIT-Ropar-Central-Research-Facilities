@@ -30,6 +30,9 @@ import UsersRequests from "./components/UsersRequests";
 import AdminManageBooking from "./components/AdminManageBooking";
 import ArchivedNews from './components/ArchivedNews';
 import SupervisorVerify from "./components/SupervisorVerify";
+import AdminManageBifurcations from './components/AdminManageBifurcations';
+import AdminManageSpecialNotes from './components/AdminManageSpecialNotes';
+import AdminUserPubs from './components/AdminUserPubs';
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -229,6 +232,21 @@ const App = () => {
                       <Route path="/adminManageBooking" element={
                         <AdminProtectedRoute>
                           <AdminManageBooking />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/adminUserPubs" element={
+                        <AdminProtectedRoute>
+                          <AdminUserPubs />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/adminManageBifurcations" element={
+                        <AdminProtectedRoute>
+                          <AdminManageBifurcations />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/adminManageSpecialNotes" element={
+                        <AdminProtectedRoute>
+                          <AdminManageSpecialNotes />
                         </AdminProtectedRoute>
                       } />
                     </Routes>

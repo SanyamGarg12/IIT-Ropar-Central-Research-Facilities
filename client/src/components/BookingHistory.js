@@ -371,31 +371,54 @@ function BookingCard({
           <div className="flex items-center text-gray-600">
             <FileText className="w-5 h-5 text-gray-400 mr-2" />
             <div>
-              {booking.receipt_path ? (
-                <button
-                  onClick={downloadReceipt}
-                  disabled={isDownloadingReceipt}
-                  className="font-medium text-blue-600 hover:text-blue-800 flex items-center transition-colors"
-                >
-                  {isDownloadingReceipt ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-1 animate-spin" />
-                      Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-1" />
-                      Download Receipt
-                    </>
-                  )}
-                </button>
-              ) : (
-                <span className="text-gray-500">No receipt available</span>
-              )}
-              <div className="text-sm text-gray-500">Payment Receipt</div>
+              <button
+                onClick={downloadReceipt}
+                disabled={isDownloadingReceipt}
+                className="font-medium text-blue-600 hover:text-blue-800 transition-colors flex items-center"
+              >
+                {isDownloadingReceipt ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-1 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-1" />
+                    Download Receipt
+                  </>
+                )}
+              </button>
+              <div className="text-sm text-gray-500">Payment Proof</div>
             </div>
           </div>
         </div>
+
+        {/* Bifurcations Section */}
+        {booking.bifurcations && booking.bifurcations.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Options:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {booking.bifurcations.map((bifurcation, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-gray-800">{bifurcation.bifurcation_name}</p>
+                      <p className="text-sm text-gray-500">
+                        {bifurcation.sample_count} {bifurcation.sample_count === 1 ? 'sample' : 'samples'}
+                      </p>
+                    </div>
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                      {bifurcation.pricing_type}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {booking.status === 'Approved' && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
@@ -440,7 +463,7 @@ function BookingCard({
           </div>
         )}
 
-        <div className="flex justify-center">
+        <div className="flex justify-between items-center">
           <button
             onClick={toggleExpand}
             className="text-sm flex items-center text-gray-600 hover:text-gray-900 transition-colors focus:outline-none"
@@ -468,7 +491,7 @@ function BookingCard({
               transition={{ duration: 0.3 }}
               className="mt-4 pt-4 border-t border-gray-100"
             >
-              <div className="text-sm text-gray-600 space-y-3">
+              <div className="space-y-2 text-sm text-gray-600">
                 <div>
                   <span className="font-semibold">Booking ID:</span> #{booking.booking_id}
                 </div>

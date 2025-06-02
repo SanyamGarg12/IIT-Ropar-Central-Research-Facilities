@@ -125,6 +125,8 @@ const AdminLinks = () => {
   const links = [
     { to: "/admin/members", text: "Manage Members" },
     { to: "/admin/facilities", text: "Manage Facilities" },
+    { to: "/admin/adminManageBifurcations", text: "Manage Facility Bifurcations" },
+    { to: "/admin/adminManageSpecialNotes", text: "Manage Facility Special Notes" },
     { to: "/admin/forms", text: "Manage Forms" },
     { to: "/admin/publications", text: "Manage Publications" },
     { to: "/admin/about", text: "Manage About Page" },
@@ -134,6 +136,7 @@ const AdminLinks = () => {
     { to: "/admin/modpass", text: "Change Operator Password" },
     { to: "/admin/approveUsers", text: "Approve New User Registration Requests" },
     { to: "/admin/adminManageBooking", text: "Manage Bookings" },
+    { to: "/admin/adminUserPubs", text: "View Users' Uploaded Publications" },  
   ];
 
   return (

@@ -431,6 +431,33 @@ const ManageBooking = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Bifurcations Section */}
+                    {request.bifurcations && request.bifurcations.length > 0 && (
+                      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Selected Options</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {request.bifurcations.map((bifurcation, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-gray-800">{bifurcation.bifurcation_name}</p>
+                                  <p className="text-sm text-gray-500">
+                                    {bifurcation.sample_count} {bifurcation.sample_count === 1 ? 'sample' : 'samples'}
+                                  </p>
+                                </div>
+                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                  {bifurcation.pricing_type}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Actions Section */}
                     <div className="flex flex-wrap gap-3 justify-between items-center">

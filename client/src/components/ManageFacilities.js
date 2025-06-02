@@ -36,10 +36,6 @@ const ManageFacilities = () => {
     specifications: "",
     usage_details: "",
     category_id: "",
-    price_internal: "0.00",
-    price_external: "0.00",
-    price_r_and_d: "0.00",
-    price_industry: "0.00",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -213,10 +209,6 @@ const ManageFacilities = () => {
       specifications: facility.specifications || "",
       usage_details: facility.usage_details || "",
       category_id: facility.category_id || "",
-      price_internal: facility.price_internal || "0.00",
-      price_external: facility.price_external || "0.00",
-      price_r_and_d: facility.price_r_and_d || "0.00",
-      price_industry: facility.price_industry || "0.00",
     });
     setImagePreview(facility.image_url || null);
     setSelectedPublications(facility.publications?.map(p => p.id) || []);
@@ -239,10 +231,6 @@ const ManageFacilities = () => {
       specifications: "",
       usage_details: "",
       category_id: "",
-      price_internal: "0.00",
-      price_external: "0.00",
-      price_r_and_d: "0.00",
-      price_industry: "0.00",
     });
     setImageFile(null);
     setImagePreview(null);
@@ -416,52 +404,6 @@ const ManageFacilities = () => {
               </option>
             ))}
           </select>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Price for Internal Users"
-              name="price_internal"
-              value={formData.price_internal}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Price for External Users"
-              name="price_external"
-              value={formData.price_external}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Price for R&D"
-              name="price_r_and_d"
-              value={formData.price_r_and_d}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
-            <input
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Price for Industry"
-              name="price_industry"
-              value={formData.price_industry}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
-          </div>
           <div className="space-y-2">
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Facility Image

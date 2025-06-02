@@ -30,10 +30,6 @@ CREATE TABLE IF NOT EXISTS Facilities (
   usage_details TEXT,
   image_url VARCHAR(255),
   category_id INT,
-  price_industry DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  price_internal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  price_external DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  price_r_and_d DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   Faculty_contact VARCHAR(15),
   Faculty_email VARCHAR(255),
   operator_name VARCHAR(255),
@@ -41,9 +37,21 @@ CREATE TABLE IF NOT EXISTS Facilities (
   FOREIGN KEY (category_id) REFERENCES Categories(id) ON DELETE CASCADE
 );
 
--- insert data into facilities
-INSERT INTO Facilities (name, make_year, model, faculty_in_charge, operator_contact, description, specifications, usage_details, image_url, category_id, price_industry, price_internal, price_external, price_r_and_d, Faculty_contact, Faculty_email, operator_name, operator_email) VALUES
-('High-Res SEM', 2022, 'Zeiss GeminiSEM 500', 'Dr. A. B. Charan', '9000011111', 'High-Resolution Scanning Electron Microscope', 'Resolution: 0.6nm, Max Mag: 2,000,000x', 'Sample prep required. Training mandatory.', 'uploads/facility_images/sem.jpg', 1, 5000.00, 500.00, 2500.00, 1000.00, '9112233445', 'ab.charan@iitrpr.ac.in', 'Rakesh Kumar', 'rakesh.op@iitrpr.ac.in');
+ALTER TABLE facilities
+ADD COLUMN special_note VARCHAR(255);
+
+CREATE TABLE facility_bifurcations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT,
+    bifurcation_name VARCHAR(255) NOT NULL,
+    pricing_type ENUM('slot', 'hour', 'half-hour') NOT NULL,
+    price_internal DECIMAL(10,2),
+    price_internal_consultancy DECIMAL(10,2),
+    price_external DECIMAL(10,2),
+    price_industry DECIMAL(10,2),
+    FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+);
+
 -- Create the Users table
 CREATE TABLE Users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -111,6 +119,15 @@ CREATE TABLE BookingHistory (
     FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
     FOREIGN KEY (schedule_id) REFERENCES FacilitySchedule(schedule_id) ON DELETE CASCADE,
     UNIQUE (facility_id, schedule_id, booking_date, user_id)
+);
+
+CREATE TABLE BookingBifurcations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    bifurcation_id INT NOT NULL,
+    sample_count INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (booking_id) REFERENCES BookingHistory(booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (bifurcation_id) REFERENCES facility_bifurcations(id) ON DELETE CASCADE
 );
 
 -- Create the forms table

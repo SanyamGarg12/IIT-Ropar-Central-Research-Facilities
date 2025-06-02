@@ -215,11 +215,7 @@ app.get('/api/facilities', (req, res) => {
       f.specifications, 
       f.usage_details, 
       f.image_url, 
-      f.category_id, 
-      f.price_internal,
-      f.price_external,
-      f.price_r_and_d,
-      f.price_industry,
+      f.category_id,
       c.name AS category_name, 
       c.description AS category_description
     FROM 
@@ -258,10 +254,6 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
     specifications,
     usage_details,
     category_id,
-    price_internal,
-    price_external,
-    price_r_and_d,
-    price_industry,
     publication_ids, // Array of publication IDs to associate with the facility
   } = req.body;
 
@@ -291,10 +283,6 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
       usage_details = ?, 
       image_url = ?, 
       category_id = ?, 
-      price_internal = ?, 
-      price_external = ?, 
-      price_r_and_d = ?, 
-      price_industry = ?
     WHERE 
       id = ?
   `;
@@ -314,10 +302,6 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
     usage_details,
     image_url,
     category_id,
-    price_internal,
-    price_external,
-    price_r_and_d,
-    price_industry,
     facilityId,
   ];
 
@@ -383,10 +367,6 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     specifications,
     usage_details,
     category_id,
-    price_internal,
-    price_external,
-    price_r_and_d,
-    price_industry,
     publications, // This should be an array of publication IDs
   } = req.body;
 
@@ -409,11 +389,7 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
       usage_details, 
       image_url, 
       category_id, 
-      price_internal,
-      price_external,
-      price_r_and_d,
-      price_industry
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -431,10 +407,6 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     usage_details,
     image_url,
     category_id,
-    price_internal,
-    price_external,
-    price_r_and_d,
-    price_industry,
   ];
 
   // Insert into Facilities table
@@ -971,77 +943,61 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/facility/:id', (req, res) => {
   const facilityId = req.params.id;
-
-  const facilityQuery = `
+  const query = `
     SELECT 
-      f.id, 
-      f.name, 
-      f.make_year, 
-      f.model, 
-      f.faculty_in_charge, 
-      f.faculty_contact, 
-      f.faculty_email, 
-      f.operator_name, 
-      f.operator_contact, 
-      f.operator_email, 
-      f.description, 
-      f.specifications, 
-      f.usage_details, 
-      f.image_url, 
-      f.price_internal, 
-      f.price_external, 
-      f.price_r_and_d, 
-      f.price_industry, 
-      c.name AS category_name
+      f.id,
+      f.name,
+      f.description,
+      f.specifications,
+      f.usage_details,
+      f.image_url,
+      f.make_year,
+      f.model,
+      f.faculty_in_charge,
+      f.faculty_contact,
+      f.faculty_email,
+      f.operator_name,
+      f.operator_contact,
+      f.operator_email,
+      f.special_note,
+      c.name AS category_name,
+      p.id AS publication_id,
+      p.title AS publication_title,
+      p.link AS publication_link
     FROM 
       Facilities f
-    INNER JOIN 
-      Categories c
-    ON 
-      f.category_id = c.id
-    where 
+    LEFT JOIN 
+      Categories c ON f.category_id = c.id
+    LEFT JOIN 
+      facility_publications fp ON f.id = fp.facility_id
+    LEFT JOIN 
+      Publications p ON fp.publication_id = p.id
+    WHERE 
       f.id = ?;
   `;
 
-  const publicationsQuery = `
-    SELECT 
-      p.id, 
-      p.title AS publication_title, 
-      p.link AS publication_link
-    FROM 
-      Publications p
-    INNER JOIN 
-      Facility_Publications fp
-    ON 
-      p.id = fp.publication_id
-    WHERE 
-      fp.facility_id = ?
-  `;
-
-  // Fetch facility details
-  db.query(facilityQuery, [facilityId], (facilityErr, facilityResults) => {
-    if (facilityErr) {
-      console.error('Error fetching facility:', facilityErr);
-      return res.status(500).json({ error: 'Error fetching facility' });
+  db.query(query, [facilityId], (err, results) => {
+    if (err) {
+      console.error('Error fetching facility details:', err);
+      return res.status(500).send('Error fetching facility details');
     }
 
-    if (facilityResults.length === 0) {
-      return res.status(404).json({ error: 'Facility not found' });
+    if (results.length === 0) {
+      return res.status(404).send('Facility not found');
     }
 
-    const facility = facilityResults[0];
+    const facility = results[0];
+    // Filter out the rows with publication data and map them into an array
+    const publications = results
+      .filter(row => row.publication_title) // Filter rows where publication details exist
+      .map(row => ({
+        id: row.publication_id,
+        title: row.publication_title,
+        link: row.publication_link,
+      }));
 
-    // Fetch publications mapped to the facility
-    db.query(publicationsQuery, [facilityId], (pubErr, publicationResults) => {
-      if (pubErr) {
-        console.error('Error fetching publications:', pubErr);
-        return res.status(500).json({ error: 'Error fetching publications' });
-      }
-
-      // Attach publications to the facility object
-      facility.publications = publicationResults;
-      res.json(facility);
-    });
+    facility.publications = publications;
+    res.json(facility);
   });
 });
 
@@ -1330,7 +1286,19 @@ app.get('/api/admin/operators-bookings', authenticateToken, (req, res) => {
               'status', bh.status,
               'cost', bh.cost,
               'schedule_id', bh.schedule_id,
-              'receipt_path', bh.receipt_path
+              'receipt_path', bh.receipt_path,
+              'bifurcations', (
+                SELECT JSON_ARRAYAGG(
+                  JSON_OBJECT(
+                    'bifurcation_name', fb.bifurcation_name,
+                    'sample_count', bb.sample_count,
+                    'pricing_type', fb.pricing_type
+                  )
+                )
+                FROM BookingBifurcations bb
+                JOIN facility_bifurcations fb ON bb.bifurcation_id = fb.id
+                WHERE bb.booking_id = bh.booking_id
+              )
             )
           ),
           ''
@@ -1510,19 +1478,33 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
   const userId = req.user.userId;
   const query = `
   SELECT
-    BookingHistory.*,
-    Facilities.name as facility_name,
-    FacilitySchedule.start_time,
-    FacilitySchedule.end_time
+    bh.*,
+    f.name as facility_name,
+    fs.start_time,
+    fs.end_time,
+    GROUP_CONCAT(
+      JSON_OBJECT(
+        'bifurcation_name', fb.bifurcation_name,
+        'sample_count', bb.sample_count,
+        'pricing_type', fb.pricing_type
+      )
+    ) as bifurcations
   FROM
-    BookingHistory
+    BookingHistory bh
   INNER JOIN
-    Facilities ON BookingHistory.facility_id = Facilities.id
+    Facilities f ON bh.facility_id = f.id
   INNER JOIN
-    FacilitySchedule ON BookingHistory.schedule_id = FacilitySchedule.schedule_id
+    FacilitySchedule fs ON bh.schedule_id = fs.schedule_id
+  LEFT JOIN
+    BookingBifurcations bb ON bh.booking_id = bb.booking_id
+  LEFT JOIN
+    facility_bifurcations fb ON bb.bifurcation_id = fb.id
   WHERE
-    BookingHistory.user_id = ?
-  ORDER BY BookingHistory.booking_date DESC
+    bh.user_id = ?
+  GROUP BY
+    bh.booking_id
+  ORDER BY 
+    bh.booking_date DESC
   `;
   
   db.query(query, [userId], (err, results) => {
@@ -1534,7 +1516,8 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
     const formattedResults = results.map(booking => ({
       ...booking,
       facility_name: booking.facility_name,
-      slot: `${booking.start_time} - ${booking.end_time}`
+      slot: `${booking.start_time} - ${booking.end_time}`,
+      bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
     }));
     
     res.json(formattedResults);
@@ -1543,27 +1526,39 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
 
 
 app.get('/api/booking-requests', authenticateToken, (req, res) => {
-
   const query = `
     SELECT 
-      BookingHistory.user_id,
-      Users.full_name AS user_name,
-      BookingHistory.facility_id,
-      Facilities.name AS facility_name,
-      BookingHistory.booking_date,
-      BookingHistory.status,
-      BookingHistory.cost,
-      BookingHistory.schedule_id,
-      BookingHistory.booking_id,
-      BookingHistory.receipt_path
+      bh.user_id,
+      u.full_name AS user_name,
+      bh.facility_id,
+      f.name AS facility_name,
+      bh.booking_date,
+      bh.status,
+      bh.cost,
+      bh.schedule_id,
+      bh.booking_id,
+      bh.receipt_path,
+      GROUP_CONCAT(
+        JSON_OBJECT(
+          'bifurcation_name', fb.bifurcation_name,
+          'sample_count', bb.sample_count,
+          'pricing_type', fb.pricing_type
+        )
+      ) as bifurcations
     FROM 
-      BookingHistory
+      BookingHistory bh
     JOIN 
-      Users ON BookingHistory.user_id = Users.user_id
+      Users u ON bh.user_id = u.user_id
     JOIN 
-      Facilities ON BookingHistory.facility_id = Facilities.id
+      Facilities f ON bh.facility_id = f.id
+    LEFT JOIN
+      BookingBifurcations bb ON bh.booking_id = bb.booking_id
+    LEFT JOIN
+      facility_bifurcations fb ON bb.bifurcation_id = fb.id
     WHERE 
-      BookingHistory.operator_email = ?
+      bh.operator_email = ?
+    GROUP BY
+      bh.booking_id
   `;
 
   db.query(query, [req.query.operatorEmail], (err, results) => {
@@ -1571,7 +1566,14 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
       console.error(err);
       return res.status(500).send('Error fetching booking history.');
     }
-    res.status(200).json(results);
+
+    // Parse the bifurcations JSON string into an array
+    const formattedResults = results.map(booking => ({
+      ...booking,
+      bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
+    }));
+
+    res.status(200).json(formattedResults);
   });
 });
 
@@ -1708,7 +1710,12 @@ app.get('/api/facility/:id', (req, res) => {
       f.make_year,
       f.model,
       f.faculty_in_charge,
-      f.contact_person_contact,
+      f.faculty_contact,
+      f.faculty_email,
+      f.operator_name,
+      f.operator_contact,
+      f.operator_email,
+      f.special_note,
       c.name AS category_name,
       p.id AS publication_id,
       p.title AS publication_title,
@@ -2114,7 +2121,7 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   });
 });
 
-app.get('/api/weekly-slots', authenticateToken, (req, res) => {
+app.get('/api/weekly-slots', (req, res) => {
   const { facilityId } = req.query;  // Changed from operatorId to facilityId
 
   if (!facilityId) {
@@ -2537,4 +2544,426 @@ app.post('/api/upload-chunk', uploadChunk.single('file'), async (req, res) => {
       details: error.message 
     });
   }
+});
+
+// Contact form endpoint
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, contactNumber, query } = req.body;
+
+    // Create a transporter using nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    // Email content
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.ContactUsAdminEmail,
+      subject: 'New Contact Form Submission',
+      html: `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Contact Number:</strong> ${contactNumber || 'Not provided'}</p>
+        <p><strong>Query:</strong></p>
+        <p>${query}</p>
+      `
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
+
+    res.json({ 
+      success: true, 
+      message: 'Thank you for your feedback! We will get back to you soon.' 
+    });
+  } catch (error) {
+    console.error('Error sending contact form:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send feedback. Please try again.' 
+    });
+  }
+});
+
+// API endpoint to get facility bifurcations
+app.get('/api/facility/:id/bifurcations', (req, res) => {
+  const facilityId = req.params.id;
+  const query = `
+    SELECT 
+      id,
+      bifurcation_name,
+      pricing_type,
+      price_internal,
+      price_internal_consultancy,
+      price_external,
+      price_industry
+    FROM 
+      facility_bifurcations
+    WHERE 
+      facility_id = ?
+  `;
+
+  db.query(query, [facilityId], (err, results) => {
+    if (err) {
+      console.error('Error fetching facility bifurcations:', err);
+      return res.status(500).json({ error: 'Error fetching facility bifurcations' });
+    }
+    res.json(results);
+  });
+});
+
+// Add new endpoint to handle booking bifurcations
+app.post('/api/booking-bifurcations', authenticateToken, (req, res) => {
+  const { booking_id, bifurcations } = req.body;
+  
+  console.log('Received booking bifurcations request:', {
+    booking_id,
+    bifurcations
+  });
+
+  if (!booking_id) {
+    console.error('Missing booking_id');
+    return res.status(400).json({ message: 'Booking ID is required' });
+  }
+
+  if (!bifurcations || !Array.isArray(bifurcations)) {
+    console.error('Invalid bifurcations data:', bifurcations);
+    return res.status(400).json({ message: 'Bifurcations must be an array' });
+  }
+
+  if (bifurcations.length === 0) {
+    console.error('Empty bifurcations array');
+    return res.status(400).json({ message: 'At least one bifurcation is required' });
+  }
+
+  // Validate each bifurcation object
+  for (const bifurcation of bifurcations) {
+    if (!bifurcation.bifurcation_id || !bifurcation.sample_count) {
+      console.error('Invalid bifurcation object:', bifurcation);
+      return res.status(400).json({ 
+        message: 'Each bifurcation must have bifurcation_id and sample_count',
+        invalidBifurcation: bifurcation
+      });
+    }
+  }
+
+  // Insert each bifurcation selection
+  const insertQuery = 'INSERT INTO BookingBifurcations (booking_id, bifurcation_id, sample_count) VALUES (?, ?, ?)';
+  
+  let completed = 0;
+  let hasError = false;
+
+  bifurcations.forEach(bifurcation => {
+    db.query(insertQuery, [booking_id, bifurcation.bifurcation_id, bifurcation.sample_count], (err) => {
+      if (err) {
+        console.error('Error creating booking bifurcation:', err);
+        hasError = true;
+      }
+      completed++;
+      
+      if (completed === bifurcations.length) {
+        if (hasError) {
+          return res.status(500).json({ message: 'Failed to create some booking bifurcations' });
+        }
+        res.json({ message: 'Booking bifurcations created successfully' });
+      }
+    });
+  });
+});
+
+// Modify the existing booking endpoint
+app.post('/api/booking', authenticateToken, (req, res) => {
+  const { facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path, bifurcation_ids } = req.body;
+  
+  // First create the booking
+  const bookingQuery = `
+    INSERT INTO BookingHistory 
+    (facility_id, booking_date, schedule_id, user_id, operator_email, cost, user_type, receipt_path) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(bookingQuery, [facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path], (err, result) => {
+    if (err) {
+      console.error('Error creating booking:', err);
+      return res.status(500).json({ message: 'Failed to create booking' });
+    }
+
+    const booking_id = result.insertId;
+    console.log('Created booking with ID:', booking_id);
+
+    // Then create the bifurcation entries
+    if (bifurcation_ids && bifurcation_ids.length > 0) {
+      const bifurcationQuery = 'INSERT INTO BookingBifurcations (booking_id, bifurcation_id, sample_count) VALUES (?, ?, ?)';
+      
+      let completed = 0;
+      let hasError = false;
+
+      bifurcation_ids.forEach(bifurcation_id => {
+        db.query(bifurcationQuery, [booking_id, bifurcation_id, 1], (err) => {
+          if (err) {
+            console.error('Error creating booking bifurcation:', err);
+            hasError = true;
+          }
+          completed++;
+          
+          if (completed === bifurcation_ids.length) {
+            if (hasError) {
+              return res.status(500).json({ message: 'Booking created but failed to create some bifurcations' });
+            }
+            res.json({ 
+              message: 'Booking created successfully',
+              booking_id: booking_id
+            });
+          }
+        });
+      });
+    } else {
+      res.json({ 
+        message: 'Booking created successfully',
+        booking_id: booking_id
+      });
+    }
+  });
+});
+
+// Add endpoint to get booking bifurcations
+app.get('/api/booking/:bookingId/bifurcations', authenticateToken, (req, res) => {
+  const { bookingId } = req.params;
+  
+  const query = `
+    SELECT bb.*, fb.bifurcation_name, fb.pricing_type 
+    FROM BookingBifurcations bb 
+    JOIN facility_bifurcations fb ON bb.bifurcation_id = fb.id 
+    WHERE bb.booking_id = ?
+  `;
+
+  db.query(query, [bookingId], (err, results) => {
+    if (err) {
+      console.error('Error fetching booking bifurcations:', err);
+      return res.status(500).json({ message: 'Failed to fetch booking bifurcations' });
+    }
+    res.json(results);
+  });
+});
+
+// Get bifurcations for a facility
+app.get('/api/facility/:facilityId/bifurcations', authenticateToken, (req, res) => {
+  console.log('Fetching bifurcations for facility:', req.params.facilityId);
+  const query = `
+    SELECT * FROM facility_bifurcations 
+    WHERE facility_id = ? 
+    ORDER BY bifurcation_name
+  `;
+  
+  db.query(query, [req.params.facilityId], (err, results) => {
+    if (err) {
+      console.error('Error fetching bifurcations:', err);
+      return res.status(500).json({ error: 'Failed to fetch bifurcations' });
+    }
+    console.log('Bifurcations found:', results.length);
+    res.json(results);
+  });
+});
+
+// Add new bifurcation
+app.post('/api/facility/:facilityId/bifurcations', authenticateToken, (req, res) => {
+  console.log('Adding new bifurcation:', req.body);
+  const {
+    bifurcation_name,
+    pricing_type,
+    price_internal,
+    price_internal_consultancy,
+    price_external,
+    price_industry
+  } = req.body;
+
+  // Validate required fields
+  if (!bifurcation_name || !pricing_type || !price_internal || !price_internal_consultancy || !price_external || !price_industry) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const query = `
+    INSERT INTO facility_bifurcations 
+    (facility_id, bifurcation_name, pricing_type, price_internal, price_internal_consultancy, price_external, price_industry)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(
+    query,
+    [
+      req.params.facilityId,
+      bifurcation_name,
+      pricing_type,
+      price_internal,
+      price_internal_consultancy,
+      price_external,
+      price_industry
+    ],
+    (err, result) => {
+      if (err) {
+        console.error('Error adding bifurcation:', err);
+        return res.status(500).json({ error: 'Failed to add bifurcation' });
+      }
+      console.log('Bifurcation added successfully:', result.insertId);
+      res.json({ 
+        message: 'Bifurcation added successfully',
+        bifurcationId: result.insertId 
+      });
+    }
+  );
+});
+
+// Update bifurcation
+app.put('/api/facility/bifurcations/:bifurcationId', authenticateToken, (req, res) => {
+  console.log('Updating bifurcation:', req.params.bifurcationId, req.body);
+  const {
+    bifurcation_name,
+    pricing_type,
+    price_internal,
+    price_internal_consultancy,
+    price_external,
+    price_industry
+  } = req.body;
+
+  // Validate required fields
+  if (!bifurcation_name || !pricing_type || !price_internal || !price_internal_consultancy || !price_external || !price_industry) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const query = `
+    UPDATE facility_bifurcations 
+    SET 
+      bifurcation_name = ?,
+      pricing_type = ?,
+      price_internal = ?,
+      price_internal_consultancy = ?,
+      price_external = ?,
+      price_industry = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    query,
+    [
+      bifurcation_name,
+      pricing_type,
+      price_internal,
+      price_internal_consultancy,
+      price_external,
+      price_industry,
+      req.params.bifurcationId
+    ],
+    (err, result) => {
+      if (err) {
+        console.error('Error updating bifurcation:', err);
+        return res.status(500).json({ error: 'Failed to update bifurcation' });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Bifurcation not found' });
+      }
+      console.log('Bifurcation updated successfully');
+      res.json({ message: 'Bifurcation updated successfully' });
+    }
+  );
+});
+
+// Delete bifurcation
+app.delete('/api/facility/bifurcations/:bifurcationId', authenticateToken, (req, res) => {
+  console.log('Deleting bifurcation:', req.params.bifurcationId);
+  
+  // First check if bifurcation is in use
+  const checkQuery = `
+    SELECT COUNT(*) as count 
+    FROM BookingBifurcations 
+    WHERE bifurcation_id = ?
+  `;
+  
+  db.query(checkQuery, [req.params.bifurcationId], (err, results) => {
+    if (err) {
+      console.error('Error checking bifurcation usage:', err);
+      return res.status(500).json({ error: 'Failed to check bifurcation usage' });
+    }
+
+    if (results[0].count > 0) {
+      console.log('Bifurcation is in use, cannot delete');
+      return res.status(400).json({ error: 'Cannot delete bifurcation that is in use' });
+    }
+
+    // If not in use, proceed with deletion
+    const deleteQuery = `
+      DELETE FROM facility_bifurcations 
+      WHERE id = ?
+    `;
+
+    db.query(deleteQuery, [req.params.bifurcationId], (err, result) => {
+      if (err) {
+        console.error('Error deleting bifurcation:', err);
+        return res.status(500).json({ error: 'Failed to delete bifurcation' });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Bifurcation not found' });
+      }
+      console.log('Bifurcation deleted successfully');
+      res.json({ message: 'Bifurcation deleted successfully' });
+    });
+  });
+});
+
+// API endpoint to update facility special note
+app.put('/api/facilities/:id/special-note', (req, res) => {
+  const facilityId = req.params.id;
+  const { special_note } = req.body;
+
+  const query = `
+    UPDATE Facilities
+    SET special_note = ?
+    WHERE id = ?
+  `;
+
+  db.query(query, [special_note, facilityId], (err, result) => {
+    if (err) {
+      console.error('Error updating facility special note:', err);
+      return res.status(500).json({ error: 'Error updating special note' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Facility not found' });
+    }
+
+    res.json({ message: 'Special note updated successfully' });
+  });
+});
+
+// API endpoint to get all user publications (admin only)
+app.get('/api/admin/publications', authenticateToken, (req, res) => {
+  // Check if user is admin
+  // const token = req.headers['authorization'];
+  // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  // console.log(req.headers);
+  // if (req.headers["position"] !== 'Admin') {
+  //   return res.status(403).json({ error: 'Access denied. Admin only.' });
+  // }
+
+  const query = `
+    SELECT 
+      p.*,
+      u.email as user_email
+    FROM User_Publications p
+    JOIN Users u ON p.user_id = u.user_id
+    ORDER BY p.year DESC, p.publication_id DESC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching publications:', err);
+      return res.status(500).json({ error: 'Failed to fetch publications' });
+    }
+    res.json(results);
+  });
 });
