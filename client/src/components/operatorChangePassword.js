@@ -16,7 +16,7 @@ const OperatorChangePassword = () => {
         const userEmail = localStorage.getItem('userEmail');
 
         try {
-            const response = await axios.post('/api/op-change-password', {
+            const response = await axios.post(`${API_BASED_URL}api/op-change-password`, {
                 oldPassword,
                 newPassword,
                 userEmail

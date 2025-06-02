@@ -22,7 +22,7 @@ const AddSlots = () => {
 
   const fetchFacilities = async () => {
     try {
-      const response = await axios.get('/facilities/slots', {
+      const response = await axios.get(`${API_BASED_URL}facilities/slots`, {
         headers: {
           Authorization: `${authToken}`,
         },
@@ -40,7 +40,7 @@ const AddSlots = () => {
     const newSlot = newSlots[facilityId]?.[weekday]
     if (!newSlot || !newSlot.start_time || !newSlot.end_time) return
     try {
-      await axios.post('/operator/slots', 
+      await axios.post(`${API_BASED_URL}operator/slots`, 
         { 
           facilityId, 
           weekday, 
@@ -69,7 +69,7 @@ const AddSlots = () => {
 
   const deleteSlot = async (facilityId, weekday, slot) => {
     try {
-      await axios.delete('/operator/slots', {
+      await axios.delete(`${API_BASED_URL}operator/slots`, {
         data: { facilityId, weekday, slot, operatorId },
         headers: {
           Authorization: `${authToken}`,
@@ -97,58 +97,52 @@ const AddSlots = () => {
   )
 
   return (
-    <div className="container mx-auto p-4 bg-gray-50 min-h-screen">
-      <h1 className="text-4xl font-bold mb-8 text-center text-gray-800">Facility Slot Management</h1>
-      {facilities.map((facility) => (
-        <motion.div 
-          key={facility.id} 
-          className="mb-12 bg-white shadow-xl rounded-lg overflow-hidden"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
-            <h2 className="text-3xl font-semibold text-white">{facility.name || 'Sample Facility Name'}</h2>
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Manage Facility Slots</h1>
+        
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex space-x-4 mb-6">
+            {daysOfWeek.map(day => (
+              <button
+                key={day}
+                onClick={() => setActiveDay(day)}
+                className={`px-4 py-2 rounded-md ${
+                  activeDay === day
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {day}
+              </button>
+            ))}
           </div>
-          <div className="p-6">
-            <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
-              {daysOfWeek.map((day) => (
-                <button
-                  key={day}
-                  onClick={() => setActiveDay(day)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
-                    activeDay === day ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {day}
-                </button>
-              ))}
-            </div>
-            <div className="bg-gray-100 rounded-lg p-6">
-              <h3 className="text-xl font-medium mb-4">Slots for {activeDay}</h3>
-              {facility.slots[activeDay] && facility.slots[activeDay].length > 0 ? (
-                <ul className="space-y-3">
-                  {facility.slots[activeDay].map((slot, index) => (
-                    <motion.li
-                      key={index}
-                      className="flex justify-between items-center bg-white p-3 rounded-lg shadow"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
+
+          {facilities.map((facility) => (
+            <motion.div 
+              key={facility.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8"
+            >
+              <h3 className="text-xl font-semibold mb-4">{facility.name}</h3>
+              
+              <div className="space-y-4">
+                {facility.slots[activeDay]?.map((slot, index) => (
+                  <div key={index} className="flex items-center space-x-4">
+                    <span className="text-gray-600">
+                      {slot.start_time} - {slot.end_time}
+                    </span>
+                    <button
+                      onClick={() => deleteSlot(facility.id, activeDay, slot)}
+                      className="text-red-600 hover:text-red-800"
                     >
-                      <span className="text-lg">{`${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)}`}</span>
-                      <button
-                        onClick={() => deleteSlot(facility.id, activeDay, slot)}
-                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors duration-200"
-                      >
-                        Delete
-                      </button>
-                    </motion.li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500 italic">No available slots for {activeDay}</p>
-              )}
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+
               <div className="mt-6 bg-white p-4 rounded-lg shadow">
                 <h4 className="text-lg font-medium mb-3">Add New Slot</h4>
                 <div className="flex space-x-4">
@@ -192,10 +186,10 @@ const AddSlots = () => {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </motion.div>
-      ))}
+            </motion.div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
