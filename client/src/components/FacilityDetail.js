@@ -6,7 +6,9 @@ import {API_BASED_URL} from '../config.js';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `${API_BASED_URL}uploads/${imagePath}`;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}${cleanPath}`;
 };
 
 const fadeInUp = {
@@ -99,9 +101,6 @@ const SpecificationsDisplay = ({ specifications }) => {
     <div className="specifications-container space-y-4">
       {specSections.map((section, index) => (
         <div key={index} className="spec-section">
-          <h4 className="text-md font-bold text-gray-700 mb-2 border-b border-gray-200 pb-1">
-            {section.heading}
-          </h4>
           <ul className="pl-4">
             {section.items.map((item, itemIndex) => (
               <li key={itemIndex} className="text-gray-600 mb-1">
@@ -119,6 +118,7 @@ export default function FacilityDetail() {
   const { id } = useParams();
   const [facility, setFacility] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -195,13 +195,27 @@ export default function FacilityDetail() {
         )}
 
         <motion.div className="grid md:grid-cols-2 gap-8 mb-12" {...fadeInUp}>
-          <motion.img
-            src={getImageUrl(facility.image_url)}
-            alt={facility.name}
-            className="w-full h-80 object-cover rounded-lg shadow-lg"
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.3 }}
-          />
+          <div className="relative w-full h-80">
+            {facility.image_url ? (
+              <motion.img
+                src={getImageUrl(facility.image_url)}
+                alt={facility.name}
+                className="w-full h-full object-cover rounded-lg shadow-lg"
+                whileHover={{ scale: 1.05 }}
+                transition={{ duration: 0.3 }}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500">No image available</span>
+              </div>
+            )}
+            {imageError && (
+              <div className="absolute inset-0 bg-gray-200 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500">Failed to load image</span>
+              </div>
+            )}
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Key Details</CardTitle>
@@ -210,6 +224,10 @@ export default function FacilityDetail() {
               <motion.div className="flex items-center gap-3" whileHover={{ x: 5 }}>
                 <Printer3d className="text-blue-600 w-6 h-6" />
                 <span className="font-semibold">Model:</span> {facility.model}
+              </motion.div>
+              <motion.div className="flex items-center gap-3" whileHover={{ x: 5 }}>
+                <Info className="text-blue-600 w-6 h-6" />
+                <span className="font-semibold">Manufacturer:</span> {facility.manufacturer}
               </motion.div>
               <motion.div className="flex items-center gap-3" whileHover={{ x: 5 }}>
                 <Info className="text-blue-600 w-6 h-6" />

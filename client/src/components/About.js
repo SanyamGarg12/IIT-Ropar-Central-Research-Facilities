@@ -2,10 +2,18 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Footer from './Footer';
 import {API_BASED_URL} from '../config.js'; 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}${cleanPath}`;
+};
+
 function About() {
   const [aboutContent, setAboutContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     axios.get(`${API_BASED_URL}api/aboutContent`)
@@ -43,7 +51,25 @@ function About() {
             <div className="md:w-1/2 mb-8 md:mb-0 md:pr-8">
               <p className="text-lg text-gray-700 leading-relaxed">{aboutContent.departmentIntro.content}</p>
             </div>
-            <img src={aboutContent.departmentIntro.image} alt="Department Building" className="md:w-1/2 rounded-lg shadow-lg object-cover h-64 md:h-auto" />
+            <div className="md:w-1/2 relative">
+              {aboutContent.departmentIntro.image ? (
+                <img 
+                  src={getImageUrl(aboutContent.departmentIntro.image)} 
+                  alt="Department Building" 
+                  className="rounded-lg shadow-lg object-cover h-64 md:h-auto w-full"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="bg-gray-200 rounded-lg shadow-lg h-64 md:h-auto w-full flex items-center justify-center">
+                  <span className="text-gray-500">No image available</span>
+                </div>
+              )}
+              {imageError && (
+                <div className="absolute inset-0 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-500">Failed to load image</span>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

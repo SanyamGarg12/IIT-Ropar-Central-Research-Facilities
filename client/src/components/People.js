@@ -10,6 +10,7 @@ const People = () => {
   const [staff, setStaff] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState({});
 
   useEffect(() => {
     setIsLoading(true);
@@ -28,6 +29,10 @@ const People = () => {
         setIsLoading(false);
       });
   }, []);
+
+  const handleImageError = (id) => {
+    setImageErrors(prev => ({ ...prev, [id]: true }));
+  };
 
   const chairman = members.find(
     (member) => member.designation.toLowerCase() === 'chairman'
@@ -59,7 +64,9 @@ const People = () => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    return `${API_BASED_URL}uploads/${imagePath}`;
+    if (imagePath.startsWith('http')) return imagePath;
+    const cleanPath = imagePath.replace(/^\/+/, '');
+    return `${API_BASED_URL}uploads/${cleanPath}`;
   };
 
   const containerVariants = {
@@ -102,10 +109,16 @@ const People = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
+            onError={() => handleImageError(person.id)}
           />
         ) : (
           <div className="text-4xl font-bold text-white bg-blue-500 w-full h-full flex items-center justify-center">
             {person.name.split(' ').map(n => n[0]).join('')}
+          </div>
+        )}
+        {imageErrors[person.id] && (
+          <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+            <span className="text-gray-500 text-sm">Failed to load</span>
           </div>
         )}
       </div>

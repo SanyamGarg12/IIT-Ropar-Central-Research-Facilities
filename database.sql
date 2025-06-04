@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS Facilities (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   make_year INT,
+  manufacturer VARCHAR(255),
   model VARCHAR(255),
   faculty_in_charge VARCHAR(255),
   operator_contact VARCHAR(15),

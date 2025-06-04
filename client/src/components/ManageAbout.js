@@ -3,12 +3,20 @@ import axios from 'axios';
 import './ManageAbout.css';
 import {API_BASED_URL} from '../config.js'; 
 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}${cleanPath}`;
+};
+
 const ManageAbout = () => {
   const [aboutContent, setAboutContent] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     // Fetch the current about content from the backend
@@ -16,7 +24,7 @@ const ManageAbout = () => {
       .then(response => {
         setAboutContent(response.data);
         if (response.data.departmentIntro.image) {
-          setImagePreview(response.data.departmentIntro.image);
+          setImagePreview(getImageUrl(response.data.departmentIntro.image));
         }
       })
       .catch(error => {
@@ -136,8 +144,18 @@ const ManageAbout = () => {
               />
               {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
               {imagePreview && (
-                <div className="mt-4">
-                  <img src={imagePreview} alt="Department Preview" className="max-w-md rounded-lg shadow-md" />
+                <div className="mt-4 relative">
+                  <img 
+                    src={imagePreview} 
+                    alt="Department Preview" 
+                    className="max-w-md rounded-lg shadow-md"
+                    onError={() => setImageError(true)}
+                  />
+                  {imageError && (
+                    <div className="absolute inset-0 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <span className="text-gray-500">Failed to load image</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

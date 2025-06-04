@@ -18,9 +18,16 @@ const port = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'sdfadfs';
 
 // Security middleware
-app.use(helmet());
-app.use(xss());
-app.use(hpp());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Enable CORS for cross-origin requests
+app.use(cors({
+  origin: process.env.FRONTEND_BASE_URL,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Rate limiting configurations
 const loginLimiter = rateLimit({
@@ -61,9 +68,6 @@ app.use('/login', loginLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/register', registerLimiter); // Apply registration rate limiter
 app.use('/api/', apiLimiter);
-
-// Enable CORS for cross-origin requests
-app.use(cors());
 
 // Create a connection pool to the MySQL database
 const db = mysql.createPool({
@@ -204,7 +208,8 @@ app.get('/api/facilities', (req, res) => {
       f.id, 
       f.name, 
       f.make_year, 
-      f.model, 
+      f.model,
+      f.manufacturer,
       f.faculty_in_charge, 
       f.faculty_contact,
       f.faculty_email,
@@ -238,10 +243,11 @@ app.get('/api/facilities', (req, res) => {
 
 
 app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
-  // console.log("req.body", req.body);
+  console.log("requested file^^^^", req.file);
   const facilityId = req.params.id;
   const {
     name,
+    manufacturer,
     make_year,
     model,
     faculty_in_charge,
@@ -254,11 +260,11 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
     specifications,
     usage_details,
     category_id,
-    publication_ids, // Array of publication IDs to associate with the facility
+    publication_ids,
   } = req.body;
 
   // Get the uploaded image filename from req.file
-  const image_url = req.file ? req.file.filename : null;
+  const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
   // Validate required fields
   if (!name || !category_id) {
@@ -270,6 +276,7 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
     UPDATE Facilities
     SET 
       name = ?, 
+      manufacturer = ?,
       make_year = ?, 
       model = ?, 
       faculty_in_charge = ?, 
@@ -281,14 +288,15 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
       description = ?, 
       specifications = ?, 
       usage_details = ?, 
-      image_url = ?, 
-      category_id = ?, 
+      image_url = COALESCE(?, image_url), 
+      category_id = ?
     WHERE 
       id = ?
   `;
 
   const updateValues = [
     name,
+    manufacturer,
     make_year,
     model,
     faculty_in_charge,
@@ -307,56 +315,30 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
 
   db.query(updateQuery, updateValues, (err, result) => {
     if (err) {
-      console.error("Error updating facility:", err);
-      return res.status(500).json({ error: "Database update failed" });
+      console.error('Error updating facility:', err);
+      return res.status(500).json({ 
+        error: 'Failed to update facility',
+        message: err.message
+      });
     }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Facility not found" });
-    }
-
-    // Handle the publications update: delete old ones and add new ones
-    const deletePublicationsQuery = `DELETE FROM Facility_Publications WHERE facility_id = ?`;
-    db.query(deletePublicationsQuery, [facilityId], (deleteErr) => {
-      if (deleteErr) {
-        console.error("Error deleting old publications:", deleteErr);
-        return res.status(500).json({ error: "Error updating publications" });
-      }
-
-      if (publication_ids && publication_ids.length > 0) {
-        const insertPublicationsQuery = `
-          INSERT INTO Facility_Publications (facility_id, publication_id)
-          VALUES ?`;
-        const publicationValues = publication_ids.map((pubId) => [facilityId, pubId]);
-
-        db.query(insertPublicationsQuery, [publicationValues], (insertErr) => {
-          if (insertErr) {
-            console.error("Error inserting new publications:", insertErr);
-            return res.status(500).json({ error: "Error inserting new publications" });
-          }
-
-          return res.status(200).json({
-            message: "Facility and publications updated successfully",
-            facilityId,
-          });
-        });
-      } else {
-        // No publications provided, return success
-        return res.status(200).json({
-          message: "Facility updated successfully",
-          facilityId,
-        });
-      }
+    res.json({ 
+      message: 'Facility updated successfully',
+      image_url: image_url
     });
   });
 });
 
 
 app.post('/api/facilities', upload.single("image"), (req, res) => {
+  console.log('Received facility data:', req.body);
+  console.log('Received file:', req.file);
+
   const {
     name,
     make_year,
     model,
+    manufacturer,
     faculty_in_charge,
     faculty_contact,
     faculty_email,
@@ -367,17 +349,27 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     specifications,
     usage_details,
     category_id,
-    publications, // This should be an array of publication IDs
+    publications,
   } = req.body;
 
+  // Validate required fields
+  if (!name || !category_id) {
+    console.log('Missing required fields:', { name, category_id });
+    return res.status(400).json({ 
+      error: 'Missing required fields',
+      message: 'Name and category are required'
+    });
+  }
+
   // Get the uploaded image filename from req.file
-  const image_url = req.file ? req.file.filename : null;
+  const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
   const query = `
     INSERT INTO Facilities (
       name, 
       make_year, 
       model, 
+      manufacturer,
       faculty_in_charge, 
       faculty_contact,
       faculty_email,
@@ -388,58 +380,44 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
       specifications, 
       usage_details, 
       image_url, 
-      category_id, 
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      category_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
     name,
-    make_year,
-    model,
-    faculty_in_charge,
-    faculty_contact,
-    faculty_email,
-    operator_name,
-    operator_contact,
-    operator_email,
-    description,
-    specifications,
-    usage_details,
+    make_year || null,
+    model || null,
+    manufacturer || null,
+    faculty_in_charge || null,
+    faculty_contact || null,
+    faculty_email || null,
+    operator_name || null,
+    operator_contact || null,
+    operator_email || null,
+    description || null,
+    specifications || null,
+    usage_details || null,
     image_url,
-    category_id,
+    category_id
   ];
 
-  // Insert into Facilities table
+  console.log('Executing query with values:', values);
+
   db.query(query, values, (err, result) => {
     if (err) {
-      console.error('Error inserting into Facilities:', err);
-      return res.status(500).json({ error: 'Error adding facility' });
-    }
-
-    const facilityId = result.insertId;
-
-    // If publications are provided, insert into Facilities_Publications table
-    if (publications && publications.length > 0) {
-      const publicationQuery = `
-        INSERT INTO Facility_Publications (facility_id, publication_id)
-        VALUES ?
-      `;
-
-      // Create values array for bulk insertion
-      const publicationValues = publications.map((publicationId) => [facilityId, publicationId]);
-
-      db.query(publicationQuery, [publicationValues], (pubErr) => {
-        if (pubErr) {
-          console.error('Error inserting into Facilities_Publications:', pubErr);
-          return res.status(500).json({ error: 'Error associating facility with publications' });
-        }
-
-        return res.status(201).json({ message: 'Facility and publications added successfully', id: facilityId });
+      console.error('Error inserting facility:', err);
+      return res.status(500).json({ 
+        error: 'Failed to create facility',
+        message: err.message
       });
-    } else {
-      // No publications, just return success for the facility insertion
-      return res.status(201).json({ message: 'Facility added successfully', id: facilityId });
     }
+
+    res.status(201).json({ 
+      message: 'Facility created successfully',
+      facilityId: result.insertId,
+      image_url: image_url
+    });
   });
 });
 
@@ -467,7 +445,7 @@ db.query(createArchivedNewsTable, (err) => {
 app.post('/api/homecontent', upload.single('image'), (req, res) => {
   const { action } = req.body;
   const imagePath = req.file ? req.file.filename : null;
-
+  console.log(imagePath);
   switch (action) {
     case 'updateThought': {
       const { thought } = req.body;
@@ -953,6 +931,7 @@ app.get('/api/facility/:id', (req, res) => {
       f.image_url,
       f.make_year,
       f.model,
+      f.manufacturer,
       f.faculty_in_charge,
       f.faculty_contact,
       f.faculty_email,
@@ -1709,6 +1688,7 @@ app.get('/api/facility/:id', (req, res) => {
       f.image_url,
       f.make_year,
       f.model,
+      f.manufacturer,
       f.faculty_in_charge,
       f.faculty_contact,
       f.faculty_email,

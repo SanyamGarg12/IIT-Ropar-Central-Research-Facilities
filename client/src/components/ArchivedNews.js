@@ -4,13 +4,16 @@ import { API_BASED_URL } from '../config.js';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `${API_BASED_URL}uploads/${imagePath}`;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}uploads/${cleanPath}`;
 };
 
 const ArchivedNews = () => {
   const [archivedNews, setArchivedNews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imageErrors, setImageErrors] = useState({});
 
   useEffect(() => {
     const fetchArchivedNews = async () => {
@@ -31,6 +34,13 @@ const ArchivedNews = () => {
 
     fetchArchivedNews();
   }, []);
+
+  const handleImageError = (newsId) => {
+    setImageErrors(prev => ({
+      ...prev,
+      [newsId]: true
+    }));
+  };
 
   if (isLoading) {
     return (
@@ -65,7 +75,20 @@ const ArchivedNews = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 * index, duration: 0.5 }}
           >
-            <img src={getImageUrl(news.imagepath)} alt={news.news_title} className="w-full h-48 object-cover" />
+            <div className="relative h-48">
+              {news.imagepath && !imageErrors[news.id] ? (
+                <img 
+                  src={getImageUrl(news.imagepath)} 
+                  alt={news.news_title} 
+                  className="w-full h-full object-cover"
+                  onError={() => handleImageError(news.id)}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500">No image available</span>
+                </div>
+              )}
+            </div>
             <div className="p-4">
               <h3 className="text-xl font-semibold mb-2">{news.news_title}</h3>
               <p className="text-gray-600">{news.summary}</p>

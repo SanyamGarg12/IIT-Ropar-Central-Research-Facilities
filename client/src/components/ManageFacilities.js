@@ -18,6 +18,13 @@ import {
   deleteFacility,
 } from "./facilityAPI";
 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}${cleanPath}`;
+};
+
 const ManageFacilities = () => {
   const [facilities, setFacilities] = useState([]);
   const [publications, setPublications] = useState([]);
@@ -26,6 +33,7 @@ const ManageFacilities = () => {
     name: "",
     make_year: "",
     model: "",
+    manufacturer: "",
     faculty_in_charge: "",
     faculty_contact: "",
     faculty_email: "",
@@ -46,6 +54,7 @@ const ManageFacilities = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
 
   // Create rate limiter for facility operations
@@ -140,31 +149,53 @@ const ManageFacilities = () => {
       setIsLoading(true);
       const formDataToSend = new FormData();
       
+      // Append all form fields
       Object.keys(formData).forEach(key => {
-        if (key === 'image' && formData[key]) {
-          formDataToSend.append(key, formData[key]);
-        } else {
-          formDataToSend.append(key, formData[key]);
-        }
+        formDataToSend.append(key, formData[key]);
       });
+
+      // Append image file if present
+      if (imageFile) {
+        formDataToSend.append('image', imageFile);
+      }
+
+      // Append selected publications
+      if (selectedPublications.length > 0) {
+        formDataToSend.append('publications', JSON.stringify(selectedPublications));
+      }
+
+      // Log the form data being sent
+      console.log('Form data being sent:');
+      for (let pair of formDataToSend.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
 
       const url = editMode 
         ? `${API_BASED_URL}api/facilities/${selectedFacility.id}`
         : `${API_BASED_URL}api/facilities`;
       
-      const response = await secureFetch(url, {
+      const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
+        headers: {
+          'Authorization': `${localStorage.getItem('authToken')}`
+        },
         body: formDataToSend
       });
 
+      console.log('Server response:', response);
+
       if (response.ok) {
+        const data = await response.json();
+        console.log('Server response data:', data);
         await loadFacilities();
         resetForm();
       } else {
         const data = await response.json();
+        console.log('Error response:', data);
         setErrorMessage(data.message || "Operation failed");
       }
     } catch (error) {
+      console.error('Submit error:', error);
       setErrorMessage("Something went wrong");
     } finally {
       setIsLoading(false);
@@ -199,6 +230,7 @@ const ManageFacilities = () => {
       name: facility.name || "",
       make_year: facility.make_year || "",
       model: facility.model || "",
+      manufacturer: facility.manufacturer || "",
       faculty_in_charge: facility.faculty_in_charge || "",
       faculty_contact: facility.faculty_contact || "",
       faculty_email: facility.faculty_email || "",
@@ -210,7 +242,7 @@ const ManageFacilities = () => {
       usage_details: facility.usage_details || "",
       category_id: facility.category_id || "",
     });
-    setImagePreview(facility.image_url || null);
+    setImagePreview(facility.image_url ? getImageUrl(facility.image_url) : null);
     setSelectedPublications(facility.publications?.map(p => p.id) || []);
     setEditMode(true);
     setSelectedFacility(facility);
@@ -221,6 +253,7 @@ const ManageFacilities = () => {
       name: "",
       make_year: "",
       model: "",
+      manufacturer: "",
       faculty_in_charge: "",
       faculty_contact: "",
       faculty_email: "",
@@ -300,6 +333,15 @@ const ManageFacilities = () => {
               placeholder="Model"
               name="model"
               value={formData.model}
+              onChange={handleInputChange}
+              disabled={isLoading}
+            />
+            <input
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              type="text"
+              placeholder="Manufacturer"
+              name="manufacturer"
+              value={formData.manufacturer}
               onChange={handleInputChange}
               disabled={isLoading}
             />
@@ -416,12 +458,18 @@ const ManageFacilities = () => {
               disabled={isLoading}
             />
             {imagePreview && (
-              <div className="mt-2">
+              <div className="mt-2 relative">
                 <img
                   src={imagePreview}
                   alt="Preview"
                   className="max-w-xs rounded shadow-lg"
+                  onError={() => setImageError(true)}
                 />
+                {imageError && (
+                  <div className="absolute inset-0 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-500">Failed to load image</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -483,15 +531,23 @@ const ManageFacilities = () => {
               <li key={facility.id} className="py-4 flex justify-between items-center">
                 <div className="flex items-center space-x-4">
                   {facility.image_url && (
-                    <img
-                      src={facility.image_url}
-                      alt={facility.name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
+                    <div className="relative w-16 h-16">
+                      <img
+                        src={getImageUrl(facility.image_url)}
+                        alt={facility.name}
+                        className="w-16 h-16 object-cover rounded"
+                        onError={() => setImageError(true)}
+                      />
+                      {imageError && (
+                        <div className="absolute inset-0 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-500 text-xs">Failed to load</span>
+                        </div>
+                      )}
+                    </div>
                   )}
                   <div>
                     <span className="text-lg font-medium text-gray-900">{escapeHtml(facility.name || 'Unnamed Facility')}</span>
-                    <p className="text-sm text-gray-500">{escapeHtml(facility.category?.name || 'No Category')}</p>
+                    <p className="text-sm text-gray-500">{escapeHtml(facility.category_name || 'No Category')}</p>
                   </div>
                 </div>
                 <div>

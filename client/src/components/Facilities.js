@@ -128,7 +128,7 @@ const Facilities = () => {
                             className="block p-4 hover:bg-gray-50 transition duration-150 ease-in-out"
                           >
                             <h4 className="text-lg font-medium text-gray-800 mb-2">{facility.name}</h4>
-                            <p className="text-gray-600 text-sm">{facility.description}</p>
+                            <p className="text-gray-600 text-sm">{facility.model}</p>
                           </Link>
                         </motion.li>
                       ))}

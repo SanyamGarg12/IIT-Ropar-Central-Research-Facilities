@@ -2,6 +2,13 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {API_BASED_URL} from '../config.js'; 
 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}uploads/${cleanPath}`;
+};
+
 const ManageMembers = () => {
   const [members, setMembers] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -20,6 +27,9 @@ const ManageMembers = () => {
     qualification: "",
     image: null,
   });
+  const [imageError, setImageError] = useState(false);
+  const [memberImageError, setMemberImageError] = useState({});
+  const [staffImageError, setStaffImageError] = useState({});
 
   // Fetch existing members and staff
   const fetchMembers = () => {
@@ -100,6 +110,14 @@ const ManageMembers = () => {
       .catch((error) => console.error("Error deleting staff:", error));
   };
 
+  const handleImageError = (id, type) => {
+    if (type === 'member') {
+      setMemberImageError(prev => ({ ...prev, [id]: true }));
+    } else {
+      setStaffImageError(prev => ({ ...prev, [id]: true }));
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h2 className="text-3xl font-bold mb-8">Manage Members and Staff</h2>
@@ -163,11 +181,19 @@ const ManageMembers = () => {
                 <h5 className="text-lg font-semibold">{member.name}</h5>
                 <p className="text-gray-600">{member.designation}</p>
                 {member.image_path && (
-                  <img
-                    src={`${API_BASED_URL}uploads/${member.image_path}`}
-                    alt={member.name}
-                    className="w-24 h-24 object-cover rounded-full mt-2"
-                  />
+                  <div className="relative w-24 h-24 mt-2">
+                    <img
+                      src={getImageUrl(member.image_path)}
+                      alt={member.name}
+                      className="w-24 h-24 object-cover rounded-full"
+                      onError={() => handleImageError(member.id, 'member')}
+                    />
+                    {memberImageError[member.id] && (
+                      <div className="absolute inset-0 bg-gray-200 rounded-full flex items-center justify-center">
+                        <span className="text-gray-500 text-xs">Failed to load</span>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <button
                   className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline"
@@ -226,11 +252,19 @@ const ManageMembers = () => {
                 <p className="text-gray-600">{staffMember.email}</p>
                 <p className="text-gray-600">{staffMember.phone}</p>
                 {staffMember.image_name && (
-                  <img
-                    src={`${API_BASED_URL}uploads/${staffMember.image_name}`}
-                    alt={staffMember.name}
-                    className="w-24 h-24 object-cover rounded-full mt-2"
-                  />
+                  <div className="relative w-24 h-24 mt-2">
+                    <img
+                      src={getImageUrl(staffMember.image_name)}
+                      alt={staffMember.name}
+                      className="w-24 h-24 object-cover rounded-full"
+                      onError={() => handleImageError(staffMember.id, 'staff')}
+                    />
+                    {staffImageError[staffMember.id] && (
+                      <div className="absolute inset-0 bg-gray-200 rounded-full flex items-center justify-center">
+                        <span className="text-gray-500 text-xs">Failed to load</span>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <button
                   className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline"

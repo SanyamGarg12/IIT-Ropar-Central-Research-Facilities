@@ -14,7 +14,9 @@ import {
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  return `${API_BASED_URL}uploads/${imagePath}`;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}uploads/${cleanPath}`;
 };
 
 const Hero = () => {
@@ -26,6 +28,7 @@ const Hero = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [imageErrors, setImageErrors] = useState({});
   const navigate = useNavigate();
 
   // Create rate limiter for search operations
@@ -120,6 +123,13 @@ const Hero = () => {
     navigate(`/facility/${facilityId}`);
   };
 
+  const handleImageError = (imageId) => {
+    setImageErrors(prev => ({
+      ...prev,
+      [imageId]: true
+    }));
+  };
+
   return (
     <motion.div
       className="bg-gray-100 min-h-screen"
@@ -152,7 +162,13 @@ const Hero = () => {
                 src={getImageUrl(images[currentIndex].imagepath)}
                 alt={`Slide ${currentIndex + 1}`}
                 className="object-cover w-full h-full"
+                onError={() => handleImageError(images[currentIndex].id)}
               />
+              {imageErrors[images[currentIndex].id] && (
+                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500">Failed to load image</span>
+                </div>
+              )}
               <motion.div
                 className="absolute inset-0 flex flex-col justify-end items-start p-8 bg-gradient-to-t from-black/60 via-black/30 to-transparent"
                 initial={{ y: 20, opacity: 0 }}
