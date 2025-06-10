@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS Facilities (
 ALTER TABLE facilities
 ADD COLUMN special_note VARCHAR(255);
 
+
+
 CREATE TABLE facility_bifurcations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     facility_id INT,
@@ -92,6 +94,15 @@ CREATE TABLE Members (
   profile_link VARCHAR(255),
   image_path VARCHAR(255)
 );
+
+INSERT INTO Members (name, designation, profile_link, image_path)
+VALUES 
+  ('Dr. Avijit Goswami', 'Chairman', 'https://www.iitrpr.ac.in/faculty/avijit', 'Dr_Avijit_Goswami.jpg'),
+  ('Dr. Kailash Chandra Jena', 'Vice chairman', 'https://www.iitrpr.ac.in/faculty/kailash', 'Dr_Kailash_Chandra_Jena.jpg'),
+  ('Dr. Neha Sardana', 'Member', 'https://www.iitrpr.ac.in/faculty/neha', 'Dr_Neha_Sardana.jpg'),
+  ('Dr. Samir Chandra Roy', 'Member', 'https://www.iitrpr.ac.in/faculty/samir', 'Dr_Samir_Chandra_Roy.jpg'),
+  ('Dr. Rajesh Kumar', 'Member', 'https://www.iitrpr.ac.in/faculty/rajesh', 'Dr_Rajesh_Kumar.jpg');
+
 
 -- Create the FacilitySchedule table
 CREATE TABLE FacilitySchedule (
@@ -153,6 +164,154 @@ CREATE TABLE staff (
     email VARCHAR(255) UNIQUE,
     office_address TEXT,
     qualification TEXT
+);
+delete from staff;
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Dr.Dinesh Deva',
+    'Dr_Dinesh_Deva.png',
+    'Clean Room Consultant',
+    '01881-23-2553',
+    'ddeva@iitrpr.ac.in',
+    ' Office Room no.103,CRF building',
+    'Ph.D. in Material Science'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Dr.Neetu Bansal',
+    'Dr_Neetu_Bansal.png',
+    'Technical officer',
+    '01881-23-2560',
+    'to.crf@iitrpr.ac.in; staff.neetu.bansal@iitrpr.ac.in',
+    'Office Room no.103,CRF building',
+    'Ph.D. in Physics & Materials Science,'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Dr.Harsimranjit Singh',
+    'Dr_Harsimranjit_Singh.jpg',
+    'Technical Supritendent',
+    '01881-23-2565',
+    'harsimranjit@iitrpr.ac.in',
+    'Multipurpose lab,First floor,CRF building',
+    'M.Sc (Chemistry)M.Tech(Nanoscience & Nanotechnology),
+
+
+
+'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Kamlesh Satpute',
+    'Mr_Kamlesh_Satpute.png',
+    'Junior Technical Supritendent',
+    '01881-23-3053',
+    'kamlesh.satpute@iitrpr.ac.in',
+    'Room no.115,SS Bhatnagar Block',
+    'M.Sc (Chemistry)'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Amit Kaushal',
+    'Mr_Amit_Kaushal.png',
+    'Junior Technical Supritendent',
+    '01881-23-2567',
+    'amit.kaushal@iitrpr.ac.in',
+    'Muiltipurpose lab,First floor,CRF building',
+    'M.Sc (Human Biology)'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Damninder Singh',
+    'Mr_Damninder_Singh.jpg',
+    'Junior Technical Supritendent',
+    '01881-23-2561,2564',
+    'damninder.singh@iitrpr.ac.in',
+    'Multipurpose lab,First floor,CRF building',
+    'M.Tech in ECE'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Anuj Babbar',
+    'Mr_Anuj_Babbar.jpg',
+    'Operator',
+    '01881-23-3079',
+    'anuj.babbar@iitrpr.ac.in',
+    'Room no.106,SS Bhatnagar Block',
+    'M.E in Thermal Engineering'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Manish Kumar',
+    'nmr_manish.png',
+    'Operator',
+    '01881-23-3052',
+    'nmr@iitrpr.ac.in',
+    'Room no.114, Bhatnagar Block',
+    'M.Sc Instrumentation'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Abhishek Sharma',
+    'Mr_Abhishek_Sharma.jpg',
+    'Operator',
+    '01881-23-2557',
+    'crf.fesem@iitrpr.ac.in',
+    'Room no.003,FESEM lab,CRF building',
+    'B. Tech (Mechanical)'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Manu Rana',
+    'Mr_Manu_Rana.jpg',
+    'Operator',
+    '01881-23-2555',
+    'crf.xps@iitrpr.ac.in',
+    'Room no.002,XPS lab,CRF building',
+    'M.Sc Chemistry (HPU)'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Manish Kumar',
+    'Mr_Manish_Kumar.jpg',
+    'Operator',
+    '01881-23-2554',
+    'tem300.crf@iitrpr.ac.in; tem120.crf@iitrpr.ac.in',
+    'Room no.006,HRTEM lab,CRF building',
+    'M.Sc Instrumentation'
+);
+
+INSERT INTO staff (
+    name, image_name, designation, phone, email, office_address, qualification
+) VALUES (
+    'Mr.Farooq Ahmed',
+    'Mr_Farooq_Ahmed.jpg',
+    'Operator',
+    '01881-23-2556',
+    'crf.lscm@iitrpr.ac.in',
+    'Room no.007,LSCM lab,CRF building',
+    'M.Sc Environmental Science'
 );
 
 -- Create the heroImages table
@@ -286,21 +445,6 @@ INSERT INTO Supervisor (name, email, department_name) VALUES
 ('Dr. Vikram Rathore', 'vikram.rathore@iitrpr.ac.in', 'Physics'),
 ('Dr. Anjali Desai', 'anjali.desai@iitrpr.ac.in', 'Chemistry');
 
--- Insert data into Publications
-INSERT INTO Publications (title, link, facility_id) VALUES
-('Advanced Material Analysis using SEM', 'https://example.com/pub/sem_analysis', 1),
-('Imaging Cellular Structures with Confocal Microscopy', 'https://example.com/pub/confocal_cell_imaging', 2),
-('Molecular Structure Elucidation by NMR', 'https://example.com/pub/nmr_structure', 3),
-('Additive Manufacturing of Complex Metal Parts', 'https://example.com/pub/metal_3d_printing_parts', 4),
-('Correlative Microscopy Techniques', 'https://example.com/pub/correlative_microscopy', 1);
-
--- Insert data into Members
-INSERT INTO Members (name, designation, profile_link, image_path) VALUES
-('Prof. S. K. Das', 'Director', 'https://iitrpr.ac.in/director', 'uploads/members/sk_das.jpg'),
-('Prof. Geeta Bhatt', 'Dean R&D', 'https://iitrpr.ac.in/dean_rnd', 'uploads/members/geeta_bhatt.jpg'),
-('Dr. Manoj Singh', 'CRF Coordinator', 'https://iitrpr.ac.in/crf_coordinator', 'uploads/members/manoj_singh.jpg'),
-('Ms. Kavita Joshi', 'Lab Manager', '#', 'uploads/members/kavita_joshi.jpg');
-
 -- Insert data into FacilitySchedule
 INSERT INTO FacilitySchedule (facility_id, weekday, start_time, end_time, total_slots) VALUES
 (1, 'Monday', '09:00:00', '11:00:00', 2),
@@ -325,13 +469,6 @@ INSERT INTO forms (form_name, description, form_link, facility_name, facility_li
 ('SEM Imaging Request', 'Request form for SEM imaging services', 'https://example.com/forms/sem_request', 'High-Res SEM', 'https://example.com/facilities/sem'),
 ('Confocal Usage Log', 'Log sheet for Confocal Microscope usage', 'https://example.com/forms/confocal_log', 'Confocal Microscope', 'https://example.com/facilities/confocal'),
 ('3D Printing Project Proposal', 'Submit your project proposal for Metal 3D Printing', 'https://example.com/forms/3dprint_proposal', 'Metal 3D Printer', 'https://example.com/facilities/metal_3d_printer');
-
--- Insert data into staff
-INSERT INTO staff (name, image_name, designation, phone, email, office_address, qualification) VALUES
-('Dr. Alok Verma', 'alok_verma.jpg', 'Chief Technical Officer', '9988776601', 'alok.verma@iitrpr.ac.in', 'Room 101, CRF Building', 'PhD Material Science'),
-('Ms. Rekha Sharma', 'rekha_sharma.jpg', 'Senior Technician SEM', '9988776602', 'rekha.sharma@iitrpr.ac.in', 'SEM Lab, CRF Building', 'M.Sc Physics'),
-('Mr. Vijay Kumar', 'vijay_kumar.jpg', 'Technician NMR', '9988776603', 'vijay.kumar@iitrpr.ac.in', 'NMR Lab, CRF Building', 'B.Tech Chemical Eng.'),
-('Ms. Tina Dcosta', 'tina_dcosta.jpg', 'Admin Assistant CRF', '9988776604', 'tina.dcosta@iitrpr.ac.in', 'CRF Office', 'MBA');
 
 -- Insert data into heroImages
 INSERT INTO heroImages (imagepath, title, subtitle) VALUES

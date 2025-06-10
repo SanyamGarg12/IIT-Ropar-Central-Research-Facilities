@@ -361,7 +361,7 @@ const ManageFacilities = () => {
               name="faculty_contact"
               value={formData.faculty_contact}
               onChange={handleInputChange}
-              pattern="[0-9]{10}"
+              // pattern="[0-9]{10}"
               title="Please enter a valid 10-digit phone number"
               disabled={isLoading}
             />
@@ -390,7 +390,7 @@ const ManageFacilities = () => {
               name="operator_contact"
               value={formData.operator_contact}
               onChange={handleInputChange}
-              pattern="[0-9]{10}"
+              
               title="Please enter a valid 10-digit phone number"
               disabled={isLoading}
             />

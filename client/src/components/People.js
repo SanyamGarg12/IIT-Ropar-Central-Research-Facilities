@@ -13,6 +13,7 @@ const People = () => {
   const [imageErrors, setImageErrors] = useState({});
 
   useEffect(() => {
+    // console.log("Fetching on people.js");
     setIsLoading(true);
     Promise.all([
       axios.get(`${API_BASED_URL}api/members`),
@@ -30,7 +31,8 @@ const People = () => {
       });
   }, []);
 
-  const handleImageError = (id) => {
+  const handleImageError = (id, imageUrl) => {
+    console.log(imageUrl);
     setImageErrors(prev => ({ ...prev, [id]: true }));
   };
 
@@ -63,9 +65,11 @@ const People = () => {
   });
 
   const getImageUrl = (imagePath) => {
+    // return null;
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
     const cleanPath = imagePath.replace(/^\/+/, '');
+    // console.log(imagePath);
     return `${API_BASED_URL}uploads/${cleanPath}`;
   };
 
@@ -93,14 +97,14 @@ const People = () => {
 
   const PersonCard = ({ person, isStaff = false }) => (
     <motion.div
-      className={`bg-white rounded-lg overflow-hidden shadow-md transition-all duration-300 hover:shadow-lg ${
+      className={`bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-2xl border border-gray-100 ${
         isStaff ? 'staff-card' : ''
       }`}
       variants={itemVariants}
-      whileHover={{ scale: 1.03 }}
+      whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >
-      <div className="w-32 h-32 mx-auto mt-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+      <div className="w-40 h-40 mx-auto mt-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-4 border-blue-50">
         {(isStaff ? person.image_name : person.image_path) ? (
           <motion.img
             src={getImageUrl(isStaff ? person.image_name : person.image_path)}
@@ -109,40 +113,40 @@ const People = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            onError={() => handleImageError(person.id)}
+            onError={() => handleImageError((person.id),getImageUrl(isStaff ? person.image_name : person.image_path))}
           />
         ) : (
-          <div className="text-4xl font-bold text-white bg-blue-500 w-full h-full flex items-center justify-center">
+          <div className="text-4xl font-bold text-white bg-gradient-to-br from-blue-500 to-blue-600 w-full h-full flex items-center justify-center">
             {person.name.split(' ').map(n => n[0]).join('')}
           </div>
         )}
         {imageErrors[person.id] && (
-          <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+          <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
             <span className="text-gray-500 text-sm">Failed to load</span>
           </div>
         )}
       </div>
       <motion.div
-        className="p-6 text-center"
+        className="p-8 text-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <h3 className="text-xl font-semibold text-gray-800 mb-1">{person.name}</h3>
-        <p className="text-sm text-gray-600 mb-4">{person.designation}</p>
+        <h3 className="text-2xl font-semibold text-gray-800 mb-2">{person.name}</h3>
+        <p className="text-base text-blue-600 font-medium mb-6">{person.designation}</p>
         {isStaff && (
-          <div className="space-y-2 text-sm text-left">
+          <div className="space-y-3 text-sm text-left bg-gray-50 p-4 rounded-lg">
             <p className="flex items-center text-gray-700">
-              <FaPhone className="mr-2 text-blue-500" /> {person.phone || 'Unavailable'}
+              <FaPhone className="mr-3 text-blue-500" /> {person.phone || 'Unavailable'}
             </p>
             <p className="flex items-center text-gray-700">
-              <FaEnvelope className="mr-2 text-blue-500" /> {person.email || 'Unavailable'}
+              <FaEnvelope className="mr-3 text-blue-500" /> {person.email || 'Unavailable'}
             </p>
             <p className="flex items-center text-gray-700">
-              <FaBuilding className="mr-2 text-blue-500" /> {person.office_address || 'Unavailable'}
+              <FaBuilding className="mr-3 text-blue-500" /> {person.office_address || 'Unavailable'}
             </p>
             <p className="flex items-center text-gray-700">
-              <FaGraduationCap className="mr-2 text-blue-500" /> {person.qualification || 'Unavailable'}
+              <FaGraduationCap className="mr-3 text-blue-500" /> {person.qualification || 'Unavailable'}
             </p>
           </div>
         )}
@@ -151,7 +155,7 @@ const People = () => {
             href={person.profile_link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block mt-4 px-4 py-2 bg-blue-500 text-white rounded-md text-sm transition-colors duration-300 hover:bg-blue-600"
+            className="inline-block mt-6 px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium transition-all duration-300 hover:from-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -164,87 +168,91 @@ const People = () => {
 
   return (
     <motion.div
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
+      className="min-h-screen bg-gray-50"
       initial="hidden"
       animate="visible"
       variants={containerVariants}
     >
-      <motion.h1
-        className="text-4xl font-light text-center text-gray-800 mb-12"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        Core Committee Members
-      </motion.h1>
-      {isLoading ? (
-        <motion.div
-          className="flex flex-col items-center justify-center h-64"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <motion.h1
+          className="text-5xl font-light text-center text-gray-800 mb-16"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading data...</p>
-        </motion.div>
-      ) : error ? (
-        <motion.p
-          className="text-center text-red-500 text-xl"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          {error}
-        </motion.p>
-      ) : (
-        <>
-          <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" variants={containerVariants}>
-            {chairman && (
-              <motion.div variants={itemVariants} className="col-span-full">
-                <h2 className="text-2xl font-semibold text-center text-gray-700 mb-4">Chairman</h2>
-                <PersonCard person={chairman} />
-              </motion.div>
-            )}
-
-            {viceChairman && (
-              <motion.div variants={itemVariants} className="col-span-full md:col-span-1 lg:col-span-3">
-                <h2 className="text-2xl font-semibold text-center text-gray-700 mb-4">Vice Chairman</h2>
-                <PersonCard person={viceChairman} />
-              </motion.div>
-            )}
-
-            {otherMembers.length > 0 && (
-              <motion.div variants={itemVariants} className="col-span-full">
-                <h2 className="text-2xl font-semibold text-center text-gray-700 mb-4">Other Members</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {otherMembers.map((member) => (
-                    <PersonCard key={member.id} person={member} />
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
-
-          <motion.h1
-            className="text-4xl font-light text-center text-gray-800 my-12"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+          Core Committee Members
+        </motion.h1>
+        {isLoading ? (
+          <motion.div
+            className="flex flex-col items-center justify-center h-64"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            Staff Members
-          </motion.h1>
-          <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" variants={containerVariants}>
-            {sortedStaff.map((staffMember) => (
-              <motion.div key={staffMember.id} variants={itemVariants} className="col-span-1">
-                <h2 className="text-xl font-semibold text-center text-gray-700 mb-4">{staffMember.designation}</h2>
-                <PersonCard person={staffMember} isStaff={true} />
-              </motion.div>
-            ))}
+            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-6 text-gray-600 text-lg">Loading data...</p>
           </motion.div>
-        </>
-      )}
+        ) : error ? (
+          <motion.p
+            className="text-center text-red-500 text-xl bg-red-50 p-4 rounded-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            {error}
+          </motion.p>
+        ) : (
+          <>
+            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12" variants={containerVariants}>
+              {chairman && (
+                <motion.div variants={itemVariants} className="col-span-full">
+                  <h2 className="text-3xl font-semibold text-center text-gray-700 mb-8">Chairman</h2>
+                  <PersonCard person={chairman} />
+                </motion.div>
+              )}
 
-      <Footer />
+              {viceChairman && (
+                <motion.div variants={itemVariants} className="col-span-full md:col-span-1 lg:col-span-3">
+                  <h2 className="text-3xl font-semibold text-center text-gray-700 mb-8">Vice Chairman</h2>
+                  <PersonCard person={viceChairman} />
+                </motion.div>
+              )}
+
+              {otherMembers.length > 0 && (
+                <motion.div variants={itemVariants} className="col-span-full">
+                  <h2 className="text-3xl font-semibold text-center text-gray-700 mb-8">Other Members</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                    {otherMembers.map((member) => (
+                      <PersonCard key={member.id} person={member} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+
+            <motion.h1
+              className="text-5xl font-light text-center text-gray-800 my-20"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              Staff Members
+            </motion.h1>
+            
+            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12" variants={containerVariants}>
+              {sortedStaff.map((staffMember) => (
+                <motion.div key={staffMember.id} variants={itemVariants} className="col-span-1">
+                  <h2 className="text-2xl font-semibold text-center text-gray-700 mb-8">{staffMember.designation}</h2>
+                  <PersonCard person={staffMember} isStaff={true} />
+                </motion.div>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </div>
+      <div className="mt-24">
+        <Footer />
+      </div>
     </motion.div>
   );
 };

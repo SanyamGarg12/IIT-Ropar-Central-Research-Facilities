@@ -243,7 +243,7 @@ app.get('/api/facilities', (req, res) => {
 
 
 app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
-  console.log("requested file^^^^", req.file);
+  // console.log("requested file^^^^", req.file);
   const facilityId = req.params.id;
   const {
     name,
@@ -331,8 +331,8 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
 
 
 app.post('/api/facilities', upload.single("image"), (req, res) => {
-  console.log('Received facility data:', req.body);
-  console.log('Received file:', req.file);
+  // console.log('Received facility data:', req.body);
+  // console.log('Received file:', req.file);
 
   const {
     name,
@@ -445,7 +445,7 @@ db.query(createArchivedNewsTable, (err) => {
 app.post('/api/homecontent', upload.single('image'), (req, res) => {
   const { action } = req.body;
   const imagePath = req.file ? req.file.filename : null;
-  console.log(imagePath);
+  // console.log(imagePath);
   switch (action) {
     case 'updateThought': {
       const { thought } = req.body;
@@ -1778,7 +1778,7 @@ app.get('/api/aboutContent', (req, res) => {
 
 app.post('/api/saveAboutContent', upload.single('image'),authenticateToken,(req, res) => {
   try {
-    console.log(req.body);
+    // console.log(req.body);
     const content = JSON.parse(req.body.content); // parse JSON string
 
     // If a new image is uploaded, update the image path
