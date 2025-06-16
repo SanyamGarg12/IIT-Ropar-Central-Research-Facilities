@@ -111,7 +111,7 @@ const ManageFacilities = () => {
         setFormData({ ...formData, [name]: value });
       }
     } else {
-      setFormData({ ...formData, [name]: sanitizeInput(value) });
+      setFormData({ ...formData, [name]: value });
     }
   };
 

@@ -243,7 +243,7 @@ app.get('/api/facilities', (req, res) => {
 
 
 app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
-  // console.log("requested file^^^^", req.file);
+  // console.log(req.body);
   const facilityId = req.params.id;
   const {
     name,
@@ -260,18 +260,15 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
     specifications,
     usage_details,
     category_id,
-    publication_ids,
+    publications,
   } = req.body;
 
-  // Get the uploaded image filename from req.file
   const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
-  // Validate required fields
   if (!name || !category_id) {
     return res.status(400).json({ error: "Missing required fields: name or category_id" });
   }
 
-  // SQL query for updating the facility
   const updateQuery = `
     UPDATE Facilities
     SET 
@@ -322,9 +319,55 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
       });
     }
 
-    res.json({ 
-      message: 'Facility updated successfully',
-      image_url: image_url
+    const deleteQuery = 'DELETE FROM facility_publications WHERE facility_id = ?';
+    db.query(deleteQuery, [facilityId], (err) => {
+      if (err) {
+        console.error('Error deleting existing publications:', err);
+        return res.status(500).json({ 
+          error: 'Failed to update publications',
+          message: err.message
+        });
+      }
+
+      if (publications) {
+        try {
+          const pubIds = JSON.parse(publications);
+          if (pubIds.length > 0) {
+            const insertValues = pubIds.map(pubId => [facilityId, pubId]);
+            const insertQuery = 'INSERT INTO facility_publications (facility_id, publication_id) VALUES ?';
+            db.query(insertQuery, [insertValues], (err) => {
+              if (err) {
+                console.error('Error inserting publications:', err);
+                return res.status(500).json({ 
+                  error: 'Failed to update publications',
+                  message: err.message
+                });
+              }
+
+              res.json({ 
+                message: 'Facility and publications updated successfully',
+                image_url: image_url
+              });
+            });
+          } else {
+            res.json({ 
+              message: 'Facility updated successfully',
+              image_url: image_url
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing publications:', error);
+          return res.status(400).json({ 
+            error: 'Invalid publications format',
+            message: error.message
+          });
+        }
+      } else {
+        res.json({ 
+          message: 'Facility updated successfully',
+          image_url: image_url
+        });
+      }
     });
   });
 });
@@ -406,18 +449,57 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
 
   db.query(query, values, (err, result) => {
     if (err) {
-      console.error('Error inserting facility:', err);
+      console.error('Error adding facility:', err);
       return res.status(500).json({ 
-        error: 'Failed to create facility',
+        error: 'Failed to add facility',
         message: err.message
       });
     }
 
-    res.status(201).json({ 
-      message: 'Facility created successfully',
-      facilityId: result.insertId,
-      image_url: image_url
-    });
+    const facilityId = result.insertId;
+
+    if (publications) {
+      try {
+        const pubIds = JSON.parse(publications);
+        if (pubIds.length > 0) {
+          const insertValues = pubIds.map(pubId => [facilityId, pubId]);
+          const insertQuery = 'INSERT INTO facility_publications (facility_id, publication_id) VALUES ?';
+          db.query(insertQuery, [insertValues], (err) => {
+            if (err) {
+              console.error('Error inserting publications:', err);
+              return res.status(500).json({ 
+                error: 'Failed to add publications',
+                message: err.message
+              });
+            }
+
+            res.status(201).json({ 
+              message: 'Facility and publications added successfully',
+              id: facilityId,
+              image_url: image_url
+            });
+          });
+        } else {
+          res.status(201).json({ 
+            message: 'Facility added successfully',
+            id: facilityId,
+            image_url: image_url
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing publications:', error);
+        return res.status(400).json({ 
+          error: 'Invalid publications format',
+          message: error.message
+        });
+      }
+    } else {
+      res.status(201).json({ 
+        message: 'Facility added successfully',
+        id: facilityId,
+        image_url: image_url
+      });
+    }
   });
 });
 
