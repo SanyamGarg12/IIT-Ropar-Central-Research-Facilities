@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import {API_BASED_URL} from '../config.js'; 
 
 const AdminDashboard = () => {
@@ -136,7 +136,8 @@ const AdminLinks = () => {
     { to: "/admin/modpass", text: "Change Operator Password" },
     { to: "/admin/approveUsers", text: "Approve New User Registration Requests" },
     { to: "/admin/adminManageBooking", text: "Manage Bookings" },
-    { to: "/admin/adminUserPubs", text: "View Users' Uploaded Publications" },  
+    { to: "/admin/adminUserPubs", text: "View Users' Uploaded Publications" },
+    { to: "/admin/qr-code", text: "Manage QR Code" },
   ];
 
   return (

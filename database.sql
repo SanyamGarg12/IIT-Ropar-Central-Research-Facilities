@@ -40,10 +40,6 @@ CREATE TABLE IF NOT EXISTS Facilities (
 
 ALTER TABLE facilities
 ADD COLUMN special_note VARCHAR(255);
-
--- SQL Insert statements for Facilities table
--- Generated from Google Spreadsheet data
-
 INSERT INTO Facilities (
             name, make_year, model, manufacturer, faculty_in_charge, operator_contact,
             description, specifications, usage_details, image_url, category_id,
@@ -147,7 +143,7 @@ Adding the knowledge about the current position of each component provides an up
 Adding or removing a component from the system is instantly updated in the instrument status and available for automated software path planning.
 ',
             '1Pharmaceutical Development: Used to analyze molecular structures of compounds to optimize drug formulation2 oordination and Organic Chemistry: Structural determination of compounds3Biomacromolecules: SCXRD for High-Resolution 3D Structural Insights',
-            NULL,  -- Setting image_url to NULL since images are in a separate folder
+            'Single_Crystal_XRD.jpg',  -- Setting image_url to NULL since images are in a separate folder
             1,
             '1881232051',
             'dmandal@iitrpr.ac.in',
@@ -233,7 +229,7 @@ Visitors Since 2',
              
 1Organic/Inorganic Chemistry/Pharmaceuticals: Analyrsis of molecular structure and identification of unknown chemical substances. 2 Polymer Chemistry/Food Chemistry/Qualitycontrol: Quantitative analysis and analysis of mixtures 3 Peptides/Petrochemicals/Organometallics/Catalysis Electro chemistry:  Measurement of diffusion coefficient,  relaxation time, dynamics, reaction monitoring.
 ',
-            NULL,  -- Setting image_url to NULL since images are in a separate folder
+            'Nuclear Magnetic Resonance (NMR 400 MHz.jpg',  -- Setting image_url to NULL since images are in a separate folder
             2,
             '1881232051',
             'mkpandey@iitrpr.ac.in',
@@ -279,7 +275,7 @@ Solid-State NMR: Studying the structure and dynamics of materials in the solid s
 Variable Temperature Studies: Performing NMR experiments at different temperatures for studying dynamic processes. 
 Reaction Monitoring: Tracking the progress of chemical reactions in real-time. 
 Material Science: Characterizing the chemical and physical properties of materials. ',
-            NULL,  -- Setting image_url to NULL since images are in a separate folder
+            'Nuclear Magnetic Resonance (NMR 600 MHz.jpg',  -- Setting image_url to NULL since images are in a separate folder
             2,
             '1881232061',
             'mkpandey@iitrpr.ac.in',
@@ -359,7 +355,7 @@ Specimen stage: Eucentric large-specimen motorized axes stage: x-y: 125 mm x 100
             '1Material Science: Surface morphology, failure analysis, and microstructural characterization.
 2Biology: Imaging cellular structures, tissues, and microorganisms                                           3Nanotechnology: Analysis of nanostructures, thin films, and coatings.
 ',
-            NULL,  -- Setting image_url to NULL since images are in a separate folder
+            'Scanning Electron Microscope (SEM).jpg',  -- Setting image_url to NULL since images are in a separate folder
             3,
             '1881232413',
             'nitishbibhanshu@iitrpr.ac.in',
@@ -420,7 +416,7 @@ Included with all MultiMode 8 system configurations: – OMV, Optical microscope
 Vibration Isolation*
 VT-102, air table, 24in. square x 31in. tall (requires compressed air);',
             '1 Materials Science: Obtain 3-D images of surfaces with atomic resolution revealing features like defects, grain boundaries etc.                        2 Nanotechnology: Characterizing size, shape and surface morphology of nanomaterials           3 Semiconductors:Providing high-resolution potential profiles of semiconductor devices',
-            NULL,  -- Setting image_url to NULL since images are in a separate folder
+            'atomic force microscope (afm).png',  -- Setting image_url to NULL since images are in a separate folder
             3,
             '01881-232462',
             'mkumar@iitrpr.ac.in',
@@ -1558,7 +1554,7 @@ Live cell imaging, FRET, FRAP, Co-localisation analysis, Spectral Mixing, 3D Rec
 Enables high-resolution imaging of cellular structures and tissue dynamics.                                         2 Molecular Biology
 Facilitates detailed study of protein localization and gene expression.                                           3 Biomedical Research
 Powers visualization of disease mechanisms and drug effects on tissues',
-            NULL,  -- Setting image_url to NULL since images are in a separate folder
+            'Laser Scanning Confocal Microscope(LSCM).png',  -- Setting image_url to NULL since images are in a separate folder
             3,
             '1881242211',
             'durba.pal@iitrpr.ac.in',
@@ -1816,6 +1812,7 @@ INSERT INTO Facilities (
             NULL -- Added NULL for the special_note column
         );
 
+-- Create the facility_bifurcations table
 CREATE TABLE facility_bifurcations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     facility_id INT,
@@ -2244,6 +2241,12 @@ CREATE TABLE LoginLogoutHistory (
     logout_time DATETIME,
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS qr_code (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  image_url VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+); 
 
 -- -- Now insert data in the correct order
 -- -- Insert data into Categories

@@ -33,6 +33,8 @@ import SupervisorVerify from "./components/SupervisorVerify";
 import AdminManageBifurcations from './components/AdminManageBifurcations';
 import AdminManageSpecialNotes from './components/AdminManageSpecialNotes';
 import AdminUserPubs from './components/AdminUserPubs';
+import ViewFacilitySlots from './components/ViewFacilitySlots';
+import ManageQrCode from './components/ManageQrCode';
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -111,7 +113,7 @@ const App = () => {
                 <Header />
                 {/* Main Website Content */}
                 <main className="flex-grow">
-                  <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                  <div className="container mx-auto px-4 py-6">
                     <Routes>
                       <Route path="/" element={<Hero />} />
                       <Route path="/about" element={<About />} />
@@ -133,13 +135,21 @@ const App = () => {
                       <Route path="/login" element={<Login onLogin={handleLogin} />} />
                       <Route path="/archived-news" element={<ArchivedNews />} />
                       <Route path="/supervisor-verify" element={<SupervisorVerify />} />
+                      <Route
+                        path="/view-facility-slots"
+                        element={
+                          <ProtectedRoute>
+                            <ViewFacilitySlots />
+                          </ProtectedRoute>
+                        }
+                      />
                     </Routes>
                   </div>
                 </main>
 
                 {/* Footer */}
                 <footer className="bg-white shadow-md mt-auto">
-                  <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                  <div className="container mx-auto px-4 py-4">
                     <p className="text-center text-gray-500 text-sm">
                       © 2023 IIT Ropar Central Research Facility. All rights reserved.
                     </p>
@@ -156,7 +166,7 @@ const App = () => {
               <div className="flex flex-col min-h-screen bg-gray-100">
                 {/* Admin Panel Content */}
                 <main className="flex-grow">
-                  <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                  <div className="container mx-auto px-4 py-6">
                     <Routes>
                       <Route path="/" element={<AdminPanel />} />
                       <Route path="/members" element={
@@ -249,13 +259,18 @@ const App = () => {
                           <AdminManageSpecialNotes />
                         </AdminProtectedRoute>
                       } />
+                      <Route path="/qr-code" element={
+                        <AdminProtectedRoute>
+                          <ManageQrCode />
+                        </AdminProtectedRoute>
+                      } />
                     </Routes>
                   </div>
                 </main>
 
                 {/* Admin Footer */}
                 <footer className="bg-white shadow-md mt-auto">
-                  <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                  <div className="container mx-auto px-4 py-4">
                     <p className="text-center text-gray-500 text-sm">
                       © 2023 IIT Ropar Central Research Facility Admin Panel. All rights reserved.
                     </p>

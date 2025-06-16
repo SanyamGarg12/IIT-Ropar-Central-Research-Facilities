@@ -9,6 +9,7 @@ import BookingHistory from "./BookingHistory";
 import UserPublications from "./UserPublications";
 import BookingFacility from "./BookingFacility";
 import Logout from "./Logout";
+import ViewFacilitySlots from "./ViewFacilitySlots";
 import { User, ChevronDown } from 'lucide-react';
 import {API_BASED_URL} from '../config.js'; 
 
@@ -55,7 +56,7 @@ function Booking() {
     return <Navigate to="/login" />;
   }
 
-  const navItems = ["User Profile","Booking History", "Publications", "Booking Facility"];
+  const navItems = ["User Profile", "Booking History", "Publications", "Booking Facility", "View Facilities Slots"];
 
   const renderActiveSection = () => {
     switch (activeOption) {
@@ -67,6 +68,8 @@ function Booking() {
         return <UserPublications />;
       case "Booking Facility":
         return <BookingFacility />;
+      case "View Facilities Slots":
+        return <ViewFacilitySlots />;
       case "Change Password":
         return <ChangePassword />;
       case "Logout":

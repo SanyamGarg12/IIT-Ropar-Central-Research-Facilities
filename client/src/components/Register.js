@@ -231,6 +231,12 @@ const Register = () => {
       return;
     }
 
+    // Validate internal user email domain
+    if (formData.userType === "Internal" && !formData.email.endsWith('@iitrpr.ac.in')) {
+      setErrorMessage("Internal users must use an @iitrpr.ac.in email address");
+      return;
+    }
+
     // Validate password
     const passwordValidation = validatePassword(formData.password);
     if (!passwordValidation.isValid) {

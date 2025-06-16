@@ -26,7 +26,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.FRONTEND_BASE_URL,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 }));
 
 // Rate limiting configurations
@@ -424,7 +424,7 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
       usage_details, 
       image_url, 
       category_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -3028,4 +3028,75 @@ app.get('/api/admin/publications', authenticateToken, (req, res) => {
     }
     res.json(results);
   });
+});
+
+// Configure multer storage for QR code uploads
+const qrCodeStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const qrCodePath = path.join(__dirname, 'uploads/qr-codes');
+    if (!fs.existsSync(qrCodePath)) {
+      fs.mkdirSync(qrCodePath, { recursive: true });
+    }
+    cb(null, qrCodePath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueId = Date.now();
+    cb(null, `qr-code-${uniqueId}${path.extname(file.originalname)}`);
+  }
+});
+
+const qrCodeUpload = multer({
+  storage: qrCodeStorage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed for QR codes'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB file size limit
+  }
+});
+
+// QR code endpoints
+app.get('/api/qr-code', (req, res) => {
+  db.query('SELECT image_url FROM qr_code ORDER BY created_at DESC LIMIT 1', (err, rows) => {
+    if (err) {
+      console.error('Error fetching QR code:', err);
+      return res.status(500).json({ error: 'Failed to fetch QR code' });
+    }
+    if (rows.length > 0) {
+      res.json({ image_url: rows[0].image_url });
+    } else {
+      res.json({ image_url: null });
+    }
+  });
+});
+
+app.post('/api/qr-code', authenticateToken, qrCodeUpload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const imageUrl = `/uploads/qr-codes/${req.file.filename}`;
+    
+    // Insert the new QR code into the database
+    db.query('INSERT INTO qr_code (image_url) VALUES (?)', [imageUrl], (err, result) => {
+      if (err) {
+        console.error('Error saving QR code:', err);
+        return res.status(500).json({ error: 'Failed to save QR code' });
+      }
+      
+      res.json({ 
+        success: true, 
+        image_url: imageUrl,
+        message: 'QR code uploaded successfully' 
+      });
+    });
+  } catch (err) {
+    console.error('Error uploading QR code:', err);
+    res.status(500).json({ error: 'Failed to upload QR code' });
+  }
 });

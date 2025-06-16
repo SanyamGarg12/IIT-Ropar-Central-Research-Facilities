@@ -3,6 +3,14 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import {API_BASED_URL} from '../config.js'; 
 import { useNavigate } from 'react-router-dom';
+import { Calendar, Clock, CreditCard, QrCode, Building2, CheckCircle2 } from 'lucide-react';
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  const cleanPath = imagePath.replace(/^\/+/, '');
+  return `${API_BASED_URL}${cleanPath}`;
+};
 
 function BookingFacility({ authToken }) {
   const [facilityId, setFacilityId] = useState("");
@@ -25,6 +33,8 @@ function BookingFacility({ authToken }) {
   const [totalCost, setTotalCost] = useState(0);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  const [qrCodeImage, setQrCodeImage] = useState(null);
+  const [imageError, setImageError] = useState(false);
 
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
     const now = new Date();
@@ -410,268 +420,343 @@ function BookingFacility({ authToken }) {
     }
   };
 
-  return (
-    <div className="container mx-auto px-4 py-12 max-w-5xl">
-      <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-200">
-        <h2 className="text-3xl font-bold mb-8 text-gray-800 text-center">Book a Facility</h2>
-        <div className="space-y-8">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Facility Name</label>
-            <select
-              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-300 ease-in-out"
-              value={facilityId}
-              onChange={(e) => {
-                const selectedFacilityId = e.target.value;
-                setFacilityId(selectedFacilityId);
-                const selectedFacility = facilities.find(f => String(f.id) === String(selectedFacilityId));
-                if (selectedFacility) {
-                  setOperatorEmail(selectedFacility.operator_email);
-                  fetchBifurcations(selectedFacilityId);
-                }
-                setSelectedSlot("");
-                setSelectedScheduleId("");
-                setAvailableSlots([]);
-                setSelectedBifurcations([]);
-              }}
-              required
-            >
-              <option value="">Select a facility</option>
-              {facilities.map((facility) => (
-                <option key={facility.id} value={facility.id}>
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-          </div>
+  useEffect(() => {
+    const fetchQrCode = async () => {
+      try {
+        const response = await axios.get(`${API_BASED_URL}api/qr-code`);
+        if (response.data && response.data.image_url) {
+          setQrCodeImage(response.data.image_url);
+        }
+      } catch (err) {
+        console.error('Error fetching QR code:', err);
+      }
+    };
+    fetchQrCode();
+  }, []);
 
-          {bifurcations.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-xl font-semibold mb-4 text-gray-700">Select Facility Bifurcations</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {bifurcations.map((bifurcation) => (
-                  <div key={bifurcation.id} className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <div className="flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        id={`bifurcation-${bifurcation.id}`}
-                        checked={selectedBifurcations.includes(bifurcation.id)}
-                        onChange={() => handleBifurcationChange(bifurcation.id)}
-                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Main Booking Section */}
+          <div className="lg:col-span-3">
+            <div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-3xl font-bold text-gray-800">Book a Facility</h2>
+                <div className="flex items-center space-x-2 text-blue-600">
+                  <Building2 className="w-6 h-6" />
+                  <span className="font-medium">IIT Ropar</span>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Facility Selection */}
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">Select Facility</label>
+                  <select
+                    className="w-full p-4 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300 ease-in-out bg-white"
+                    value={facilityId}
+                    onChange={(e) => {
+                      const selectedFacilityId = e.target.value;
+                      setFacilityId(selectedFacilityId);
+                      const selectedFacility = facilities.find(f => String(f.id) === String(selectedFacilityId));
+                      if (selectedFacility) {
+                        setOperatorEmail(selectedFacility.operator_email);
+                        fetchBifurcations(selectedFacilityId);
+                      }
+                      setSelectedSlot("");
+                      setSelectedScheduleId("");
+                      setAvailableSlots([]);
+                      setSelectedBifurcations([]);
+                    }}
+                    required
+                  >
+                    <option value="">Choose a facility</option>
+                    {facilities.map((facility) => (
+                      <option key={facility.id} value={facility.id}>
+                        {facility.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Bifurcations Section */}
+                {bifurcations.length > 0 && (
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500" />
+                      Facility Bifurcations
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {bifurcations.map((bifurcation) => (
+                        <div 
+                          key={bifurcation.id} 
+                          className={`p-4 rounded-xl border transition-all duration-300 ${
+                            selectedBifurcations.includes(bifurcation.id)
+                              ? 'bg-blue-50 border-blue-200 shadow-md'
+                              : 'bg-white border-gray-200 hover:border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <input
+                              type="checkbox"
+                              id={`bifurcation-${bifurcation.id}`}
+                              checked={selectedBifurcations.includes(bifurcation.id)}
+                              onChange={() => handleBifurcationChange(bifurcation.id)}
+                              className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <div className="flex-grow">
+                              <label htmlFor={`bifurcation-${bifurcation.id}`} className="font-medium text-gray-700">
+                                {bifurcation.bifurcation_name}
+                              </label>
+                              <p className="text-sm text-gray-500 mt-1">{bifurcation.description}</p>
+                              <p className="text-sm font-medium text-blue-600 mt-2">
+                                {getBifurcationPrice(bifurcation)} Rs. per {bifurcation.pricing_type.replace('-', ' ')}
+                              </p>
+                              {selectedBifurcations.includes(bifurcation.id) && (
+                                <div className="mt-3 bg-white rounded-lg p-2 border border-gray-200">
+                                  <label className="text-sm text-gray-600">Number of Samples:</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={sampleCounts[bifurcation.id] || 1}
+                                    onChange={(e) => handleSampleCountChange(bifurcation.id, e.target.value)}
+                                    className="ml-2 w-20 p-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex-grow">
-                      <label htmlFor={`bifurcation-${bifurcation.id}`} className="font-medium text-gray-700">
-                        {bifurcation.bifurcation_name}
-                      </label>
-                      <p className="text-sm text-gray-500">{bifurcation.description}</p>
-                      <p className="text-sm text-gray-600">
-                        Pricing: {getBifurcationPrice(bifurcation)} Rs. per {bifurcation.pricing_type.replace('-', ' ')}
-                      </p>
-                      {selectedBifurcations.includes(bifurcation.id) && (
-                        <div className="mt-2">
-                          <label className="text-sm text-gray-600">Number of Samples:</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={sampleCounts[bifurcation.id] || 1}
-                            onChange={(e) => handleSampleCountChange(bifurcation.id, e.target.value)}
-                            className="ml-2 w-20 p-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
-                          />
+                  </div>
+                )}
+
+                {/* Date and Time Selection */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                      <Calendar className="w-5 h-5 mr-2 text-blue-500" />
+                      Select Date
+                    </h3>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => {
+                        setDate(e.target.value);
+                        setSelectedSlot("");
+                        setSelectedScheduleId("");
+                        setAvailableSlots([]);
+                      }}
+                      className="w-full p-4 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300 ease-in-out bg-white"
+                    />
+                    <button
+                      onClick={handleFetchSlots}
+                      className="w-full mt-4 bg-blue-600 text-white p-4 rounded-xl hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center"
+                      disabled={isLoading || !facilityId}
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading...
+                        </span>
+                      ) : (
+                        <>
+                          <Clock className="w-5 h-5 mr-2" />
+                          Fetch Available Slots
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                      <Clock className="w-5 h-5 mr-2 text-blue-500" />
+                      Available Slots
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto pr-2">
+                      {availableSlots.length !== 0 ? (
+                        availableSlots.map((slot) => {
+                          const isSlotWithin24Hours = isWithin24Hours(date, slot.start_time);
+                          return (
+                            <button
+                              key={slot.schedule_id}
+                              onClick={() => handleSlotClick(slot)}
+                              disabled={!slot.available || isSlotWithin24Hours}
+                              className={`p-3 rounded-xl text-center text-sm font-medium transition duration-300 ease-in-out ${
+                                slot.available && !isSlotWithin24Hours
+                                  ? "bg-white hover:bg-green-50 text-gray-800 border border-gray-300 hover:border-green-500"
+                                  : "bg-gray-100 cursor-not-allowed text-gray-500"
+                              } ${
+                                selectedScheduleId === slot.schedule_id
+                                  ? "ring-2 ring-green-500 bg-green-50"
+                                  : ""
+                              }`}
+                              title={isSlotWithin24Hours ? "Cannot book slots that start within 24 hours" : ""}
+                            >
+                              {slot.start_time} - {slot.end_time}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="col-span-3 text-center text-gray-500 py-8">
+                          {isLoading ? "Loading slots..." : "No slots available. Click 'Fetch Available Slots' to check."}
                         </div>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {selectedSlot && (
-            <div className="bg-blue-50 p-6 rounded-xl border border-blue-200 mt-4">
-              <p className="text-lg text-blue-800">
-                Total Cost: <span className="font-bold text-xl">{Math.round(totalCost * 100) / 100} Rs.</span>
-              </p>
-              <p className="text-sm text-blue-600 mt-2">
-                Based on {selectedSlot} slot duration
-              </p>
-            </div>
-          )}
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-xl font-semibold mb-4 text-gray-700">Select Date</h3>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setSelectedSlot("");
-                  setSelectedScheduleId("");
-                  setAvailableSlots([]);
-                }}
-                className="w-full p-3 border border-gray-300 rounded-lg shadow-sm mb-4 focus:ring-blue-500 focus:border-blue-500 transition duration-300 ease-in-out"
-              />
-              <button
-                onClick={handleFetchSlots}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                disabled={isLoading || !facilityId}
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Loading...
-                  </span>
-                ) : (
-                  "Fetch Available Slots"
-                )}
-              </button>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="text-xl font-semibold mb-4 text-gray-700">Available Slots</h3>
-              <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto pr-2">
-                {availableSlots.length !== 0 ? (
-                  availableSlots.map((slot) => {
-                    const isSlotWithin24Hours = isWithin24Hours(date, slot.start_time);
-                    return (
-                      <button
-                        key={slot.schedule_id}
-                        onClick={() => handleSlotClick(slot)}
-                        disabled={!slot.available || isSlotWithin24Hours}
-                        className={`p-3 rounded-lg text-center text-sm font-medium transition duration-300 ease-in-out ${
-                          slot.available && !isSlotWithin24Hours
-                            ? "bg-white hover:bg-green-100 text-gray-800 border border-gray-300 hover:border-green-500"
-                            : "bg-gray-200 cursor-not-allowed text-gray-500"
-                        } ${
-                          selectedScheduleId === slot.schedule_id
-                            ? "ring-2 ring-green-500 bg-green-100"
-                            : ""
-                        }`}
-                        title={isSlotWithin24Hours ? "Cannot book slots that start within 24 hours" : ""}
-                      >
-                        {slot.start_time} - {slot.end_time}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="col-span-3 text-center text-gray-500 py-8">
-                    {isLoading ? "Loading slots..." : "No slots available. Click 'Fetch Available Slots' to check."}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
-            <h3 className="text-xl font-semibold mb-4 text-gray-700">Payment Receipt</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Please upload a receipt of your payment for booking this facility. 
-              Supported formats: PDF, JPEG, PNG, and other common image formats. Maximum file size: 5MB.
-            </p>
-            
-            <div className="flex flex-col space-y-3">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="application/pdf,image/*"
-                className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm text-gray-500"
-                disabled={uploadingReceipt || receiptUploaded || isLoading}
-              />
-              {receipt && (
-                <div className="flex items-center space-x-2 bg-green-50 p-2 rounded-md">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-green-600 text-sm font-medium">
-                    {receipt.name} selected
-                  </span>
                 </div>
-              )}
-              {uploadingReceipt && (
-                <div className="flex items-center space-x-2">
-                  <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-blue-600 text-sm">Uploading receipt...</span>
-                </div>
-              )}
-              {receiptUploaded && (
-                <div className="flex items-center space-x-2 bg-green-50 p-2 rounded-md">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-green-600 text-sm font-medium">Receipt uploaded successfully!</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          <div className="flex flex-col space-y-4">
-            <div className="text-sm text-gray-600 bg-gray-100 p-3 rounded-lg">
-              Selected: <span className="font-medium">{date} {selectedSlot}</span>
-            </div>
-            <button
-              onClick={handleBooking}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-md"
-              disabled={!selectedScheduleId || !facilityId || !receipt || isLoading || selectedBifurcations.length === 0}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                "Book Now"
-              )}
-            </button>
-          </div>
-
-          <div className="flex space-x-4">
-            <button
-              onClick={() => {
-                setShowWeeklySlots(true);
-                fetchWeeklySlots();
-              }}
-              className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm hover:bg-blue-200 transition duration-300 ease-in-out transform hover:scale-105"
-            >
-              View Weekly Slots
-            </button>
-            <button
-              onClick={() => setShowWeeklySlots(false)}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition duration-300 ease-in-out transform hover:scale-105"
-            >
-              Hide Slots
-            </button>
-          </div>
-
-          {showWeeklySlots && weeklySlots && (
-            <div className="mt-10 bg-gray-50 rounded-xl p-8 border border-gray-200 shadow-sm">
-              <h3 className="text-2xl font-bold mb-6 text-gray-800">Weekly Slots for {weeklySlots.name}</h3>
-              {Object.entries(weeklySlots.slots).map(([day, slots]) => (
-                <div key={day} className="mb-8">
-                  <h4 className="font-semibold text-lg text-gray-700 mb-3">{day}</h4>
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
-                    {slots.map((slot, index) => (
-                      <div
-                        key={`${day}-${index}`}
-                        className="p-2 bg-white rounded-lg border border-gray-200 text-center text-sm text-gray-600 shadow-sm hover:shadow-md transition duration-300 ease-in-out"
-                      >
-                        {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                {/* Payment Receipt Section */}
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                  <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                    <CreditCard className="w-5 h-5 mr-2 text-blue-500" />
+                    Payment Receipt
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Please upload a receipt of your payment for booking this facility. 
+                    Supported formats: PDF, JPEG, PNG, and other common image formats. Maximum file size: 5MB.
+                  </p>
+                  
+                  <div className="flex flex-col space-y-3">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="application/pdf,image/*"
+                      className="file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm text-gray-500"
+                      disabled={uploadingReceipt || receiptUploaded || isLoading}
+                    />
+                    {receipt && (
+                      <div className="flex items-center space-x-2 bg-green-50 p-3 rounded-xl">
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <span className="text-green-600 text-sm font-medium">
+                          {receipt.name} selected
+                        </span>
                       </div>
-                    ))}
+                    )}
+                    {uploadingReceipt && (
+                      <div className="flex items-center space-x-2">
+                        <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-blue-600 text-sm">Uploading receipt...</span>
+                      </div>
+                    )}
+                    {receiptUploaded && (
+                      <div className="flex items-center space-x-2 bg-green-50 p-3 rounded-xl">
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <span className="text-green-600 text-sm font-medium">Receipt uploaded successfully!</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+
+                {/* Booking Summary and Action */}
+                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm text-blue-800">
+                      Selected: <span className="font-medium">{date} {selectedSlot}</span>
+                    </div>
+                    {selectedSlot && (
+                      <div className="text-lg font-bold text-blue-800">
+                        Total: {Math.round(totalCost * 100) / 100} Rs.
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleBooking}
+                    className="w-full bg-green-600 text-white px-6 py-4 rounded-xl hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-md flex items-center justify-center"
+                    disabled={!selectedScheduleId || !facilityId || !receipt || isLoading || selectedBifurcations.length === 0}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                      </span>
+                    ) : (
+                      "Book Now"
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+
+          {/* QR Code and Info Section */}
+          <div className="lg:col-span-1">
+            <div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100 sticky top-8">
+              <div className="text-center mb-6">
+                {qrCodeImage ? (
+                  <div className="relative">
+                    <img 
+                      src={getImageUrl(qrCodeImage)} 
+                      alt="Booking QR Code" 
+                      className="w-48 h-48 mx-auto mb-3 object-contain"
+                      onError={() => setImageError(true)}
+                    />
+                    {imageError && (
+                      <div className="absolute inset-0 bg-gray-100 flex items-center justify-center rounded-lg">
+                        <span className="text-gray-500">Failed to load image</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <QrCode className="w-20 h-20 mx-auto text-blue-600 mb-3" />
+                )}
+                <h3 className="text-xl font-semibold text-gray-800">Scan to Book</h3>
+                <p className="text-gray-600 mt-2 text-sm">Scan this QR code to make required payment for booking this facility</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">Booking Instructions</h4>
+                  <ul className="text-sm text-blue-700 space-y-2">
+                    <li className="flex items-start">
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                      Select your desired facility and bifurcations
+                    </li>
+                    <li className="flex items-start">
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                      Choose an available time slot
+                    </li>
+                    <li className="flex items-start">
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                      Upload payment receipt
+                    </li>
+                    <li className="flex items-start">
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                      Submit booking for approval
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h4 className="font-semibold text-gray-800 mb-2">Contact Information</h4>
+                  <p className="text-sm text-gray-600">
+                    For any assistance, please contact the facility operator:
+                    <br />
+                    <span className="font-medium text-blue-600">{operatorEmail}</span>
+                  </p>
+                </div>
+
+                <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                  <h4 className="font-semibold text-green-800 mb-2">Booking Status</h4>
+                  <p className="text-sm text-green-700">
+                    Your booking will be reviewed by the facility operator. You will receive an email confirmation once approved.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
