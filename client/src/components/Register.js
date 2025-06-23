@@ -232,8 +232,8 @@ const Register = () => {
     }
 
     // Validate internal user email domain
-    if (formData.userType === "Internal" && !formData.email.endsWith('@iitrpr.ac.in')) {
-      setErrorMessage("Internal users must use an @iitrpr.ac.in email address");
+    if ((formData.userType === "Internal" || formData.userType === "Internal Consultancy") && !formData.email.endsWith('@iitrpr.ac.in')) {
+      setErrorMessage("Internal users and Internal Consultancy users must use an @iitrpr.ac.in email address");
       return;
     }
 

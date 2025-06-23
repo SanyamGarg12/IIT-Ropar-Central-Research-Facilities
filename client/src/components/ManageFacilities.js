@@ -177,7 +177,7 @@ const ManageFacilities = () => {
       const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
         headers: {
-          'Authorization': `${localStorage.getItem('authToken')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: formDataToSend
       });

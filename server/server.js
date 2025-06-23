@@ -95,6 +95,7 @@ fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'uploads/results'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'uploads/publications'), { recursive: true });
 fs.mkdirSync(path.join(__dirname, 'uploads/receipts'), { recursive: true });
+fs.mkdirSync(path.join(__dirname, 'uploads/forms'), { recursive: true });
 
 // Create a directory for temporary chunk storage
 fs.mkdirSync(path.join(__dirname, 'uploads/temp'), { recursive: true });
@@ -1219,47 +1220,111 @@ app.post('/api/logout', (req, res) => {
 
 });
 
-app.post('/api/forms', (req, res) => {
-  const { form_name, description, form_link, facility_name, facility_link } = req.body;
-  if (!form_name || !description || !form_link || !facility_name || !facility_link) {
-    return res.status(400).json({ error: 'All fields are required' });
+// Configure multer storage for form uploads
+const formStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const formPath = path.join(__dirname, 'uploads/forms');
+    if (!fs.existsSync(formPath)) {
+      fs.mkdirSync(formPath, { recursive: true });
+    }
+    cb(null, formPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueId = Date.now();
+    const originalExt = path.extname(file.originalname);
+    cb(null, `form-${uniqueId}${originalExt}`);
+  }
+});
+
+const formUpload = multer({
+  storage: formStorage,
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed for forms'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB file size limit
+  }
+});
+
+app.post('/api/forms', authenticateToken, formUpload.single('form_file'), (req, res) => {
+  const { form_name, description, facility_name, facility_link } = req.body;
+  const formFilePath = req.file ? `/uploads/forms/${req.file.filename}` : null;
+  
+  if (!form_name || !description || !facility_name || !facility_link || !formFilePath) {
+    return res.status(400).json({ error: 'All fields including form file are required' });
   }
 
   const query =
     'INSERT INTO forms (form_name, description, form_link, facility_name, facility_link) VALUES (?, ?, ?, ?, ?)';
-  db.query(query, [form_name, description, form_link, facility_name, facility_link], (err, result) => {
+  db.query(query, [form_name, description, formFilePath, facility_name, facility_link], (err, result) => {
     if (err) return res.status(500).json({ error: 'Database insertion error' });
-    res.status(201).json({ id: result.insertId, form_name, description, form_link, facility_name, facility_link });
+    res.status(201).json({ 
+      id: result.insertId, 
+      form_name, 
+      description, 
+      form_link: formFilePath, 
+      facility_name, 
+      facility_link 
+    });
   });
 });
 
 // Edit an existing form
-app.put('/api/forms/:id', (req, res) => {
+app.put('/api/forms/:id', authenticateToken, formUpload.single('form_file'), (req, res) => {
   const { id } = req.params;
-  const { form_name, description, form_link, facility_name, facility_link } = req.body;
+  const { form_name, description, facility_name, facility_link } = req.body;
+  const formFilePath = req.file ? `/uploads/forms/${req.file.filename}` : null;
 
-  const query =
-    'UPDATE forms SET form_name = ?, description = ?, form_link = ?, facility_name = ?, facility_link = ? WHERE id = ?';
-  db.query(
-    query,
-    [form_name, description, form_link, facility_name, facility_link, id],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: 'Database update error' });
-      if (result.affectedRows === 0) return res.status(404).json({ error: 'Form not found' });
-      res.status(200).json({ message: 'Form updated successfully' });
-    }
-  );
+  let query, values;
+  
+  if (formFilePath) {
+    // If a new file is uploaded, update the form_link
+    query = 'UPDATE forms SET form_name = ?, description = ?, form_link = ?, facility_name = ?, facility_link = ? WHERE id = ?';
+    values = [form_name, description, formFilePath, facility_name, facility_link, id];
+  } else {
+    // If no new file, keep the existing form_link
+    query = 'UPDATE forms SET form_name = ?, description = ?, facility_name = ?, facility_link = ? WHERE id = ?';
+    values = [form_name, description, facility_name, facility_link, id];
+  }
+
+  db.query(query, values, (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database update error' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Form not found' });
+    res.status(200).json({ message: 'Form updated successfully' });
+  });
 });
 
 // Delete a form
-app.delete('/api/forms/:id', (req, res) => {
+app.delete('/api/forms/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
 
-  const query = 'DELETE FROM forms WHERE id = ?';
-  db.query(query, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database deletion error' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Form not found' });
-    res.status(200).json({ message: 'Form deleted successfully' });
+  // First get the form to find the file path
+  db.query('SELECT form_link FROM forms WHERE id = ?', [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) return res.status(404).json({ error: 'Form not found' });
+    
+    const formLink = results[0].form_link;
+    
+    // Delete from database
+    const deleteQuery = 'DELETE FROM forms WHERE id = ?';
+    db.query(deleteQuery, [id], (err, result) => {
+      if (err) return res.status(500).json({ error: 'Database deletion error' });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Form not found' });
+      
+      // Delete the file if it exists
+      if (formLink && !formLink.startsWith('http')) {
+        const filePath = path.join(__dirname, formLink);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      
+      res.status(200).json({ message: 'Form deleted successfully' });
+    });
   });
 });
 
