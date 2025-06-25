@@ -54,7 +54,7 @@ function Forms() {
       {/* Hero/Header Section */}
       <header className="relative h-64 md:h-80 flex items-center justify-center overflow-hidden">
         <img
-          src="/assets/forms.jpg"
+          src="/assets/forms.png"
           alt="Forms Header"
           className="absolute inset-0 w-full h-full object-cover"
         />
