@@ -213,18 +213,27 @@ const Hero = () => {
 
       {/* Thought of the Day Section */}
       <motion.div
-        className="bg-blue-100 py-6"
+        className="flex justify-center items-center py-10 bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-2xl font-semibold text-blue-800 mb-2">Thought of the Day</h3>
-          {thought ? (
-            <p className="text-lg text-blue-600 italic">&quot;{thought}&quot;</p>
-          ) : (
-            <p className="text-lg text-blue-600">No thought available for today.</p>
-          )}
+        <div className="relative bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl px-12 py-8 max-w-4xl w-full border-l-8 border-blue-400">
+          <h3 className="text-3xl font-bold text-blue-800 mb-4 text-center tracking-wide" style={{fontFamily: 'Poppins, Montserrat, Arial, sans-serif'}}>
+            Thought of the Day
+          </h3>
+          <div className="flex flex-col items-center">
+            <svg className="w-10 h-10 text-blue-400 mb-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M9 7h.01M15 7h.01M8 13h8m-4 4h.01" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {thought ? (
+              <p className="text-xl italic text-blue-700 text-center font-medium" style={{fontFamily: 'Georgia, serif'}}>
+                &quot;{thought}&quot;
+              </p>
+            ) : (
+              <p className="text-lg text-blue-600">No thought available for today.</p>
+            )}
+          </div>
         </div>
       </motion.div>
 

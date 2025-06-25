@@ -141,103 +141,71 @@ const ContactUs = () => {
             <div className="space-y-4">
               <div>
                 <div className="font-medium">General Information</div>
-                <a href="mailto:info@iiitd.ac.in" className="hover:underline">info@iiitd.ac.in</a>
+                <a href="mailto:info@iitrpr.ac.in" className="hover:underline">info@iitrpr.ac.in</a>
               </div>
               <div>
                 <div className="font-medium">Academic</div>
-                <a href="mailto:admin-academic@iiitd.ac.in" className="hover:underline">admin-academic@iiitd.ac.in</a>
+                <a href="mailto:academics@iitrpr.ac.in" className="hover:underline">academics@iitrpr.ac.in</a>
+                <div className="text-sm mt-1">
+                  UG: <a href="mailto:deanug@iitrpr.ac.in" className="hover:underline">deanug@iitrpr.ac.in</a> &nbsp;|&nbsp; PG: <a href="mailto:deanpg@iitrpr.ac.in" className="hover:underline">deanpg@iitrpr.ac.in</a>
+                </div>
               </div>
               <div>
                 <div className="font-medium">Placement</div>
-                <a href="mailto:admin-placement@iiitd.ac.in" className="hover:underline">admin-placement@iiitd.ac.in</a>
+                <a href="mailto:info@iitrpr.ac.in" className="hover:underline">info@iitrpr.ac.in</a>
               </div>
               <div>
                 <div className="font-medium">Website</div>
-                <a href="mailto:admin-web@iiitd.ac.in" className="hover:underline">admin-web@iiitd.ac.in</a>
+                <a href="mailto:info@iitrpr.ac.in" className="hover:underline">info@iitrpr.ac.in</a>
               </div>
               <div>
                 <div className="font-medium">Student Verification</div>
                 <div className="space-y-2">
-                  <div>For UG: <a href="mailto:admin-btech@iiitd.ac.in" className="hover:underline">admin-btech@iiitd.ac.in</a></div>
-                  <div>For PG: <a href="mailto:admin-mtech@iiitd.ac.in" className="hover:underline">admin-mtech@iiitd.ac.in</a></div>
-                  <div>For Ph.D.: <a href="mailto:admin-phd@iiitd.ac.in" className="hover:underline">admin-phd@iiitd.ac.in</a></div>
+                  <div>For UG: <a href="mailto:ugsection1@iitrpr.ac.in" className="hover:underline">ugsection1@iitrpr.ac.in</a></div>
+                  <div>For PG: <a href="mailto:office-academics-pg3@iitrpr.ac.in" className="hover:underline">office-academics-pg3@iitrpr.ac.in</a></div>
+                  <div>For Ph.D.: <a href="mailto:office-academics-pg1@iitrpr.ac.in" className="hover:underline">office-academics-pg1@iitrpr.ac.in</a></div>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Directions Section */}
+          {/* Transportation Sections */}
           <motion.div 
-            variants={fadeInUp}
-            className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg"
+            className="space-y-8"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
           >
-            <div className="flex items-center gap-3 mb-6">
-              <MapPin className="h-6 w-6" />
-              <h2 className="text-2xl font-bold">Direction to Campus</h2>
+            {/* From Airport Section */}
+            <div className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <Plane className="h-6 w-6" />
+                <h2 className="text-2xl font-bold">From Airport</h2>
+              </div>
+              <div className="space-y-4">
+              <span className="font-semibold">From Chandigarh International Airport</span>
+                  <ul className="list-disc ml-6 mt-2 space-y-2">
+                    <li>By Taxi/Car: Hire a taxi from the airport directly to IIT Ropar (approx. 60 km, 1.5 hours).</li>
+                    <li>By Bus: Take a taxi/auto to ISBT Sector 43, Chandigarh. From there, take a bus to Rupnagar (Ropar) Bus Stand. From the bus stand, hire an auto-rickshaw or take a local bus to IIT Ropar main campus (approx. 6-7 km).</li>
+                    <li>By Train: Take a taxi/auto to Chandigarh Railway Station, then board a train to Rupnagar Railway Station (if available). From there, follow the directions below.</li>
+                  </ul>
+              </div>
             </div>
-            <p className="mb-4">To reach the campus, coming from Nehru Place on outer ring road, follow these directions:</p>
-            <ul className="space-y-4">
-              <li className="flex gap-3">
-                <span className="flex-shrink-0">•</span>
-                <span>After about half KM, turn Right from under the first flyover (it is oneway).</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0">•</span>
-                <span>After about 300 m, turn Left from under the Govind Puri Metro station (there is a IIITD sign at this turn).</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0">•</span>
-                <span>After about 300 m, there will be a 'Y' - take the left road of the 'Y'.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0">•</span>
-                <span>Follow signs for IIIT-D - the main gate is after about 500 m.</span>
-              </li>
-            </ul>
+
+            {/* From Railway Station Section */}
+            <div className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <Train className="h-6 w-6" />
+                <h2 className="text-2xl font-bold">From Railway Station</h2>
+              </div>
+              <span className="font-semibold">From Rupnagar (Ropar) Railway Station (Closest Railway Station):</span>
+                  <ul className="list-disc ml-6 mt-2 space-y-2">
+                    <li>By Auto-Rickshaw: The main campus is about 6-7 km from the station. Auto-rickshaws are available outside and will take you directly to IIT Ropar main campus (approx. ₹150).</li>
+                    <li>By Bus: Local and institute buses are available from the bus stand (adjacent to the railway station) to IIT Ropar main campus. Check the institute bus schedule for timings.</li>
+                  </ul>
+            </div>
           </motion.div>
-        </motion.div>
-
-        {/* Transportation Sections */}
-        <motion.div 
-          className="space-y-8"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-        >
-          {/* From Airport Section */}
-          <div className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg">
-            <div className="flex items-center gap-3 mb-6">
-              <Plane className="h-6 w-6" />
-              <h2 className="text-2xl font-bold">From Airport</h2>
-            </div>
-            <div className="space-y-4">
-              <p>You can travel from New Delhi IGI Airport to any destination within the city via the following options. Delhi Airport has two main terminals, Terminal 3 is international and Terminal 1 is domestic.</p>
-              <ul className="space-y-4">
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0">•</span>
-                  <span>Pre-paid taxis: There are official "pre-paid taxi" counters inside the airport before you leave the Terminal building, where you can book and pre-pay for a taxi. The rates are fixed, so the taxi driver can not overcharge you. You should book a "Meru cab" - an AC Taxi. Follow the signs to find the pick-up point.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0">•</span>
-                  <span>Uber/Ola: Uber works as expected in Delhi and Ola is another taxi aggregator service in India just like Uber. Both Uber and Ola offer airport transfers in a variety of sizes of cars. They can be booked the usual way, from your phone. If your phone is not connected to a data network, Uber/Ola can also be booked at counters inside both the Terminals and also near their pick up points in the parking lot. Follow signs carefully, Ola and Uber have specific designated pick up points.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0">•</span>
-                  <span>Airport transfer arranged by your hotel: Your hotel may arrange airport transfers for you. Check directly with your hotel.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* From Railway Station Section */}
-          <div className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg">
-            <div className="flex items-center gap-3 mb-6">
-              <Train className="h-6 w-6" />
-              <h2 className="text-2xl font-bold">From Railway Station</h2>
-            </div>
-            <p>There are three long-distance train terminals where you can get down (if you are coming by train) to reach IIIT-Delhi. These are: New Delhi Railway Station, Old Delhi Railway Station and Nizamuddin Railway Station. The nearest railways station is Okhla Station, but not all the trains stop there. Even if you are coming by train you can always book Ola/Uber cabs to reach IIIT-Delhi from the respective terminal stations.</p>
-          </div>
         </motion.div>
 
         {/* Map and Campus Details Section */}
@@ -254,7 +222,7 @@ const ContactUs = () => {
             variants={fadeInUp}
           >
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3445.1452150291296!2d76.52410821558745!3d30.971846581540684!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390feef5fc360c9b%3A0x8b50e17f40f3cd16!2sIIT%20Ropar!5e0!3m2!1sen!2sin!4v1701947546015!5m2!1sen!2sin"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3440.0112643685266!2d76.4707301!3d30.9686169!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3905542fe45e58f7%3A0x5d16c2617cfdbdb8!2sIndian%20Institute%20Of%20Technology%E2%80%93Ropar%20(IIT%E2%80%93Ropar)!5e0!3m2!1sen!2sin!4v1719316312345!5m2!1sen!2sin"
               width="100%"
               height="100%"
               style={{ border: 0 }}
@@ -340,8 +308,8 @@ const ContactUs = () => {
               transition={{ type: "spring", stiffness: 300 }}
             >
               <iframe
-                src="https://www.youtube.com/embed/videoseries?list=PLhHpVNxs_HqZHXHUc_y1_kLDJxRGVBbZH"
-                title="IIITD Campus Tour"
+                src="https://www.youtube.com/embed/Tis7EuowoHo"
+                title="IIT Ropar Campus Tour"
                 className="w-full h-full"
                 allowFullScreen
               ></iframe>
@@ -352,7 +320,7 @@ const ContactUs = () => {
               transition={{ type: "spring", stiffness: 300 }}
             >
               <iframe
-                src="https://www.youtube.com/embed/zGJ5BlbKfLM"
+                src="https://www.youtube.com/embed/grdSwnN4mqg"
                 title="IIITD Campus Tour - Hostel"
                 className="w-full h-full"
                 allowFullScreen

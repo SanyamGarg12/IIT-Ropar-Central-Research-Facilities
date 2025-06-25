@@ -168,16 +168,16 @@ const ManageAbout = () => {
             <h3 className="text-2xl font-semibold mb-4">{aboutContent.labObjectives.title}</h3>
             {aboutContent.labObjectives.items.map((item, index) => (
               <div key={index} className="mb-4">
-                <div className="flex gap-4">
+                <div className="flex gap-4 items-start">
                   <textarea
                     value={item}
                     onChange={(e) => handleArrayChange('labObjectives', 'items', index, e.target.value)}
-                    className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-[40rem] h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     rows="3"
                   />
                   <button
                     onClick={() => removeArrayItem('labObjectives', 'items', index)}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                    className="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors self-start text-xs w-auto flex-shrink-0"
                   >
                     Remove
                   </button>
@@ -231,26 +231,26 @@ const ManageAbout = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <button
             onClick={() => setSelectedSection('departmentIntro')}
-            className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow text-left"
+            className="p-6 bg-blue-500 text-white rounded-lg shadow-md hover:shadow-lg hover:bg-blue-600 transition-shadow text-left"
           >
             <h3 className="text-xl font-semibold mb-2">Department Introduction</h3>
-            <p className="text-gray-600">Edit department description and image</p>
+            <p className="text-blue-100">Edit department description and image</p>
           </button>
           
           <button
             onClick={() => setSelectedSection('labObjectives')}
-            className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow text-left"
+            className="p-6 bg-blue-500 text-white rounded-lg shadow-md hover:shadow-lg hover:bg-blue-600 transition-shadow text-left"
           >
             <h3 className="text-xl font-semibold mb-2">Lab Objectives</h3>
-            <p className="text-gray-600">Manage lab objectives and goals</p>
+            <p className="text-blue-100">Manage lab objectives and goals</p>
           </button>
           
           <button
             onClick={() => setSelectedSection('visionMission')}
-            className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow text-left"
+            className="p-6 bg-blue-500 text-white rounded-lg shadow-md hover:shadow-lg hover:bg-blue-600 transition-shadow text-left"
           >
             <h3 className="text-xl font-semibold mb-2">Vision and Mission</h3>
-            <p className="text-gray-600">Update vision and mission statements</p>
+            <p className="text-blue-100">Update vision and mission statements</p>
           </button>
         </div>
       ) : (

@@ -42,22 +42,20 @@ const Facilities = () => {
 
   return (
     <div className="container mx-auto px-4 py-10 mt-10">
-      <motion.img
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        src="/assets/sample.jpeg"
-        alt="Facilities Header"
-        className="w-full h-64 object-cover rounded-lg mb-8"
-      />
-      <motion.h2
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="text-3xl font-bold text-gray-800 mb-6"
-      >
-        Facilities
-      </motion.h2>
+      {/* Hero Banner */}
+      <div className="relative w-full h-64 md:h-80 lg:h-96 mb-8 rounded-lg overflow-hidden shadow">
+        <img
+          src="/assets/sample.jpeg"
+          alt="Facilities Header"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/40 flex flex-col justify-center items-center">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg">Facilities</h1>
+          <p className="mt-2 text-lg md:text-xl text-blue-100 font-medium text-center max-w-2xl">
+            Explore our state-of-the-art research and testing facilities, designed to foster innovation and collaboration.
+          </p>
+        </div>
+      </div>
       {error && (
         <motion.p
           initial={{ opacity: 0 }}

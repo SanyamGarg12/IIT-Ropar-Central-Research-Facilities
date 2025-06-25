@@ -22,23 +22,50 @@ const Header = () => {
 
       {/* Main header */}
       <div className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            {/* Logo and title section */}
-            <div className="flex items-center">
-              <img
-                src="/assets/logo.jpg"
-                alt="IIT Ropar Logo"
-                className="h-16 w-auto"
-              />
-              <div className="ml-4">
-                <div className="text-sm text-gray-600">ਭਾਰਤੀ ਤਕਨਾਲੋਜੀ ਸੰਸਥਾ ਰੋਪੜ</div>
-                <div className="text-sm text-gray-600">भारतीय प्रौद्योगिकी संस्थान रोपड़</div>
-                <div className="text-lg font-semibold text-gray-900">
-                  Indian Institute of Technology Ropar
-                </div>
+        <div className="flex items-center py-4 px-4">
+          {/* Logo and title section */}
+          <div className="flex items-center">
+            <img
+              src="/assets/logo.jpg"
+              alt="IIT Ropar Logo"
+              className="h-16 w-auto"
+            />
+            <div className="ml-4">
+              <div className="text-sm text-gray-600">ਭਾਰਤੀ ਤਕਨਾਲੋਜੀ ਸੰਸਥਾ ਰੋਪੜ</div>
+              <div className="text-sm text-gray-600">भारतीय प्रौद्योगिकी संस्थान रोपड़</div>
+              <div className="text-lg font-semibold text-gray-900">
+                Indian Institute of Technology Ropar
               </div>
             </div>
+          </div>
+          <div className="ml-auto flex flex-col items-end justify-center pr-6">
+            <span
+              className="font-extrabold text-2xl md:text-3xl lg:text-4xl tracking-wide leading-tight relative"
+              style={{
+                fontFamily: 'Poppins, Montserrat, Arial, sans-serif',
+                background: 'linear-gradient(90deg, #1a3365 60%, #3b82f6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 8px rgba(59,130,246,0.10)'
+              }}
+            >
+              Central Research Facilities{' '}
+              <span
+                style={{
+                  background: 'linear-gradient(90deg, #3b82f6 60%, #60a5fa 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  position: 'relative',
+                  display: 'inline-block'
+                }}
+                className="crf-gradient relative"
+              >
+                (CRF)
+                <span className="block absolute left-0 right-0 h-1 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 mt-1" style={{width: '100%', bottom: '-8px'}}></span>
+              </span>
+              <span className="inline-block align-middle ml-2">
+              </span>
+            </span>
           </div>
         </div>
       </div>
