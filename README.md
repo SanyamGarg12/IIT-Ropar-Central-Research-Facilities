@@ -1,7 +1,7 @@
 # 🏛️ IIT Ropar Central Research Facilities Management System
 
 <div align="center">
-  <img src="readme assets/1.png" alt="Screenshot 1" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
+  <img src="Readme Assets/1.png" alt="Screenshot 1" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
   <img src="readme assets/2.png" alt="Screenshot 2" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
   <img src="readme assets/3.png" alt="Screenshot 3" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
 </div>
