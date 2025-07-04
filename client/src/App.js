@@ -263,7 +263,7 @@ const App = () => {
                 <footer className="bg-white shadow-md mt-auto">
                   <div className="container mx-auto px-4 py-4">
                     <p className="text-center text-gray-500 text-sm">
-                      © 2023 IIT Ropar Central Research Facility Admin Panel. All rights reserved.
+                      © 2025 IIT Ropar Central Research Facility Admin Panel. All rights reserved.
                     </p>
                   </div>
                 </footer>
