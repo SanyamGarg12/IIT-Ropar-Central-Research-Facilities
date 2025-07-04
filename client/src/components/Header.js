@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {API_BASED_URL} from '../config.js'; 
 
 const Header = () => {
@@ -76,13 +76,17 @@ const Header = () => {
           <div className="flex justify-between">
             <div className="hidden md:flex space-x-8">
               {navLinks.map((link) => (
-                <Link
+                <NavLink
                   key={link.to}
                   to={link.to}
-                  className="text-white px-3 py-4 text-sm font-medium hover:bg-blue-900 transition-colors duration-200"
+                  className={({ isActive }) =>
+                    "text-white px-3 py-4 text-sm font-medium hover:bg-blue-900 transition-colors duration-200" +
+                    (isActive ? " bg-blue-900 font-bold" : "")
+                  }
+                  end={link.to === "/"}
                 >
                   {link.text}
-                </Link>
+                </NavLink>
               ))}
             </div>
 
@@ -132,14 +136,18 @@ const Header = () => {
         <div className={`${isOpen ? "block" : "hidden"} md:hidden`}>
           <div className="px-2 pt-2 pb-3 space-y-1">
             {navLinks.map((link) => (
-              <Link
+              <NavLink
                 key={link.to}
                 to={link.to}
-                className="text-white block px-3 py-2 text-base font-medium hover:bg-blue-900 transition-colors duration-200"
+                className={({ isActive }) =>
+                  "text-white block px-3 py-2 text-base font-medium hover:bg-blue-900 transition-colors duration-200" +
+                  (isActive ? " bg-blue-900 font-bold" : "")
+                }
+                end={link.to === "/"}
                 onClick={() => setIsOpen(false)}
               >
                 {link.text}
-              </Link>
+              </NavLink>
             ))}
           </div>
         </div>

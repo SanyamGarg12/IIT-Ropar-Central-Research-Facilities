@@ -1,7 +1,33 @@
-# IIT Ropar Central Research Facilities Management System
+# 🏛️ IIT Ropar Central Research Facilities Management System
+
+<div align="center">
+  <img src="readme assets/1.png" alt="Screenshot 1" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
+  <img src="readme assets/2.png" alt="Screenshot 2" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
+  <img src="readme assets/3.png" alt="Screenshot 3" width="350" style="margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px #aaa;">
+</div>
+
+---
 
 ## Overview
-The IIT Ropar Central Research Facilities Management System is a comprehensive web-based platform designed to manage and streamline the operations of research facilities at IIT Ropar. The system facilitates facility booking, user management, publication tracking, and administrative functions for various research equipment and laboratories.
+A comprehensive web platform to manage and streamline research facilities at IIT Ropar. Features include facility booking, user management, publication tracking, and administrative dashboards.
+
+---
+
+## 🚀 Features
+- Facility booking & management
+- User registration & verification
+- Publication tracking
+- Administrative dashboard
+- Results management
+
+---
+
+## 🛠️ Tech Stack
+- **Backend:** Node.js, Express, MySQL, Sequelize, JWT, AWS S3
+- **Frontend:** React, Redux, Material-UI, React Router, Formik, Chart.js
+- **DevOps:** Git, GitHub Actions, Docker, AWS
+
+---
 
 ## Project Development
 This project was developed as part of the IIT Ropar Central Research Facilities initiative to modernize and digitize the management of research facilities. The system was designed and implemented by [Sanyam Garg](https://github.com/SanyamGarg12) and team.

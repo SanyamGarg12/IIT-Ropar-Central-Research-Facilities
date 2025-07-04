@@ -14,6 +14,7 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 require("dotenv").config();
 const app = express();
+app.set('trust proxy', 1); 
 const port = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'sdfadfs';
 
