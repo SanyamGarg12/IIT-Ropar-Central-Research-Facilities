@@ -21,7 +21,7 @@ const groupedAdminLinks = [
       { to: "/admin/adminManageBifurcations", text: "Manage Facility Bifurcations", icon: <FaLayerGroup /> },
       { to: "/admin/adminManageSpecialNotes", text: "Manage Facility Special Notes", icon: <FaStickyNote /> },
       { to: "/admin/adminManageBooking", text: "Manage Bookings", icon: <FaCalendarCheck /> },
-      { to: "/admin/addslots", text: "Modify Facility Slots", icon: <FaCalendarCheck /> },
+      { to: "/admin/manage-slots", text: "Manage Facility Slots", icon: <FaCalendarCheck /> },
       { to: "/admin/qr-code", text: "Manage QR Code", icon: <FaQrcode /> },
     ],
   },
@@ -114,8 +114,8 @@ const AdminDashboard = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105"
               >
                 Login
@@ -132,7 +132,7 @@ const AdminDashboard = () => {
                   <div key={section.group}>
                     <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">{section.group}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-                      {section.links.map((link, i) => (
+                      {section.links.filter(link => !link.adminOnly || userPosition === "Admin").map((link, i) => (
                         <Link
                           key={link.to}
                           to={link.to}
@@ -147,7 +147,7 @@ const AdminDashboard = () => {
                 ))}
                 {userPosition !== "Admin" && <OperatorLinks />}
               </div>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="w-full mt-12 bg-red-500 text-white font-bold py-2 px-4 rounded-md hover:bg-red-600 transition duration-300 ease-in-out transform hover:scale-105"
               >
@@ -174,7 +174,6 @@ const OperatorLinks = () => {
   const links = [
     { to: "/admin/booking", text: "Manage Bookings" },
     { to: "/admin/opchangepass", text: "Change Password" },
-    { to: "/admin/addslots", text: "Modify Facility Slots" },
   ];
   return (
     <div className="space-y-6">

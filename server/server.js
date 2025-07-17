@@ -705,7 +705,7 @@ function authenticateToken(req, res, next) {
     return res.status(401).send("Access Denied");
   }
 
-  const token = authHeader // Extract the token after "Bearer"
+  const token = authHeader;
 
   if (!token) {
     return res.status(401).send("Access Denied");
@@ -1166,8 +1166,8 @@ app.post('/api/admin/login', (req, res) => {
     if (password !== user.Pass) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
-    // Generate a JWT token with the username (email can be used as identifier)
-    const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+    // Generate a JWT token with the email and position
+    const token = jwt.sign({ email: user.email}, JWT_SECRET, { expiresIn: '1h' });
 
     // Return the token and user's position in the response
     res.json({
@@ -2406,6 +2406,216 @@ app.delete('/operator/slots', authenticateToken, (req, res) => {
           return res.status(500).json({ message: 'Failed to delete slot' });
         }
         res.json({ message: 'Slot deleted successfully' });
+      }
+    );
+  });
+});
+
+// Admin endpoints for managing facility slots
+// Get all facilities with their slots for admin
+app.get('/admin/facilities/slots', authenticateToken, (req, res) => {
+ 
+  db.query('SELECT id, name, description FROM facilities', (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to fetch facilities' });
+    }
+
+    const facilities = [];
+    let pending = rows.length;
+
+    if (pending === 0) {
+      return res.json(facilities);
+    }
+
+    rows.forEach((facility) => {
+      db.query('SELECT weekday, start_time, end_time FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to fetch schedule' });
+        }
+
+        const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
+          if (!acc[weekday]) acc[weekday] = [];
+          acc[weekday].push({ start_time, end_time });
+          return acc;
+        }, {});
+
+        facilities.push({ ...facility, slots });
+
+        if (--pending === 0) {
+          res.json(facilities);
+        }
+      });
+    });
+  });
+});
+
+// Admin add slot endpoint
+app.post('/admin/slots', authenticateToken, (req, res) => {
+
+  const { facilityId, weekday, start_time, end_time } = req.body;
+
+  if (!facilityId || !weekday || !start_time || !end_time) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Validate facility exists
+  db.query('SELECT id FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to validate facility' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Facility not found' });
+    }
+
+    // Check if slot already exists
+    db.query(
+      'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+      [facilityId, weekday, start_time, end_time],
+      (err, existingSlots) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to check existing slots' });
+        }
+
+        if (existingSlots.length > 0) {
+          return res.status(400).json({ message: 'Slot already exists for this time period' });
+        }
+
+        // Add the new slot
+        db.query(
+          'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)',
+          [facilityId, weekday, start_time, end_time],
+          (err) => {
+            if (err) {
+              console.error(err);
+              return res.status(500).json({ message: 'Failed to add slot' });
+            }
+
+            res.json({ message: 'Slot added successfully' });
+          }
+        );
+      }
+    );
+  });
+});
+
+// Admin delete slot endpoint
+app.delete('/admin/slots', authenticateToken, (req, res) => {
+
+  const { facilityId, weekday, slot } = req.body;
+
+  if (!facilityId || !weekday || !slot) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Validate facility exists
+  db.query('SELECT id FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to validate facility' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Facility not found' });
+    }
+
+    // Check if there are any bookings for this slot
+    db.query(
+      'SELECT COUNT(*) as bookingCount FROM bookinghistory bh JOIN facilityschedule fs ON bh.schedule_id = fs.schedule_id WHERE fs.facility_id = ? AND fs.weekday = ? AND fs.start_time = ? AND fs.end_time = ?',
+      [facilityId, weekday, slot.start_time, slot.end_time],
+      (err, bookingResults) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to check bookings' });
+        }
+
+        if (bookingResults[0].bookingCount > 0) {
+          return res.status(400).json({ message: 'Cannot delete slot with existing bookings' });
+        }
+
+        // Delete the slot
+        db.query(
+          'DELETE FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+          [facilityId, weekday, slot.start_time, slot.end_time],
+          (err) => {
+            if (err) {
+              console.error(err);
+              return res.status(500).json({ message: 'Failed to delete slot' });
+            }
+            res.json({ message: 'Slot deleted successfully' });
+          }
+        );
+      }
+    );
+  });
+});
+
+// Admin update slot endpoint
+app.put('/admin/slots', authenticateToken, (req, res) => {
+
+  const { facilityId, weekday, oldSlot, newSlot } = req.body;
+
+  if (!facilityId || !weekday || !oldSlot || !newSlot) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Validate facility exists
+  db.query('SELECT id FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to validate facility' });
+    }
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Facility not found' });
+    }
+
+    // Check if there are any bookings for the old slot
+    db.query(
+      'SELECT COUNT(*) as bookingCount FROM bookinghistory bh JOIN facilityschedule fs ON bh.schedule_id = fs.schedule_id WHERE fs.facility_id = ? AND fs.weekday = ? AND fs.start_time = ? AND fs.end_time = ?',
+      [facilityId, weekday, oldSlot.start_time, oldSlot.end_time],
+      (err, bookingResults) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to check bookings' });
+        }
+
+        if (bookingResults[0].bookingCount > 0) {
+          return res.status(400).json({ message: 'Cannot update slot with existing bookings' });
+        }
+
+        // Check if new slot time conflicts with existing slots
+        db.query(
+          'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND (start_time != ? OR end_time != ?)',
+          [facilityId, weekday, newSlot.start_time, newSlot.end_time, oldSlot.start_time, oldSlot.end_time],
+          (err, conflictResults) => {
+            if (err) {
+              console.error(err);
+              return res.status(500).json({ message: 'Failed to check slot conflicts' });
+            }
+
+            if (conflictResults.length > 0) {
+              return res.status(400).json({ message: 'New slot time conflicts with existing slots' });
+            }
+
+            // Update the slot
+            db.query(
+              'UPDATE facilityschedule SET start_time = ?, end_time = ? WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+              [newSlot.start_time, newSlot.end_time, facilityId, weekday, oldSlot.start_time, oldSlot.end_time],
+              (err) => {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).json({ message: 'Failed to update slot' });
+                }
+                res.json({ message: 'Slot updated successfully' });
+              }
+            );
+          }
+        );
       }
     );
   });

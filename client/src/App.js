@@ -35,6 +35,7 @@ import AdminManageSpecialNotes from './components/AdminManageSpecialNotes';
 import AdminUserPubs from './components/AdminUserPubs';
 import ViewFacilitySlots from './components/ViewFacilitySlots';
 import ManageQrCode from './components/ManageQrCode';
+import AdminManageSlots from './components/AdminManageSlots';
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -253,6 +254,11 @@ const App = () => {
                       <Route path="/qr-code" element={
                         <AdminProtectedRoute>
                           <ManageQrCode />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/manage-slots" element={
+                        <AdminProtectedRoute>
+                          <AdminManageSlots />
                         </AdminProtectedRoute>
                       } />
                     </Routes>
