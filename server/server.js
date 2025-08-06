@@ -18,7 +18,7 @@ app.set('trust proxy', 1);
 const port = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'sdfadfs';
 
-// Security middleware
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
