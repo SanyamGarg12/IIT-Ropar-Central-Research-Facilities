@@ -138,7 +138,7 @@ const Hero = () => {
       transition={{ duration: 0.5 }}
     >
       {/* Image Slider Section */}
-      <div className="relative h-96 overflow-hidden flex flex-col items-center justify-center">
+      <div className="relative w-full flex flex-col items-center justify-center bg-white">
         <motion.button
           className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-blue-600 hover:text-white rounded-full w-14 h-14 flex items-center justify-center transition-all duration-200 ease-in-out z-10 shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-2 border-blue-200 hover:border-blue-600"
           onClick={() => handleScroll("left")}
@@ -152,7 +152,7 @@ const Hero = () => {
           {images.length > 0 && (
             <motion.div
               key={currentIndex}
-              className="h-full w-full"
+              className="relative w-full flex items-center justify-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -161,7 +161,7 @@ const Hero = () => {
               <img
                 src={getImageUrl(images[currentIndex].imagepath)}
                 alt={`Slide ${currentIndex + 1}`}
-                className="object-cover w-full h-full"
+                className="max-w-full max-h-[70vh] w-auto h-auto object-contain"
                 onError={() => handleImageError(images[currentIndex].id)}
               />
               {imageErrors[images[currentIndex].id] && (
@@ -175,9 +175,9 @@ const Hero = () => {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
-                <div className="backdrop-blur-sm bg-black/40 rounded-lg px-6 py-4 mb-6 max-w-xl">
-                  <h2 className="text-white text-3xl font-bold drop-shadow-lg">{images[currentIndex].title}</h2>
-                  <p className="text-white text-xl drop-shadow-lg">{images[currentIndex].subtitle}</p>
+                <div className="backdrop-blur-sm bg-black/40 rounded-lg px-4 py-3 mb-4 max-w-lg">
+                  <h2 className="text-white text-xl md:text-2xl font-bold drop-shadow-lg">{images[currentIndex].title}</h2>
+                  <p className="text-white text-sm md:text-base drop-shadow-lg">{images[currentIndex].subtitle}</p>
                 </div>
               </motion.div>
             </motion.div>
