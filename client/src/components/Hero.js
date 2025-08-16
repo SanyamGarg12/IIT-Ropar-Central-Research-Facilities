@@ -161,7 +161,7 @@ const Hero = () => {
               <img
                 src={getImageUrl(images[currentIndex].imagepath)}
                 alt={`Slide ${currentIndex + 1}`}
-                className="max-w-full max-h-[70vh] w-auto h-auto object-contain"
+                className="w-full h-[70vh] object-cover"
                 onError={() => handleImageError(images[currentIndex].id)}
               />
               {imageErrors[images[currentIndex].id] && (
