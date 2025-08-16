@@ -264,11 +264,11 @@ const Hero = () => {
               transition={{ delay: 0.1 * index, duration: 0.5 }}
             >
               <div className="bg-white rounded-lg shadow-md p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">{news.title}</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">{news.news_title}</h3>
                 <p className="text-gray-600 mb-4">{news.summary}</p>
                 <img 
                   src={getImageUrl(news.imagepath)} 
-                  alt={news.title} 
+                  alt={news.news_title} 
                   className="w-full h-48 object-cover rounded-lg"
                 />
               </div>
