@@ -3376,3 +3376,107 @@ app.post('/api/qr-code', authenticateToken, qrCodeUpload.single('file'), (req, r
     res.status(500).json({ error: 'Failed to upload QR code' });
   }
 });
+
+// API to get all supervisors
+app.get('/api/all-supervisors', (req, res) => {
+  const query = 'SELECT * FROM Supervisor ORDER BY department_name, name';
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching supervisors:', err);
+      return res.status(500).json({ error: 'Failed to fetch supervisors' });
+    }
+    res.json(results);
+  });
+});
+
+// API to add a new supervisor
+app.post('/api/add-supervisor', (req, res) => {
+  const { name, email, department_name } = req.body;
+  
+  if (!name || !email || !department_name) {
+    return res.status(400).json({ error: 'Name, email, and department are required' });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+
+  const query = 'INSERT INTO Supervisor (name, email, department_name) VALUES (?, ?, ?)';
+  db.query(query, [name, email, department_name], (err, result) => {
+    if (err) {
+      console.error('Error adding supervisor:', err);
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+      return res.status(500).json({ error: 'Failed to add supervisor' });
+    }
+    res.json({ message: 'Supervisor added successfully', id: result.insertId });
+  });
+});
+
+// API to delete a supervisor
+app.delete('/api/delete-supervisor/:id', (req, res) => {
+  const { id } = req.params;
+  
+  // Check if supervisor is being used by any internal users
+  const checkQuery = 'SELECT COUNT(*) as count FROM InternalUsers WHERE supervisor_id = ?';
+  db.query(checkQuery, [id], (err, results) => {
+    if (err) {
+      console.error('Error checking supervisor usage:', err);
+      return res.status(500).json({ error: 'Failed to check supervisor usage' });
+    }
+    
+    if (results[0].count > 0) {
+      return res.status(400).json({ error: 'Cannot delete supervisor. They are assigned to internal users.' });
+    }
+    
+    const deleteQuery = 'DELETE FROM Supervisor WHERE id = ?';
+    db.query(deleteQuery, [id], (err, result) => {
+      if (err) {
+        console.error('Error deleting supervisor:', err);
+        return res.status(500).json({ error: 'Failed to delete supervisor' });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Supervisor not found' });
+      }
+      
+      res.json({ message: 'Supervisor deleted successfully' });
+    });
+  });
+});
+
+// API to update a supervisor
+app.put('/api/update-supervisor/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, email, department_name } = req.body;
+  
+  if (!name || !email || !department_name) {
+    return res.status(400).json({ error: 'Name, email, and department are required' });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+
+  const query = 'UPDATE Supervisor SET name = ?, email = ?, department_name = ? WHERE id = ?';
+  db.query(query, [name, email, department_name, id], (err, result) => {
+    if (err) {
+      console.error('Error updating supervisor:', err);
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+      return res.status(500).json({ error: 'Failed to update supervisor' });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Supervisor not found' });
+    }
+    
+    res.json({ message: 'Supervisor updated successfully' });
+  });
+});

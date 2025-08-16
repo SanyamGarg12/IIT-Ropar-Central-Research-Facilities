@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit } from 'react-icons/fa';
+import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie } from 'react-icons/fa';
 import { API_BASED_URL } from '../config.js';
 
 const groupedAdminLinks = [
@@ -9,6 +9,7 @@ const groupedAdminLinks = [
     links: [
       { to: "/admin/members", text: "Manage Members", icon: <FaUsers /> },
       { to: "/admin/approveUsers", text: "Approve New User Registration Requests", icon: <FaUserCheck /> },
+      { to: "/admin/supervisors", text: "Manage Supervisors", icon: <FaUserTie /> },
       { to: "/admin/addoperator", text: "Add Operator", icon: <FaUserPlus /> },
       { to: "/admin/deleteoperator", text: "Delete Operator", icon: <FaUserMinus /> },
       { to: "/admin/modpass", text: "Change Operator Password", icon: <FaKey /> },

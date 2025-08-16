@@ -80,7 +80,7 @@ export default function BookingHistory() {
   const fetchResults = async (bookingId, updateLoadingState = true) => {
     if (updateLoadingState) {
       setLoadingResults(prev => ({ ...prev, [bookingId]: true }))
-    }
+  }
     
     try {
       const response = await axios.get(`${API_BASED_URL}api/results/${userId}/${bookingId}`, {
