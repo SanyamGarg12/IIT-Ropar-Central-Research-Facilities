@@ -1822,6 +1822,70 @@ app.delete('/api/staff/:id', (req, res) => {
   });
 });
 
+// PUT endpoint to update a member
+app.put("/api/members/:id", upload.single("image"), (req, res) => {
+  const memberId = req.params.id;
+  const { name, designation, profileLink } = req.body;
+  const imagePath = req.file ? req.file.filename : null;
+
+  let query, params;
+  
+  if (imagePath) {
+    // If new image is uploaded, update with new image
+    query = "UPDATE Members SET name = ?, designation = ?, profile_link = ?, image_path = ? WHERE id = ?";
+    params = [name, designation, profileLink, imagePath, memberId];
+  } else {
+    // If no new image, keep existing image
+    query = "UPDATE Members SET name = ?, designation = ?, profile_link = ? WHERE id = ?";
+    params = [name, designation, profileLink, memberId];
+  }
+
+  db.query(query, params, (err, results) => {
+    if (err) {
+      console.error('Error updating member:', err);
+      return res.status(500).send('Error updating member');
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).send('Member not found');
+    }
+    
+    res.status(200).send('Member updated successfully');
+  });
+});
+
+// PUT endpoint to update a staff member
+app.put("/api/staff/:id", upload.single("image"), (req, res) => {
+  const staffId = req.params.id;
+  const { name, designation, phone, email, office_address, qualification } = req.body;
+  const imagePath = req.file ? req.file.filename : null;
+
+  let query, params;
+  
+  if (imagePath) {
+    // If new image is uploaded, update with new image
+    query = "UPDATE staff SET name = ?, designation = ?, phone = ?, email = ?, office_address = ?, qualification = ?, image_name = ? WHERE id = ?";
+    params = [name, designation, phone, email, office_address, qualification, imagePath, staffId];
+  } else {
+    // If no new image, keep existing image
+    query = "UPDATE staff SET name = ?, designation = ?, phone = ?, email = ?, office_address = ?, qualification = ? WHERE id = ?";
+    params = [name, designation, phone, email, office_address, qualification, staffId];
+  }
+
+  db.query(query, params, (err, results) => {
+    if (err) {
+      console.error('Error updating staff member:', err);
+      return res.status(500).send('Error updating staff member');
+    }
+    
+    if (results.affectedRows === 0) {
+      return res.status(404).send('Staff member not found');
+    }
+    
+    res.status(200).send('Staff member updated successfully');
+  });
+});
+
 
 // API endpoint to get details of a single facility
 app.get('/api/facility/:id', (req, res) => {

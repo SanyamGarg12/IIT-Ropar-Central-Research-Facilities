@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { FaEdit, FaTrash, FaPlus, FaTimes } from "react-icons/fa";
 import {API_BASED_URL} from '../config.js'; 
 
 const getImageUrl = (imagePath) => {
@@ -19,6 +20,23 @@ const ManageMembers = () => {
     image: null,
   });
   const [newStaff, setNewStaff] = useState({
+    name: "",
+    designation: "",
+    phone: "",
+    email: "",
+    office_address: "",
+    qualification: "",
+    image: null,
+  });
+  const [editingMember, setEditingMember] = useState(null);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [editMemberData, setEditMemberData] = useState({
+    name: "",
+    designation: "",
+    profileLink: "",
+    image: null,
+  });
+  const [editStaffData, setEditStaffData] = useState({
     name: "",
     designation: "",
     phone: "",
@@ -96,18 +114,117 @@ const ManageMembers = () => {
       .catch((error) => console.error("Error adding staff:", error));
   };
 
-  const handleDeleteMember = (id) => {
+  // Handle editing a member
+  const handleEditMember = (member) => {
+    setEditingMember(member.id);
+    setEditMemberData({
+      name: member.name,
+      designation: member.designation,
+      profileLink: member.profile_link || "",
+      image: null,
+    });
+  };
+
+  // Handle updating a member
+  const handleUpdateMember = () => {
+    const formData = new FormData();
+    formData.append("name", editMemberData.name);
+    formData.append("designation", editMemberData.designation);
+    formData.append("profileLink", editMemberData.profileLink);
+    if (editMemberData.image) {
+      formData.append("image", editMemberData.image);
+    }
+  
     axios
-      .delete(`${API_BASED_URL}api/members/${id}`)
-      .then(() => fetchMembers())
-      .catch((error) => console.error("Error deleting member:", error));
+      .put(`${API_BASED_URL}api/members/${editingMember}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then(() => {
+        fetchMembers();
+        setEditingMember(null);
+        setEditMemberData({ name: "", designation: "", profileLink: "", image: null });
+      })
+      .catch((error) => console.error("Error updating member:", error));
+  };
+
+  // Handle editing a staff member
+  const handleEditStaff = (staffMember) => {
+    setEditingStaff(staffMember.id);
+    setEditStaffData({
+      name: staffMember.name,
+      designation: staffMember.designation,
+      phone: staffMember.phone,
+      email: staffMember.email,
+      office_address: staffMember.office_address,
+      qualification: staffMember.qualification,
+      image: null,
+    });
+  };
+
+  // Handle updating a staff member
+  const handleUpdateStaff = () => {
+    const formData = new FormData();
+    Object.keys(editStaffData).forEach(key => {
+      if (editStaffData[key] !== null) {
+        formData.append(key, editStaffData[key]);
+      }
+    });
+  
+    axios
+      .put(`${API_BASED_URL}api/staff/${editingStaff}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then(() => {
+        fetchStaff();
+        setEditingStaff(null);
+        setEditStaffData({
+          name: "",
+          designation: "",
+          phone: "",
+          email: "",
+          office_address: "",
+          qualification: "",
+          image: null,
+        });
+      })
+      .catch((error) => console.error("Error updating staff:", error));
+  };
+
+  // Cancel editing
+  const cancelEdit = (type) => {
+    if (type === 'member') {
+      setEditingMember(null);
+      setEditMemberData({ name: "", designation: "", profileLink: "", image: null });
+    } else {
+      setEditingStaff(null);
+      setEditStaffData({
+        name: "",
+        designation: "",
+        phone: "",
+        email: "",
+        office_address: "",
+        qualification: "",
+        image: null,
+      });
+    }
+  };
+
+  const handleDeleteMember = (id) => {
+    if (window.confirm("Are you sure you want to delete this member?")) {
+      axios
+        .delete(`${API_BASED_URL}api/members/${id}`)
+        .then(() => fetchMembers())
+        .catch((error) => console.error("Error deleting member:", error));
+    }
   };
 
   const handleDeleteStaff = (id) => {
-    axios
-      .delete(`${API_BASED_URL}api/staff/${id}`)
-      .then(() => fetchStaff())
-      .catch((error) => console.error("Error deleting staff:", error));
+    if (window.confirm("Are you sure you want to delete this staff member?")) {
+      axios
+        .delete(`${API_BASED_URL}api/staff/${id}`)
+        .then(() => fetchStaff())
+        .catch((error) => console.error("Error deleting staff:", error));
+    }
   };
 
   const handleImageError = (id, type) => {
@@ -166,9 +283,10 @@ const ManageMembers = () => {
               />
             </div>
             <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center"
               onClick={handleAddMember}
             >
+              <FaPlus className="mr-2" />
               Add Member
             </button>
           </div>
@@ -178,29 +296,105 @@ const ManageMembers = () => {
           <ul className="space-y-4">
             {members.map((member) => (
               <li key={member.id} className="bg-white shadow-md rounded px-8 py-4">
-                <h5 className="text-lg font-semibold">{member.name}</h5>
-                <p className="text-gray-600">{member.designation}</p>
-                {member.image_path && (
-                  <div className="relative w-24 h-24 mt-2">
-                    <img
-                      src={getImageUrl(member.image_path)}
-                      alt={member.name}
-                      className="w-24 h-24 object-cover rounded-full"
-                      onError={() => handleImageError(member.id, 'member')}
-                    />
-                    {memberImageError[member.id] && (
-                      <div className="absolute inset-0 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-gray-500 text-xs">Failed to load</span>
+                {editingMember === member.id ? (
+                  // Edit form for member
+                  <div>
+                    <h5 className="text-lg font-semibold mb-3">Edit Member</h5>
+                    <div className="mb-3">
+                      <input
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        type="text"
+                        placeholder="Name"
+                        value={editMemberData.name}
+                        onChange={(e) => setEditMemberData({ ...editMemberData, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <input
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        type="text"
+                        placeholder="Designation"
+                        value={editMemberData.designation}
+                        onChange={(e) => setEditMemberData({ ...editMemberData, designation: e.target.value })}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <input
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        type="text"
+                        placeholder="Profile Link"
+                        value={editMemberData.profileLink}
+                        onChange={(e) => setEditMemberData({ ...editMemberData, profileLink: e.target.value })}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <input
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditMemberData({ ...editMemberData, image: e.target.files[0] })}
+                      />
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        onClick={handleUpdateMember}
+                      >
+                        Update
+                      </button>
+                      <button
+                        className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        onClick={() => cancelEdit('member')}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // Display member info
+                  <div>
+                    <h5 className="text-lg font-semibold">{member.name}</h5>
+                    <p className="text-gray-600">{member.designation}</p>
+                    {member.profile_link && (
+                      <p className="text-blue-600">
+                        <a href={member.profile_link} target="_blank" rel="noopener noreferrer">
+                          Profile Link
+                        </a>
+                      </p>
+                    )}
+                    {member.image_path && (
+                      <div className="relative w-24 h-24 mt-2">
+                        <img
+                          src={getImageUrl(member.image_path)}
+                          alt={member.name}
+                          className="w-24 h-24 object-cover rounded-full"
+                          onError={() => handleImageError(member.id, 'member')}
+                        />
+                        {memberImageError[member.id] && (
+                          <div className="absolute inset-0 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span className="text-gray-500 text-xs">Failed to load</span>
+                          </div>
+                        )}
                       </div>
                     )}
+                    <div className="flex space-x-2 mt-2">
+                      <button
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline flex items-center"
+                        onClick={() => handleEditMember(member)}
+                      >
+                        <FaEdit className="mr-1" />
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline flex items-center"
+                        onClick={() => handleDeleteMember(member.id)}
+                      >
+                        <FaTrash className="mr-1" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 )}
-                <button
-                  className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline"
-                  onClick={() => handleDeleteMember(member.id)}
-                >
-                  Delete
-                </button>
               </li>
             ))}
           </ul>
@@ -235,9 +429,10 @@ const ManageMembers = () => {
               />
             </div>
             <button
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center"
               onClick={handleAddStaff}
             >
+              <FaPlus className="mr-2" />
               Add Staff Member
             </button>
           </div>
@@ -247,31 +442,88 @@ const ManageMembers = () => {
           <ul className="space-y-4">
             {staff.map((staffMember) => (
               <li key={staffMember.id} className="bg-white shadow-md rounded px-8 py-4">
-                <h5 className="text-lg font-semibold">{staffMember.name}</h5>
-                <p className="text-gray-600">{staffMember.designation}</p>
-                <p className="text-gray-600">{staffMember.email}</p>
-                <p className="text-gray-600">{staffMember.phone}</p>
-                {staffMember.image_name && (
-                  <div className="relative w-24 h-24 mt-2">
-                    <img
-                      src={getImageUrl(staffMember.image_name)}
-                      alt={staffMember.name}
-                      className="w-24 h-24 object-cover rounded-full"
-                      onError={() => handleImageError(staffMember.id, 'staff')}
-                    />
-                    {staffImageError[staffMember.id] && (
-                      <div className="absolute inset-0 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-gray-500 text-xs">Failed to load</span>
+                {editingStaff === staffMember.id ? (
+                  // Edit form for staff
+                  <div>
+                    <h5 className="text-lg font-semibold mb-3">Edit Staff Member</h5>
+                    {Object.keys(editStaffData).map(key => (
+                      key !== 'image' && (
+                        <div className="mb-3" key={key}>
+                          <input
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            type="text"
+                            placeholder={key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}
+                            value={editStaffData[key]}
+                            onChange={(e) => setEditStaffData({ ...editStaffData, [key]: e.target.value })}
+                          />
+                        </div>
+                      )
+                    ))}
+                    <div className="mb-3">
+                      <input
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditStaffData({ ...editStaffData, image: e.target.files[0] })}
+                      />
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        onClick={handleUpdateStaff}
+                      >
+                        Update
+                      </button>
+                      <button
+                        className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        onClick={() => cancelEdit('staff')}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // Display staff info
+                  <div>
+                    <h5 className="text-lg font-semibold">{staffMember.name}</h5>
+                    <p className="text-gray-600">{staffMember.designation}</p>
+                    <p className="text-gray-600">{staffMember.email}</p>
+                    <p className="text-gray-600">{staffMember.phone}</p>
+                    <p className="text-gray-600">{staffMember.office_address}</p>
+                    <p className="text-gray-600">{staffMember.qualification}</p>
+                    {staffMember.image_name && (
+                      <div className="relative w-24 h-24 mt-2">
+                        <img
+                          src={getImageUrl(staffMember.image_name)}
+                          alt={staffMember.name}
+                          className="w-24 h-24 object-cover rounded-full"
+                          onError={() => handleImageError(staffMember.id, 'staff')}
+                        />
+                        {staffImageError[staffMember.id] && (
+                          <div className="absolute inset-0 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span className="text-gray-500 text-xs">Failed to load</span>
+                          </div>
+                        )}
                       </div>
                     )}
+                    <div className="flex space-x-2 mt-2">
+                      <button
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline flex items-center"
+                        onClick={() => handleEditStaff(staffMember)}
+                      >
+                        <FaEdit className="mr-1" />
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline flex items-center"
+                        onClick={() => handleDeleteStaff(staffMember.id)}
+                      >
+                        <FaTrash className="mr-1" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 )}
-                <button
-                  className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline"
-                  onClick={() => handleDeleteStaff(staffMember.id)}
-                >
-                  Delete
-                </button>
               </li>
             ))}
           </ul>
