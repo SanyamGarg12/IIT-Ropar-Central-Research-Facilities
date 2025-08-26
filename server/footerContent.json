@@ -1,0 +1,73 @@
+{
+  "quickLinks": [
+    {
+      "name": "Bookings",
+      "path": "/login"
+    },
+    {
+      "name": "Home",
+      "path": "/"
+    },
+    {
+      "name": "About",
+      "path": "/about"
+    },
+    {
+      "name": "Contact Us",
+      "path": "/contact-us"
+    },
+    {
+      "name": "Explore Facilities",
+      "path": "/facilities"
+    }
+  ],
+  "contactInfo": [
+    {
+      "type": "phone",
+      "text": "+91 1234567890",
+      "href": "tel:+911234567890"
+    },
+    {
+      "type": "email",
+      "text": "info@iitrpr.ac.in",
+      "href": "mailto:info@iitrpr.ac.in"
+    },
+    {
+      "type": "address",
+      "text": "Rupnagar, Punjab 140001",
+      "href": "https://maps.google.com/?q=IIT+Ropar"
+    }
+  ],
+  "socialLinks": [
+    {
+      "platform": "Facebook",
+      "handle": "iitropar",
+      "href": "https://facebook.com/iitropar",
+      "enabled": true
+    },
+    {
+      "platform": "Twitter",
+      "handle": "iitropar",
+      "href": "https://twitter.com/iitropar",
+      "enabled": true
+    },
+    {
+      "platform": "Instagram",
+      "handle": "iitropar",
+      "href": "https://instagram.com/iitropar",
+      "enabled": true
+    },
+    {
+      "platform": "LinkedIn",
+      "handle": "1",
+      "href": "https://linkedin.com/",
+      "enabled": false
+    },
+    {
+      "platform": "YouTube",
+      "handle": "",
+      "href": "",
+      "enabled": false
+    }
+  ]
+}

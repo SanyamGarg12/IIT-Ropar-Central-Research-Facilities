@@ -39,6 +39,7 @@ import ManageQrCode from './components/ManageQrCode';
 import AdminManageSlots from './components/AdminManageSlots';
 import ManageSupervisors from './components/ManageSupervisors';
 import ManageCategories from './components/ManageCategories';
+import ManageFooter from './components/ManageFooter';
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -273,6 +274,11 @@ const App = () => {
                       <Route path="/supervisors" element={
                         <AdminProtectedRoute>
                           <ManageSupervisors />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/footer" element={
+                        <AdminProtectedRoute>
+                          <ManageFooter />
                         </AdminProtectedRoute>
                       } />
                     </Routes>

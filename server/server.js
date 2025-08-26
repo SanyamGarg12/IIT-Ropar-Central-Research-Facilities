@@ -4085,3 +4085,137 @@ app.patch('/api/supervisors/:id/wallet', (req, res) => {
     res.json({ message: 'Wallet balance updated successfully', wallet_balance: parsedBalance });
   });
 });
+
+// Footer Management API Endpoints
+
+// Get footer content
+app.get('/api/footer-content', (req, res) => {
+  try {
+    const footerPath = path.join(__dirname, 'footerContent.json');
+    if (!fs.existsSync(footerPath)) {
+      return res.status(404).json({ error: 'Footer content file not found' });
+    }
+    
+    const footerContent = JSON.parse(fs.readFileSync(footerPath, 'utf8'));
+    res.json(footerContent);
+  } catch (error) {
+    console.error('Error reading footer content:', error);
+    res.status(500).json({ error: 'Failed to read footer content' });
+  }
+});
+
+// Update quick links
+app.put('/api/footer-content/quickLinks', (req, res) => {
+  try {
+    const { quickLinks } = req.body;
+    
+    if (!Array.isArray(quickLinks)) {
+      return res.status(400).json({ error: 'Quick links must be an array' });
+    }
+    
+    // Validate each quick link
+    for (const link of quickLinks) {
+      if (!link.name || !link.path) {
+        return res.status(400).json({ error: 'Each quick link must have name and path' });
+      }
+    }
+    
+    const footerPath = path.join(__dirname, 'footerContent.json');
+    const footerContent = JSON.parse(fs.readFileSync(footerPath, 'utf8'));
+    
+    footerContent.quickLinks = quickLinks;
+    
+    fs.writeFileSync(footerPath, JSON.stringify(footerContent, null, 2));
+    
+    res.json({ message: 'Quick links updated successfully', quickLinks });
+  } catch (error) {
+    console.error('Error updating quick links:', error);
+    res.status(500).json({ error: 'Failed to update quick links' });
+  }
+});
+
+// Update contact info
+app.put('/api/footer-content/contactInfo', (req, res) => {
+  try {
+    const { contactInfo } = req.body;
+    
+    if (!Array.isArray(contactInfo)) {
+      return res.status(400).json({ error: 'Contact info must be an array' });
+    }
+    
+    // Validate each contact item
+    for (const item of contactInfo) {
+      if (!item.type || !item.text || !item.href) {
+        return res.status(400).json({ error: 'Each contact item must have type, text, and href' });
+      }
+    }
+    
+    const footerPath = path.join(__dirname, 'footerContent.json');
+    const footerContent = JSON.parse(fs.readFileSync(footerPath, 'utf8'));
+    
+    footerContent.contactInfo = contactInfo;
+    
+    fs.writeFileSync(footerPath, JSON.stringify(footerContent, null, 2));
+    
+    res.json({ message: 'Contact info updated successfully', contactInfo });
+  } catch (error) {
+    console.error('Error updating contact info:', error);
+    res.status(500).json({ error: 'Failed to update contact info' });
+  }
+});
+
+// Update social media links
+app.put('/api/footer-content/socialLinks', (req, res) => {
+  try {
+    const { socialLinks } = req.body;
+    
+    if (!Array.isArray(socialLinks)) {
+      return res.status(400).json({ error: 'Social links must be an array' });
+    }
+    
+    // Validate each social link
+    for (const link of socialLinks) {
+      if (!link.platform || typeof link.enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Each social link must have platform and enabled status' });
+      }
+    }
+    
+    const footerPath = path.join(__dirname, 'footerContent.json');
+    const footerContent = JSON.parse(fs.readFileSync(footerPath, 'utf8'));
+    
+    footerContent.socialLinks = socialLinks;
+    
+    fs.writeFileSync(footerPath, JSON.stringify(footerContent, null, 2));
+    
+    res.json({ message: 'Social links updated successfully', socialLinks });
+  } catch (error) {
+    console.error('Error updating social links:', error);
+    res.status(500).json({ error: 'Failed to update social links' });
+  }
+});
+
+// Update entire footer content
+app.put('/api/footer-content', (req, res) => {
+  try {
+    const { quickLinks, contactInfo, socialLinks } = req.body;
+    
+    // Validate all sections
+    if (!Array.isArray(quickLinks) || !Array.isArray(contactInfo) || !Array.isArray(socialLinks)) {
+      return res.status(400).json({ error: 'All sections must be arrays' });
+    }
+    
+    const footerPath = path.join(__dirname, 'footerContent.json');
+    const footerContent = {
+      quickLinks,
+      contactInfo,
+      socialLinks
+    };
+    
+    fs.writeFileSync(footerPath, JSON.stringify(footerContent, null, 2));
+    
+    res.json({ message: 'Footer content updated successfully', footerContent });
+  } catch (error) {
+    console.error('Error updating footer content:', error);
+    res.status(500).json({ error: 'Failed to update footer content' });
+  }
+});
