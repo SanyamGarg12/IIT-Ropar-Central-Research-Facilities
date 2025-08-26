@@ -18,8 +18,10 @@ const ManageSupervisors = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    department_name: ''
+    department_name: '',
+    wallet_balance: ''
   });
+  const [walletEdits, setWalletEdits] = useState({});
 
   // Create rate limiter for form submissions
   const rateLimiter = createRateLimiter(2000, 60 * 1000); // 1 submission per 2 seconds
@@ -35,6 +37,14 @@ const ManageSupervisors = () => {
       if (response.ok) {
         const data = await response.json();
         setSupervisors(data);
+        // Seed editable wallet values
+        const initial = {};
+        data.forEach((s) => {
+          initial[s.id] = (typeof s.wallet_balance === 'number' || typeof s.wallet_balance === 'string')
+            ? String(parseFloat(s.wallet_balance))
+            : '0';
+        });
+        setWalletEdits(initial);
       } else {
         setError('Failed to fetch supervisors');
       }
@@ -57,7 +67,8 @@ const ManageSupervisors = () => {
     setFormData({
       name: '',
       email: '',
-      department_name: ''
+      department_name: '',
+      wallet_balance: ''
     });
     setEditingSupervisor(null);
     setShowAddForm(false);
@@ -94,7 +105,8 @@ const ManageSupervisors = () => {
          body: JSON.stringify({
            name: escapeHtml(sanitizeInput(name)),
            email: sanitizeInput(email).toLowerCase(),
-           department_name: escapeHtml(sanitizeInput(department_name))
+           department_name: escapeHtml(sanitizeInput(department_name)),
+           wallet_balance: Number.isFinite(parseFloat(formData.wallet_balance)) ? parseFloat(formData.wallet_balance) : 0
          })
        });
 
@@ -118,7 +130,8 @@ const ManageSupervisors = () => {
     setFormData({
       name: supervisor.name,
       email: supervisor.email,
-      department_name: supervisor.department_name
+      department_name: supervisor.department_name,
+      wallet_balance: supervisor.wallet_balance ?? 0
     });
     setShowAddForm(true);
   };
@@ -144,6 +157,40 @@ const ManageSupervisors = () => {
       }
     } catch (error) {
       setError('An error occurred while deleting the supervisor');
+    }
+  };
+
+  const handleWalletChange = (id, value) => {
+    // Accept only digits and at most one dot
+    const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    setWalletEdits((prev) => ({ ...prev, [id]: sanitized }));
+  };
+
+  const saveWalletBalance = async (id) => {
+    const value = walletEdits[id];
+    const amount = parseFloat(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setError('Please enter a valid non-negative wallet amount.');
+      return;
+    }
+    try {
+      const response = await secureFetch(`${API_BASED_URL}api/supervisors/${id}/wallet`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_balance: amount })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        setSuccess(result.message || 'Wallet balance updated');
+        // Refresh list to reflect canonical value
+        await fetchSupervisors();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const err = await response.json();
+        setError(err.error || 'Failed to update wallet balance');
+      }
+    } catch (e) {
+      setError('An error occurred while updating wallet balance');
     }
   };
 
@@ -241,6 +288,21 @@ const ManageSupervisors = () => {
                       required
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Wallet Balance (₹)
+                    </label>
+                    <input
+                      type="number"
+                      name="wallet_balance"
+                      step="0.01"
+                      min="0"
+                      value={formData.wallet_balance}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
                 <div className="flex space-x-3">
                   <button
@@ -286,6 +348,9 @@ const ManageSupervisors = () => {
                         Department
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Wallet Balance (₹)
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -301,6 +366,25 @@ const ManageSupervisors = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {escapeHtml(supervisor.department_name)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="w-28 px-2 py-1 border border-gray-300 rounded"
+                              value={walletEdits[supervisor.id] ?? (supervisor.wallet_balance ?? 0)}
+                              onChange={(e) => handleWalletChange(supervisor.id, e.target.value)}
+                            />
+                            <button
+                              className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                              onClick={() => saveWalletBalance(supervisor.id)}
+                              title="Save wallet balance"
+                            >
+                              Save
+                            </button>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">

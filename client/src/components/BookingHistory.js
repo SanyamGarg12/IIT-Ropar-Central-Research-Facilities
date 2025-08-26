@@ -17,6 +17,8 @@ export default function BookingHistory() {
 
   const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
   const userId = authToken ? jwtDecode(authToken).userId : null
+  const userType = authToken ? jwtDecode(authToken).userType : null
+  const isInternalUser = userType === 'Internal'
 
   useEffect(() => {
     if (authToken && userId) {
@@ -234,6 +236,7 @@ export default function BookingHistory() {
               downloadReceipt={() => downloadReceipt(booking.booking_id, booking.receipt_path)}
               isDownloading={downloadingId === booking.booking_id}
               isDownloadingReceipt={downloadingReceiptId === booking.booking_id}
+              isInternalUser={isInternalUser}
             />
           ))}
         </div>
@@ -285,7 +288,8 @@ function BookingCard({
   downloadResult, 
   downloadReceipt,
   isDownloading,
-  isDownloadingReceipt
+  isDownloadingReceipt,
+  isInternalUser
 }) {
   // Format date properly
   const formattedDate = new Date(booking.booking_date).toLocaleDateString(undefined, {
@@ -367,30 +371,47 @@ function BookingCard({
             </div>
           </div>
 
-          {/* Receipt */}
-          <div className="flex items-center text-gray-600">
-            <FileText className="w-5 h-5 text-gray-400 mr-2" />
-            <div>
-              <button
-                onClick={downloadReceipt}
-                disabled={isDownloadingReceipt}
-                className="font-medium text-blue-600 hover:text-blue-800 transition-colors flex items-center"
-              >
-                {isDownloadingReceipt ? (
-                  <>
-                    <Loader className="w-4 h-4 mr-1 animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-1" />
-                    Download Receipt
-                  </>
-                )}
-              </button>
-              <div className="text-sm text-gray-500">Payment Proof</div>
+          {/* Receipt - Only show for non-Internal users */}
+          {!isInternalUser && (
+            <div className="flex items-center text-gray-600">
+              <FileText className="w-5 h-5 text-gray-400 mr-2" />
+              <div>
+                <button
+                  onClick={downloadReceipt}
+                  disabled={isDownloadingReceipt}
+                  className="font-medium text-blue-600 hover:text-blue-800 transition-colors flex items-center"
+                >
+                  {isDownloadingReceipt ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-1 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-1" />
+                      Download Receipt
+                    </>
+                  )}
+                </button>
+                <div className="text-sm text-gray-500">Payment Proof</div>
+              </div>
             </div>
-          </div>
+          )}
+          
+          {/* Status Message for Internal Users */}
+          {isInternalUser && (
+            <div className="flex items-center text-gray-600">
+              <AlertCircle className="w-5 h-5 text-gray-400 mr-2" />
+              <div>
+                <div className="font-medium text-gray-800">
+                  {booking.status === 'Pending' && 'Pending Supervisor Approval'}
+                  {booking.status === 'Approved' && 'Approved by Supervisor'}
+                  {booking.status === 'Cancelled' && 'Cancelled by Supervisor'}
+                </div>
+                <div className="text-sm text-gray-500">Booking Status</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Bifurcations Section */}
@@ -420,12 +441,30 @@ function BookingCard({
           </div>
         )}
 
+        {/* Special Notice for Internal Users with Pending Bookings */}
+        {isInternalUser && booking.status === 'Pending' && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mr-2 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Awaiting Supervisor Approval</p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  Your booking request has been sent to your supervisor for approval. 
+                  The amount will be deducted from your supervisor's wallet upon approval.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {booking.status === 'Approved' && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             {result ? (
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-sm text-blue-700 font-medium">Results Available</p>
+                  <p className="text-sm text-blue-700 font-medium">
+                    {isInternalUser ? 'Results Available' : 'Results Available'}
+                  </p>
                   <p className="text-xs text-blue-600">
                     Uploaded on {new Date(result.result_date).toLocaleDateString()}
                   </p>
@@ -443,7 +482,7 @@ function BookingCard({
                   ) : (
                     <>
                       <Download className="w-4 h-4 mr-1" />
-                      Download Results
+                      {isInternalUser ? 'Check Results' : 'Download Results'}
                     </>
                   )}
                 </button>
@@ -453,10 +492,10 @@ function BookingCard({
                 {loadingResult ? (
                   <div className="flex items-center">
                     <Loader className="w-4 h-4 mr-2 animate-spin text-blue-600" />
-                    Checking for results...
+                    {isInternalUser ? 'Checking for results...' : 'Checking for results...'}
                   </div>
                 ) : (
-                  "No results have been uploaded for this booking yet."
+                  isInternalUser ? "No results have been uploaded for this booking yet." : "No results have been uploaded for this booking yet."
                 )}
               </div>
             )}
@@ -514,7 +553,7 @@ function BookingCard({
                   <span className="font-semibold">User ID:</span> {booking.user_id}
                 </div>
                 <div>
-                  <span className="font-semibold">Status Notes:</span> {getStatusMessage(booking.status)}
+                  <span className="font-semibold">Status Notes:</span> {getStatusMessage(booking.status, isInternalUser)}
                 </div>
               </div>
             </motion.div>
@@ -525,14 +564,20 @@ function BookingCard({
   );
 }
 
-function getStatusMessage(status) {
+function getStatusMessage(status, isInternalUser = false) {
   switch (status) {
     case 'Approved':
-      return 'Your booking has been approved by the facility operator. The facility is reserved for you on the specified date and time.';
+      return isInternalUser 
+        ? 'Your booking has been approved by your supervisor. The facility is reserved for you on the specified date and time.'
+        : 'Your booking has been approved by the facility operator. The facility is reserved for you on the specified date and time.';
     case 'Pending':
-      return 'Your booking is awaiting approval from the facility operator. You will be notified once it is approved.';
+      return isInternalUser 
+        ? 'Your booking is awaiting approval from your supervisor. You will be notified once it is approved.'
+        : 'Your booking is awaiting approval from the facility operator. You will be notified once it is approved.';
     case 'Cancelled':
-      return 'This booking has been cancelled and is no longer valid.';
+      return isInternalUser 
+        ? 'This booking has been cancelled by your supervisor and is no longer valid.'
+        : 'This booking has been cancelled and is no longer valid.';
     default:
       return 'No additional information available.';
   }

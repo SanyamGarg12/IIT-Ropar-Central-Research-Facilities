@@ -26,7 +26,7 @@ app.use(helmet({
 // Enable CORS for cross-origin requests
 app.use(cors({
   origin: process.env.FRONTEND_BASE_URL,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 }));
 
@@ -1407,6 +1407,7 @@ app.get('/api/admin/operators-bookings', authenticateToken, (req, res) => {
               'booking_id', bh.booking_id,
               'user_id', bh.user_id,
               'user_name', u.full_name,
+              'user_type', u.user_type,
               'facility_id', bh.facility_id,
               'facility_name', f.name,
               'booking_date', bh.booking_date,
@@ -1578,27 +1579,7 @@ app.post('/api/upload-receipt', receiptUpload.single('receipt'), async (req, res
   }
 });
 
-// Find the booking API endpoint
-app.post('/api/booking', (req, res) => {
-  const { facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path } = req.body;
-  
-  // Validate receipt path
-  if (!receipt_path) {
-    return res.status(400).json({ message: "Receipt is required for booking" });
-  }
-  
-  // Create the booking with receipt path
-  const query = `INSERT INTO bookinghistory (facility_id, booking_date, schedule_id, user_id, operator_email, cost, receipt_path) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`;
-  
-  db.query(query, [facility_id, date, schedule_id, user_id, operator_email, cost, receipt_path], (err, result) => {
-    if (err) {
-      console.error('Error creating booking:', err);
-      return res.status(500).json({ message: "Booking failed" });
-    }
-    res.json({ message: "Booking successful", bookingId: result.insertId });
-  });
-});
+
 
 // Get booking history
 app.get('/api/booking-history', authenticateToken, (req, res) => {
@@ -1657,6 +1638,8 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
     SELECT 
       bh.user_id,
       u.full_name AS user_name,
+      u.user_type,
+      u.email AS user_email,
       bh.facility_id,
       f.name AS facility_name,
       bh.booking_date,
@@ -1706,10 +1689,40 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
 
 app.post('/api/handle-booking', authenticateToken, (req, res) => {
   const { bookingId, action } = req.body;
-  const query = `UPDATE BookingHistory SET status = ? WHERE booking_id = ?`;
-  db.query(query, [action, bookingId], (err, result) => {
-    if (err) return res.status(500).json({ message: "Booking action failed" });
-    res.json({ message: "Booking action successful" });
+  
+  // First, check if the booking belongs to an Internal user
+  const checkUserQuery = `
+    SELECT u.user_type 
+    FROM BookingHistory bh 
+    JOIN Users u ON bh.user_id = u.user_id 
+    WHERE bh.booking_id = ?
+  `;
+  
+  db.query(checkUserQuery, [bookingId], (err, userResult) => {
+    if (err) {
+      console.error('Error checking user type:', err);
+      return res.status(500).json({ message: "Booking action failed" });
+    }
+    
+    if (userResult.length === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    
+    const userType = userResult[0].user_type;
+    
+    // If user is Internal, prevent operator from accepting/declining
+    if (userType === 'Internal') {
+      return res.status(403).json({ 
+        message: "Cannot modify booking status for Internal users. These bookings require supervisor approval." 
+      });
+    }
+    
+    // Proceed with normal booking action for non-Internal users
+    const updateQuery = `UPDATE BookingHistory SET status = ? WHERE booking_id = ?`;
+    db.query(updateQuery, [action, bookingId], (err, result) => {
+      if (err) return res.status(500).json({ message: "Booking action failed" });
+      res.json({ message: "Booking action successful" });
+    });
   });
 });
 
@@ -2870,6 +2883,316 @@ app.post('/api/supervisor-verify', (req, res) => {
   });
 });
 
+// Get booking details for supervisor approval
+app.get('/api/supervisor-booking-info', (req, res) => {
+  const { booking_id, token } = req.query;
+  
+  console.log('Supervisor booking info request:', { booking_id, token });
+  
+  if (!booking_id || !token) {
+    return res.status(400).json({ error: 'Missing booking_id or token' });
+  }
+  
+  try {
+    const decodedToken = Buffer.from(token, 'base64').toString();
+    const [bookingId, supervisorEmail] = decodedToken.split(':');
+    
+    console.log('Decoded token:', { 
+      decodedToken, 
+      bookingId, 
+      supervisorEmail,
+      bookingIdType: typeof bookingId,
+      bookingIdValue: bookingId,
+      requestBookingId: booking_id,
+      requestBookingIdType: typeof booking_id,
+      requestBookingIdValue: booking_id,
+      strictEquality: bookingId === booking_id,
+      looseEquality: bookingId == booking_id
+    });
+    
+    // Convert both to strings for comparison to handle type mismatch
+    if (String(bookingId) !== String(booking_id)) {
+      console.log('Token booking ID mismatch:', { 
+        tokenBookingId: bookingId, 
+        requestBookingId: booking_id,
+        tokenBookingIdType: typeof bookingId,
+        requestBookingIdType: typeof booking_id
+      });
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+    
+    // Get booking details with user and facility information
+    const bookingQuery = `
+      SELECT 
+        bh.booking_id,
+        bh.facility_id,
+        bh.booking_date,
+        bh.cost,
+        u.user_type,
+        bh.status,
+        u.full_name as user_name,
+        u.email as user_email,
+        f.name as facility_name,
+        s.name as supervisor_name,
+        s.email as supervisor_email,
+        s.wallet_balance
+      FROM BookingHistory bh
+      JOIN Users u ON bh.user_id = u.user_id
+      JOIN Facilities f ON bh.facility_id = f.id
+      JOIN InternalUsers iu ON u.user_id = iu.user_id
+      JOIN Supervisor s ON iu.supervisor_id = s.id
+      WHERE bh.booking_id = ? AND s.email = ?
+    `;
+    
+    console.log('Querying booking with:', { booking_id, supervisorEmail });
+    db.query(bookingQuery, [booking_id, supervisorEmail], (err, results) => {
+      if (err) {
+        console.error('Error fetching booking info:', err);
+        return res.status(500).json({ error: 'Failed to fetch booking information' });
+      }
+      
+      console.log('Booking query results:', results);
+      
+      if (!results.length) {
+        return res.status(404).json({ error: 'Booking not found or unauthorized' });
+      }
+      
+      const bookingData = results[0];
+      console.log('Returning booking data:', {
+        wallet_balance: bookingData.wallet_balance,
+        cost: bookingData.cost,
+        wallet_balance_type: typeof bookingData.wallet_balance,
+        cost_type: typeof bookingData.cost
+      });
+      
+      res.json(bookingData);
+    });
+  } catch (error) {
+    console.error('Token decode error:', error);
+    return res.status(400).json({ error: 'Invalid token format' });
+  }
+});
+
+// Supervisor approves or rejects booking
+app.post('/api/supervisor-booking-approval', (req, res) => {
+  const { booking_id, token, action } = req.body;
+  
+  console.log('Supervisor booking approval request:', { booking_id, token, action });
+  
+  if (!booking_id || !token || !action) {
+    console.log('Missing required parameters:', { booking_id, token, action });
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+  
+  if (!['approve', 'reject'].includes(action)) {
+    console.log('Invalid action:', action);
+    return res.status(400).json({ error: 'Invalid action. Must be "approve" or "reject"' });
+  }
+  
+  try {
+    const decodedToken = Buffer.from(token, 'base64').toString();
+    const [bookingId, supervisorEmail] = decodedToken.split(':');
+    
+    console.log('Decoded token for approval:', { 
+      decodedToken, 
+      bookingId, 
+      supervisorEmail,
+      bookingIdType: typeof bookingId,
+      bookingIdValue: bookingId,
+      requestBookingId: booking_id,
+      requestBookingIdType: typeof booking_id,
+      requestBookingIdValue: booking_id,
+      strictEquality: bookingId === booking_id,
+      looseEquality: bookingId == booking_id
+    });
+    
+    // Convert both to strings for comparison to handle type mismatch
+    if (String(bookingId) !== String(booking_id)) {
+      console.log('Token booking ID mismatch:', { 
+        tokenBookingId: bookingId, 
+        requestBookingId: booking_id,
+        tokenBookingIdType: typeof bookingId,
+        requestBookingIdType: typeof booking_id
+      });
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+    
+    // Get booking and supervisor information
+    const bookingQuery = `
+      SELECT 
+        bh.booking_id,
+        bh.cost,
+        bh.user_id,
+        u.full_name as user_name,
+        u.email as user_email,
+        s.id as supervisor_id,
+        s.name as supervisor_name,
+        s.email as supervisor_email,
+        s.wallet_balance
+      FROM BookingHistory bh
+      JOIN Users u ON bh.user_id = u.user_id
+      JOIN InternalUsers iu ON u.user_id = iu.user_id
+      JOIN Supervisor s ON iu.supervisor_id = s.id
+      WHERE bh.booking_id = ? AND s.email = ?
+    `;
+    
+    console.log('Querying booking for approval with:', { booking_id, supervisorEmail });
+    
+    db.query(bookingQuery, [booking_id, supervisorEmail], (err, results) => {
+      if (err) {
+        console.error('Error fetching booking for approval:', err);
+        return res.status(500).json({ error: 'Failed to fetch booking information' });
+      }
+      
+      console.log('Booking query results for approval:', results);
+      
+      if (!results.length) {
+        console.log('No booking found for approval');
+        return res.status(404).json({ error: 'Booking not found or unauthorized' });
+      }
+      
+      const booking = results[0];
+      
+      if (action === 'approve') {
+        // Check if supervisor has sufficient funds
+        console.log('Checking wallet balance for approval:', {
+          wallet_balance: booking.wallet_balance,
+          cost: booking.cost,
+          wallet_balance_type: typeof booking.wallet_balance,
+          cost_type: typeof booking.cost,
+          comparison: booking.wallet_balance < booking.cost
+        });
+        
+        if (Number(booking.wallet_balance) < Number(booking.cost)) {
+          return res.status(400).json({ error: 'Insufficient funds in wallet. Please add funds before approving.' });
+        }
+        
+        // Update booking status and deduct from wallet
+        const updateQueries = [
+          'UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?',
+          'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?'
+        ];
+        
+        let completed = 0;
+        let hasError = false;
+        
+        updateQueries.forEach((query, index) => {
+          const params = index === 0 ? [booking_id] : [Number(booking.cost), booking.supervisor_id];
+          db.query(query, params, (updateErr) => {
+            if (updateErr) {
+              console.error('Error updating booking/wallet:', updateErr);
+              hasError = true;
+            }
+            completed++;
+            
+            if (completed === updateQueries.length) {
+              if (hasError) {
+                return res.status(500).json({ error: 'Failed to approve booking' });
+              }
+              
+              // Send email to user about approval
+              const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                  user: process.env.EMAIL_USER,
+                  pass: process.env.EMAIL_PASS
+                }
+              });
+              
+              const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: booking.user_email,
+                subject: 'Your Facility Booking Has Been Approved',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #10b981;">Booking Approved!</h2>
+                    <p>Dear ${booking.user_name},</p>
+                    <p>Your facility booking request has been approved by your supervisor (${booking.supervisor_name}).</p>
+                    <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                      <h3 style="margin-top: 0; color: #10b981;">Booking Details:</h3>
+                      <p><strong>Booking ID:</strong> ${booking_id}</p>
+                      <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                      <p><strong>Status:</strong> Approved</p>
+                    </div>
+                    <p>The cost has been deducted from your supervisor's wallet balance.</p>
+                    <p>Please contact the facility operator for any additional instructions.</p>
+                  </div>
+                `
+              };
+              
+              transporter.sendMail(mailOptions, (emailErr) => {
+                if (emailErr) {
+                  console.error('Failed to send approval email:', emailErr);
+                }
+              });
+              
+              const newWalletBalance = Number(booking.wallet_balance) - Number(booking.cost);
+              console.log('Wallet deduction calculation:', {
+                old_balance: booking.wallet_balance,
+                cost: booking.cost,
+                new_balance: newWalletBalance
+              });
+              
+              res.json({ 
+                message: 'Booking approved successfully',
+                new_wallet_balance: newWalletBalance
+              });
+            }
+          });
+        });
+      } else {
+        // Reject booking
+        db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [booking_id], (updateErr) => {
+          if (updateErr) {
+            console.error('Error rejecting booking:', updateErr);
+            return res.status(500).json({ error: 'Failed to reject booking' });
+          }
+          
+          // Send email to user about rejection
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            }
+          });
+          
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: booking.user_email,
+            subject: 'Your Facility Booking Has Been Rejected',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #ef4444;">Booking Rejected</h2>
+                <p>Dear ${booking.user_name},</p>
+                <p>Your facility booking request has been rejected by your supervisor (${booking.supervisor_name}).</p>
+                <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                  <h3 style="margin-top: 0; color: #ef4444;">Booking Details:</h3>
+                  <p><strong>Booking ID:</strong> ${booking_id}</p>
+                  <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                  <p><strong>Status:</strong> Rejected</p>
+                </div>
+                <p>Please contact your supervisor for more information or submit a new booking request.</p>
+              </div>
+            `
+          };
+          
+          transporter.sendMail(mailOptions, (emailErr) => {
+            if (emailErr) {
+              console.error('Failed to send rejection email:', emailErr);
+            }
+          });
+          
+          res.json({ message: 'Booking rejected successfully' });
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Token decode error:', error);
+    return res.status(400).json({ error: 'Invalid token format' });
+  }
+});
+
 // Handle chunk uploads
 app.post('/api/upload-chunk', uploadChunk.single('file'), async (req, res) => {
   try {
@@ -3083,14 +3406,25 @@ app.post('/api/booking-bifurcations', authenticateToken, (req, res) => {
 app.post('/api/booking', authenticateToken, (req, res) => {
   const { facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path, bifurcation_ids } = req.body;
   
+  // Check if user is internal (no payment required)
+  const isInternalUser = user_type === 'Internal';
+  
+  // For internal users, receipt_path is not required
+  if (!isInternalUser && !receipt_path) {
+    return res.status(400).json({ message: "Receipt is required for non-internal users" });
+  }
+  
+  // For internal users, set receipt_path to null or a placeholder
+  const finalReceiptPath = isInternalUser ? null : receipt_path;
+  
   // First create the booking
   const bookingQuery = `
     INSERT INTO BookingHistory 
-    (facility_id, booking_date, schedule_id, user_id, operator_email, cost, user_type, receipt_path) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (facility_id, booking_date, schedule_id, user_id, operator_email, cost, receipt_path) 
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(bookingQuery, [facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path], (err, result) => {
+  db.query(bookingQuery, [facility_id, date, schedule_id, user_id, operator_email, cost, finalReceiptPath], (err, result) => {
     if (err) {
       console.error('Error creating booking:', err);
       return res.status(500).json({ message: 'Failed to create booking' });
@@ -3098,6 +3432,80 @@ app.post('/api/booking', authenticateToken, (req, res) => {
 
     const booking_id = result.insertId;
     console.log('Created booking with ID:', booking_id);
+
+    // For internal users, send email to supervisor for approval
+    if (isInternalUser) {
+      // Get supervisor information for the internal user
+      const supervisorQuery = `
+        SELECT s.email, s.name, s.wallet_balance, u.full_name as user_name
+        FROM InternalUsers iu
+        JOIN Supervisor s ON iu.supervisor_id = s.id
+        JOIN Users u ON iu.user_id = u.user_id
+        WHERE iu.user_id = ?
+      `;
+      
+      console.log('Querying supervisor for user_id:', user_id);
+      db.query(supervisorQuery, [user_id], (supervisorErr, supervisorResults) => {
+        console.log('Supervisor query results:', supervisorResults);
+        if (supervisorErr || !supervisorResults.length) {
+          console.error('Error fetching supervisor info:', supervisorErr);
+          // Continue with booking creation even if supervisor email fails
+        } else {
+          const supervisor = supervisorResults[0];
+          
+          // Send email to supervisor
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            }
+          });
+
+          console.log('Creating approval URL with supervisor:', { booking_id, supervisorEmail: supervisor.email });
+          const tokenString = `${booking_id}:${supervisor.email}`;
+          const encodedToken = Buffer.from(tokenString).toString('base64');
+          console.log('Token generation details:', {
+            tokenString,
+            encodedToken,
+            booking_id_type: typeof booking_id,
+            supervisor_email_type: typeof supervisor.email
+          });
+          const approveUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-booking-approval?booking_id=${booking_id}&token=${encodedToken}`;
+          console.log('Approval URL:', approveUrl);
+          
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: supervisor.email,
+            subject: 'Internal User Booking Approval Required',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Booking Approval Required</h2>
+                <p>Dear ${supervisor.name},</p>
+                <p>${supervisor.user_name} has requested to book a facility slot and requires your approval.</p>
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin-top: 0;">Booking Details:</h3>
+                  <p><strong>Cost:</strong> ₹${cost}</p>
+                  <p><strong>Date:</strong> ${date}</p>
+                  <p><strong>Your Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
+                </div>
+                <p>Please click the button below to review and approve this booking:</p>
+                <a href="${approveUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Review Booking</a>
+                <p style="color: #6b7280; font-size: 14px;">If you have sufficient funds in your wallet, you can approve this booking. The cost will be deducted from your wallet balance.</p>
+              </div>
+            `
+          };
+
+          transporter.sendMail(mailOptions, (emailErr) => {
+            if (emailErr) {
+              console.error('Failed to send supervisor email:', emailErr);
+            } else {
+              console.log('Supervisor approval email sent successfully');
+            }
+          });
+        }
+      });
+    }
 
     // Then create the bifurcation entries
     if (bifurcation_ids && bifurcation_ids.length > 0) {
@@ -3119,16 +3527,18 @@ app.post('/api/booking', authenticateToken, (req, res) => {
               return res.status(500).json({ message: 'Booking created but failed to create some bifurcations' });
             }
             res.json({ 
-              message: 'Booking created successfully',
-              booking_id: booking_id
+              message: isInternalUser ? 'Booking submitted for supervisor approval' : 'Booking created successfully',
+              booking_id: booking_id,
+              requires_supervisor_approval: isInternalUser
             });
           }
         });
       });
     } else {
       res.json({ 
-        message: 'Booking created successfully',
-        booking_id: booking_id
+        message: isInternalUser ? 'Booking submitted for supervisor approval' : 'Booking created successfully',
+        booking_id: booking_id,
+        requires_supervisor_approval: isInternalUser
       });
     }
   });
@@ -3455,7 +3865,7 @@ app.get('/api/all-supervisors', (req, res) => {
 
 // API to add a new supervisor
 app.post('/api/add-supervisor', (req, res) => {
-  const { name, email, department_name } = req.body;
+  const { name, email, department_name, wallet_balance } = req.body;
   
   if (!name || !email || !department_name) {
     return res.status(400).json({ error: 'Name, email, and department are required' });
@@ -3467,8 +3877,15 @@ app.post('/api/add-supervisor', (req, res) => {
     return res.status(400).json({ error: 'Invalid email format' });
   }
 
-  const query = 'INSERT INTO Supervisor (name, email, department_name) VALUES (?, ?, ?)';
-  db.query(query, [name, email, department_name], (err, result) => {
+  const parsedBalance = wallet_balance === undefined || wallet_balance === null || wallet_balance === ''
+    ? 0
+    : parseFloat(wallet_balance);
+  if (!Number.isFinite(parsedBalance) || parsedBalance < 0) {
+    return res.status(400).json({ error: 'Invalid wallet balance' });
+  }
+
+  const query = 'INSERT INTO Supervisor (name, email, department_name, wallet_balance) VALUES (?, ?, ?, ?)';
+  db.query(query, [name, email, department_name, parsedBalance], (err, result) => {
     if (err) {
       console.error('Error adding supervisor:', err);
       if (err.code === 'ER_DUP_ENTRY') {
@@ -3515,7 +3932,7 @@ app.delete('/api/delete-supervisor/:id', (req, res) => {
 // API to update a supervisor
 app.put('/api/update-supervisor/:id', (req, res) => {
   const { id } = req.params;
-  const { name, email, department_name } = req.body;
+  const { name, email, department_name, wallet_balance } = req.body;
   
   if (!name || !email || !department_name) {
     return res.status(400).json({ error: 'Name, email, and department are required' });
@@ -3527,8 +3944,15 @@ app.put('/api/update-supervisor/:id', (req, res) => {
     return res.status(400).json({ error: 'Invalid email format' });
   }
 
-  const query = 'UPDATE Supervisor SET name = ?, email = ?, department_name = ? WHERE id = ?';
-  db.query(query, [name, email, department_name, id], (err, result) => {
+  const parsedBalance = wallet_balance === undefined || wallet_balance === null || wallet_balance === ''
+    ? 0
+    : parseFloat(wallet_balance);
+  if (!Number.isFinite(parsedBalance) || parsedBalance < 0) {
+    return res.status(400).json({ error: 'Invalid wallet balance' });
+  }
+
+  const query = 'UPDATE Supervisor SET name = ?, email = ?, department_name = ?, wallet_balance = ? WHERE id = ?';
+  db.query(query, [name, email, department_name, parsedBalance, id], (err, result) => {
     if (err) {
       console.error('Error updating supervisor:', err);
       if (err.code === 'ER_DUP_ENTRY') {
@@ -3542,5 +3966,33 @@ app.put('/api/update-supervisor/:id', (req, res) => {
     }
     
     res.json({ message: 'Supervisor updated successfully' });
+  });
+});
+
+// API to update only wallet balance for a supervisor
+app.patch('/api/supervisors/:id/wallet', (req, res) => {
+  const { id } = req.params;
+  const { wallet_balance } = req.body;
+
+  const parsedBalance = wallet_balance === undefined || wallet_balance === null || wallet_balance === ''
+    ? null
+    : parseFloat(wallet_balance);
+
+  if (!Number.isFinite(parsedBalance) || parsedBalance < 0) {
+    return res.status(400).json({ error: 'Invalid wallet balance' });
+  }
+
+  const query = 'UPDATE Supervisor SET wallet_balance = ? WHERE id = ?';
+  db.query(query, [parsedBalance, id], (err, result) => {
+    if (err) {
+      console.error('Error updating supervisor wallet balance:', err);
+      return res.status(500).json({ error: 'Failed to update wallet balance' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Supervisor not found' });
+    }
+
+    res.json({ message: 'Wallet balance updated successfully', wallet_balance: parsedBalance });
   });
 });

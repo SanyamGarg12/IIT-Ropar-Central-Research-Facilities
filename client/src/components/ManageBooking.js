@@ -48,7 +48,7 @@ const ManageBooking = () => {
 
   const handleBookingAction = async (bookingId, action) => {
     try {
-      await axios.post(`${API_BASED_URL}api/handle-booking`, {
+      const response = await axios.post(`${API_BASED_URL}api/handle-booking`, {
         bookingId,
         action,
         operatorEmail
@@ -63,7 +63,11 @@ const ManageBooking = () => {
       setSuccessMessage(`Booking ${action.toLowerCase()} successfully.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      setError(`Failed to ${action.toLowerCase()} booking. Please try again.`);
+      if (err.response && err.response.status === 403) {
+        setError(err.response.data.message || 'Cannot modify booking status for Internal users.');
+      } else {
+        setError(`Failed to ${action.toLowerCase()} booking. Please try again.`);
+      }
       setTimeout(() => setError(null), 3000);
     }
   };
@@ -354,6 +358,7 @@ const ManageBooking = () => {
                           <div>
                             <p className="text-sm text-gray-500">User</p>
                             <p className="font-medium text-gray-900">{request.user_name}</p>
+                            <p className="text-xs text-gray-500">{request.user_type}</p>
                           </div>
                         </div>
                         
@@ -405,30 +410,43 @@ const ManageBooking = () => {
                     
                     {/* Receipt Section */}
                     <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Payment Receipt</h3>
-                      {request.receipt_path ? (
-                        <button
-                          onClick={() => downloadReceipt(request.booking_id, request.receipt_path)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-300 ease-in-out flex items-center"
-                          disabled={downloadingReceipt === request.booking_id}
-                        >
-                          {downloadingReceipt === request.booking_id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Downloading...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-2" />
-                              Download Payment Receipt
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <div className="text-amber-500 font-medium flex items-center">
-                          <XCircle className="w-5 h-5 mr-2" />
-                          No receipt uploaded
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        {request.user_type === 'Internal' ? 'Payment Status' : 'Payment Receipt'}
+                      </h3>
+                      {request.user_type === 'Internal' ? (
+                        <div className="text-blue-600 font-medium flex items-center">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          No payment required - Internal user
                         </div>
+                      ) : (
+                        <>
+                          {request.receipt_path ? (
+                            <button
+                              onClick={() => downloadReceipt(request.booking_id, request.receipt_path)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-300 ease-in-out flex items-center"
+                              disabled={downloadingReceipt === request.booking_id}
+                            >
+                              {downloadingReceipt === request.booking_id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Downloading...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-2" />
+                                  Download Payment Receipt
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <div className="text-amber-500 font-medium flex items-center">
+                              <XCircle className="w-5 h-5 mr-2" />
+                              No receipt uploaded
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -458,6 +476,26 @@ const ManageBooking = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* Special Notice for Internal Users */}
+                    {request.user_type === 'Internal' && (
+                      <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-blue-800">Internal User Booking</h3>
+                            <div className="mt-2 text-sm text-blue-700">
+                              <p>This booking requires supervisor approval. You cannot accept or decline this booking.</p>
+                              <p className="mt-1">You can only upload results once the booking is approved by the supervisor.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Actions Section */}
                     <div className="flex flex-wrap gap-3 justify-between items-center">
@@ -470,7 +508,7 @@ const ManageBooking = () => {
                       </button>
                       
                       <div className="flex gap-3">
-                        {request.status === 'Pending' && (
+                        {request.status === 'Pending' && request.user_type !== 'Internal' && (
                           <>
                             <button
                               onClick={() => handleBookingAction(request.booking_id, 'Approved')}
@@ -487,7 +525,16 @@ const ManageBooking = () => {
                           </>
                         )}
                         
-                        {request.status === 'Approved' && (
+                        {request.status === 'Pending' && request.user_type === 'Internal' && (
+                          <div className="bg-gray-100 text-gray-600 py-2 px-4 rounded-lg flex items-center">
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Awaiting Supervisor Approval
+                          </div>
+                        )}
+                        
+                        {request.status === 'Approved' && request.user_type !== 'Internal' && (
                           <>
                             <button
                               onClick={() => handleBookingAction(request.booking_id, 'Cancelled')}
@@ -530,7 +577,7 @@ const ManageBooking = () => {
                           </>
                         )}
                         
-                        {request.status === 'Cancelled' && (
+                        {request.status === 'Cancelled' && request.user_type !== 'Internal' && (
                           <button
                             onClick={() => handleBookingAction(request.booking_id, 'Approved')}
                             className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition duration-300 ease-in-out"

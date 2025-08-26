@@ -30,6 +30,7 @@ import UsersRequests from "./components/UsersRequests";
 import AdminManageBooking from "./components/AdminManageBooking";
 import ArchivedNews from './components/ArchivedNews';
 import SupervisorVerify from "./components/SupervisorVerify";
+import SupervisorBookingApproval from "./components/SupervisorBookingApproval";
 import AdminManageBifurcations from './components/AdminManageBifurcations';
 import AdminManageSpecialNotes from './components/AdminManageSpecialNotes';
 import AdminUserPubs from './components/AdminUserPubs';
@@ -137,6 +138,7 @@ const App = () => {
                       <Route path="/login" element={<Login onLogin={handleLogin} />} />
                       <Route path="/archived-news" element={<ArchivedNews />} />
                       <Route path="/supervisor-verify" element={<SupervisorVerify />} />
+                      <Route path="/supervisor-booking-approval" element={<SupervisorBookingApproval />} />
                       <Route
                         path="/view-facility-slots"
                         element={

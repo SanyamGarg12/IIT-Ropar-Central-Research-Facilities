@@ -316,7 +316,13 @@ function BookingFacility({ authToken }) {
   const handleBooking = async (e) => {
     e.preventDefault();
     
-    if (!receipt) {
+    const token = localStorage.getItem("authToken");
+    const decoded = jwtDecode(token);
+    const userType = decoded.userType;
+    const isInternalUser = userType === 'Internal';
+    
+    // For non-internal users, receipt is required
+    if (!isInternalUser && !receipt) {
       alert("Please upload a payment receipt before booking");
       return;
     }
@@ -329,18 +335,20 @@ function BookingFacility({ authToken }) {
     setIsLoading(true);
     
     try {
-      const receiptPath = await uploadReceipt();
+      let receiptPath = null;
       
-      if (!receiptPath) {
-        alert("Booking failed: Receipt upload unsuccessful");
-        setIsLoading(false);
-        return;
+      // Only upload receipt for non-internal users
+      if (!isInternalUser) {
+        receiptPath = await uploadReceipt();
+        
+        if (!receiptPath) {
+          alert("Booking failed: Receipt upload unsuccessful");
+          setIsLoading(false);
+          return;
+        }
       }
       
-      const token = localStorage.getItem("authToken");
-      const decoded = jwtDecode(token);
       const userId = decoded.userId;
-      const userType = decoded.userType;
       
       // First create the booking
       const bookingResponse = await axios.post(
@@ -403,7 +411,11 @@ function BookingFacility({ authToken }) {
         }
       );
 
-      alert("Booking submitted for approval");
+      const successMessage = isInternalUser 
+        ? "Booking submitted for supervisor approval. You will receive an email once approved."
+        : "Booking submitted for approval";
+      
+      alert(successMessage);
       setSelectedSlot("");
       setSelectedScheduleId("");
       setReceipt(null);
@@ -611,51 +623,90 @@ function BookingFacility({ authToken }) {
                   </div>
                 </div>
 
-                {/* Payment Receipt Section */}
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                  <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
-                    <CreditCard className="w-5 h-5 mr-2 text-blue-500" />
-                    Payment Receipt
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Please upload a receipt of your payment for booking this facility. 
-                    Supported formats: PDF, JPEG, PNG, and other common image formats. Maximum file size: 5MB.
-                  </p>
+                {/* Payment Receipt Section - Only for non-internal users */}
+                {(() => {
+                  const token = localStorage.getItem("authToken");
+                  const decoded = jwtDecode(token);
+                  const userType = decoded.userType;
+                  const isInternalUser = userType === 'Internal';
                   
-                  <div className="flex flex-col space-y-3">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="application/pdf,image/*"
-                      className="file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm text-gray-500"
-                      disabled={uploadingReceipt || receiptUploaded || isLoading}
-                    />
-                    {receipt && (
-                      <div className="flex items-center space-x-2 bg-green-50 p-3 rounded-xl">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <span className="text-green-600 text-sm font-medium">
-                          {receipt.name} selected
-                        </span>
+                  if (isInternalUser) {
+                    return (
+                      <div className="bg-green-50 rounded-xl p-6 border border-green-200">
+                        <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                          <CheckCircle2 className="w-5 h-5 mr-2 text-green-500" />
+                          Internal User Booking
+                        </h3>
+                        <div className="bg-white rounded-lg p-4 border border-green-200">
+                          <p className="text-sm text-gray-700 mb-3">
+                            <strong>No payment required!</strong> As an internal user, your booking will be sent to your supervisor for approval.
+                          </p>
+                          <ul className="text-sm text-gray-600 space-y-2">
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-4 h-4 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
+                              Your supervisor will receive an email notification
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-4 h-4 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
+                              The cost will be deducted from your supervisor's wallet
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-4 h-4 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
+                              You'll receive an email once approved or rejected
+                            </li>
+                          </ul>
+                        </div>
                       </div>
-                    )}
-                    {uploadingReceipt && (
-                      <div className="flex items-center space-x-2">
-                        <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span className="text-blue-600 text-sm">Uploading receipt...</span>
+                    );
+                  } else {
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                        <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                          <CreditCard className="w-5 h-5 mr-2 text-blue-500" />
+                          Payment Receipt
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Please upload a receipt of your payment for booking this facility. 
+                          Supported formats: PDF, JPEG, PNG, and other common image formats. Maximum file size: 5MB.
+                        </p>
+                        
+                        <div className="flex flex-col space-y-3">
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            accept="application/pdf,image/*"
+                            className="file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-sm text-gray-500"
+                            disabled={uploadingReceipt || receiptUploaded || isLoading}
+                          />
+                          {receipt && (
+                            <div className="flex items-center space-x-2 bg-green-50 p-3 rounded-xl">
+                              <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              <span className="text-green-600 text-sm font-medium">
+                                {receipt.name} selected
+                              </span>
+                            </div>
+                          )}
+                          {uploadingReceipt && (
+                            <div className="flex items-center space-x-2">
+                              <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-blue-600 text-sm">Uploading receipt...</span>
+                            </div>
+                          )}
+                          {receiptUploaded && (
+                            <div className="flex items-center space-x-2 bg-green-50 p-3 rounded-xl">
+                              <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              <span className="text-green-600 text-sm font-medium">Receipt uploaded successfully!</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    {receiptUploaded && (
-                      <div className="flex items-center space-x-2 bg-green-50 p-3 rounded-xl">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <span className="text-green-600 text-sm font-medium">Receipt uploaded successfully!</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    );
+                  }
+                })()}
 
                 {/* Booking Summary and Action */}
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
@@ -672,7 +723,14 @@ function BookingFacility({ authToken }) {
                   <button
                     onClick={handleBooking}
                     className="w-full bg-green-600 text-white px-6 py-4 rounded-xl hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-md flex items-center justify-center"
-                    disabled={!selectedScheduleId || !facilityId || !receipt || isLoading || selectedBifurcations.length === 0}
+                    disabled={(() => {
+                      const token = localStorage.getItem("authToken");
+                      const decoded = jwtDecode(token);
+                      const userType = decoded.userType;
+                      const isInternalUser = userType === 'Internal';
+                      
+                      return !selectedScheduleId || !facilityId || (!isInternalUser && !receipt) || isLoading || selectedBifurcations.length === 0;
+                    })()}
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">
@@ -713,29 +771,74 @@ function BookingFacility({ authToken }) {
                   <QrCode className="w-20 h-20 mx-auto text-blue-600 mb-3" />
                 )}
                 <h3 className="text-xl font-semibold text-gray-800">Scan to Book</h3>
-                <p className="text-gray-600 mt-2 text-sm">Scan this QR code to make required payment for booking this facility</p>
+                <p className="text-gray-600 mt-2 text-sm">
+                  {(() => {
+                    const token = localStorage.getItem("authToken");
+                    const decoded = jwtDecode(token);
+                    const userType = decoded.userType;
+                    const isInternalUser = userType === 'Internal';
+                    
+                    return isInternalUser 
+                      ? "Scan this QR code to access the booking system"
+                      : "Scan this QR code to make required payment for booking this facility";
+                  })()}
+                </p>
               </div>
 
               <div className="space-y-4">
                 <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
                   <h4 className="font-semibold text-blue-800 mb-2">Booking Instructions</h4>
                   <ul className="text-sm text-blue-700 space-y-2">
-                    <li className="flex items-start">
-                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
-                      Select your desired facility and bifurcations
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
-                      Choose an available time slot
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
-                      Upload payment receipt
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
-                      Submit booking for approval
-                    </li>
+                    {(() => {
+                      const token = localStorage.getItem("authToken");
+                      const decoded = jwtDecode(token);
+                      const userType = decoded.userType;
+                      const isInternalUser = userType === 'Internal';
+                      
+                      if (isInternalUser) {
+                        return (
+                          <>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Select your desired facility and bifurcations
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Choose an available time slot
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Submit booking for supervisor approval
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Wait for approval email notification
+                            </li>
+                          </>
+                        );
+                      } else {
+                        return (
+                          <>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Select your desired facility and bifurcations
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Choose an available time slot
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Upload payment receipt
+                            </li>
+                            <li className="flex items-start">
+                              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                              Submit booking for approval
+                            </li>
+                          </>
+                        );
+                      }
+                    })()}
                   </ul>
                 </div>
 
@@ -751,7 +854,16 @@ function BookingFacility({ authToken }) {
                 <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                   <h4 className="font-semibold text-green-800 mb-2">Booking Status</h4>
                   <p className="text-sm text-green-700">
-                    Your booking will be reviewed by the facility operator. You will receive an email confirmation once approved.
+                    {(() => {
+                      const token = localStorage.getItem("authToken");
+                      const decoded = jwtDecode(token);
+                      const userType = decoded.userType;
+                      const isInternalUser = userType === 'Internal';
+                      
+                      return isInternalUser 
+                        ? "Your booking will be sent to your supervisor for approval. You will receive an email notification once approved or rejected."
+                        : "Your booking will be reviewed by the facility operator. You will receive an email confirmation once approved.";
+                    })()}
                   </p>
                 </div>
               </div>

@@ -53,7 +53,7 @@ const AdminManageBooking = () => {
 
   const handleBookingAction = async (bookingId, action, operatorEmail) => {
     try {
-      await axios.post(`${API_BASED_URL}api/handle-booking`, {
+      const response = await axios.post(`${API_BASED_URL}api/handle-booking`, {
         bookingId,
         action,
         operatorEmail
@@ -73,7 +73,11 @@ const AdminManageBooking = () => {
       setSuccessMessage(`Booking ${action.toLowerCase()} successfully.`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      setError(`Failed to ${action.toLowerCase()} booking. Please try again.`);
+      if (err.response && err.response.status === 403) {
+        setError(err.response.data.message || 'Cannot modify booking status for Internal users.');
+      } else {
+        setError(`Failed to ${action.toLowerCase()} booking. Please try again.`);
+      }
       setTimeout(() => setError(null), 3000);
     }
   };
@@ -245,6 +249,9 @@ const AdminManageBooking = () => {
                                   <div>
                                     <p className="text-gray-600">
                                       <span className="font-medium">User:</span> {booking.user_name}
+                                      <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        {booking.user_type}
+                                      </span>
                                     </p>
                                     <p className="text-gray-600">
                                       <span className="font-medium">Facility:</span> {booking.facility_name}
@@ -283,31 +290,57 @@ const AdminManageBooking = () => {
                                       </div>
                                     )}
                                     
+                                    {/* Special Notice for Internal Users */}
+                                    {booking.user_type === 'Internal' && (
+                                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <div className="flex items-start">
+                                          <svg className="h-4 w-4 text-blue-400 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                          </svg>
+                                          <div>
+                                            <p className="text-xs font-medium text-blue-800">Internal User</p>
+                                            <p className="text-xs text-blue-700">Requires supervisor approval. No payment receipt.</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
                                     {/* Receipt Download */}
                                     <div className="mt-2">
-                                      {booking.receipt_path ? (
-                                        <button
-                                          onClick={() => downloadReceipt(booking.booking_id, booking.receipt_path)}
-                                          className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-1 px-3 rounded-full text-sm transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50 flex items-center"
-                                          disabled={downloadingReceipt === booking.booking_id}
-                                        >
-                                          {downloadingReceipt === booking.booking_id ? (
-                                            <>
-                                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                              Downloading...
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Download className="w-4 h-4 mr-1" />
-                                              View Receipt
-                                            </>
-                                          )}
-                                        </button>
-                                      ) : (
-                                        <span className="text-amber-500 font-medium flex items-center text-sm">
-                                          <XCircle className="w-4 h-4 mr-1" />
-                                          No receipt uploaded
+                                      {booking.user_type === 'Internal' ? (
+                                        <span className="text-blue-600 font-medium flex items-center text-sm">
+                                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          No payment required
                                         </span>
+                                      ) : (
+                                        <>
+                                          {booking.receipt_path ? (
+                                            <button
+                                              onClick={() => downloadReceipt(booking.booking_id, booking.receipt_path)}
+                                              className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-1 px-3 rounded-full text-sm transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50 flex items-center"
+                                              disabled={downloadingReceipt === booking.booking_id}
+                                            >
+                                              {downloadingReceipt === booking.booking_id ? (
+                                                <>
+                                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                                  Downloading...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Download className="w-4 h-4 mr-1" />
+                                                  View Receipt
+                                                </>
+                                              )}
+                                            </button>
+                                          ) : (
+                                            <span className="text-amber-500 font-medium flex items-center text-sm">
+                                              <XCircle className="w-4 h-4 mr-1" />
+                                              No receipt uploaded
+                                            </span>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   </div>

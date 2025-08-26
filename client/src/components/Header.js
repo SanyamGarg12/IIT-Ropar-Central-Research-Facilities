@@ -49,7 +49,7 @@ const Header = () => {
                 textShadow: '0 2px 8px rgba(59,130,246,0.10)'
               }}
             >
-              Central Research Facilities{' '}
+              Central Research Facility{' '}
               <span
                 style={{
                   background: 'linear-gradient(90deg, #3b82f6 60%, #60a5fa 100%)',

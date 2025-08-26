@@ -1844,7 +1844,8 @@ CREATE TABLE Supervisor (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    department_name VARCHAR(100) NOT NULL
+    department_name VARCHAR(100) NOT NULL,
+    wallet_balance DECIMAL(10,2) DEFAULT 0
 );
 
 -- Create the Publications table

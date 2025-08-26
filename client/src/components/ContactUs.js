@@ -240,7 +240,7 @@ const ContactUs = () => {
           >
             {/* Address Card */}
             <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <h3 className="text-xl font-semibold text-[#002145] mb-4">Campus Address</h3>
+              <h3 className="text-xl font-semibold text-[#002145] mb-4">Postal Address</h3>
               <p className="text-gray-600 leading-relaxed">
                 Indian Institute of Technology Ropar<br />
                 Rupnagar, Punjab - 140001<br />
@@ -281,9 +281,7 @@ const ContactUs = () => {
             <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
               <h3 className="text-xl font-semibold text-[#002145] mb-4">Visiting Hours</h3>
               <div className="space-y-3 text-gray-600">
-                <p><strong>Administrative Office:</strong> Monday to Friday, 9 AM to 5 PM</p>
-                <p><strong>Academic Block:</strong> Monday to Friday, 8 AM to 6 PM</p>
-                <p><strong>Library:</strong> All days, 9 AM to 11 PM</p>
+                <p><strong>Central Research Facility :</strong> Monday to Friday, 9 AM to 5:30 PM</p>
               </div>
             </div>
           </motion.div>
