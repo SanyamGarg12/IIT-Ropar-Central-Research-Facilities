@@ -1779,6 +1779,95 @@ app.get("/api/categories", (req, res) => {
   });
 });
 
+app.post("/api/categories", (req, res) => {
+  const { name, description } = req.body;
+  
+  if (!name) {
+    return res.status(400).json({ error: "Category name is required" });
+  }
+
+  db.query(
+    "INSERT INTO Categories (name, description) VALUES (?, ?)",
+    [name, description || ""],
+    (err, results) => {
+      if (err) {
+        console.error('Error adding category:', err);
+        return res.status(500).json({ error: "Error adding category" });
+      }
+      res.status(201).json({ 
+        message: "Category added successfully",
+        categoryId: results.insertId 
+      });
+    }
+  );
+});
+
+app.put("/api/categories/:id", (req, res) => {
+  const categoryId = req.params.id;
+  const { name, description } = req.body;
+  
+  if (!name) {
+    return res.status(400).json({ error: "Category name is required" });
+  }
+
+  db.query(
+    "UPDATE Categories SET name = ?, description = ? WHERE id = ?",
+    [name, description || "", categoryId],
+    (err, results) => {
+      if (err) {
+        console.error('Error updating category:', err);
+        return res.status(500).json({ error: "Error updating category" });
+      }
+      
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      res.json({ message: "Category updated successfully" });
+    }
+  );
+});
+
+app.delete("/api/categories/:id", (req, res) => {
+  const categoryId = req.params.id;
+
+  // Check if category is being used by any facilities
+  db.query(
+    "SELECT COUNT(*) as count FROM Facilities WHERE category_id = ?",
+    [categoryId],
+    (err, results) => {
+      if (err) {
+        console.error('Error checking category usage:', err);
+        return res.status(500).json({ error: "Error checking category usage" });
+      }
+      
+      if (results[0].count > 0) {
+        return res.status(400).json({ 
+          error: "Cannot delete category. It is being used by one or more facilities." 
+        });
+      }
+      
+      // If not used, proceed with deletion
+      db.query(
+        "DELETE FROM Categories WHERE id = ?",
+        [categoryId],
+        (err, results) => {
+          if (err) {
+            console.error('Error deleting category:', err);
+            return res.status(500).json({ error: "Error deleting category" });
+          }
+          
+          if (results.affectedRows === 0) {
+            return res.status(404).json({ error: "Category not found" });
+          }
+          
+          res.json({ message: "Category deleted successfully" });
+        }
+      );
+    }
+  );
+});
+
 app.post("/api/members", upload.single("image"), (req, res) => {
   const { name, designation, profileLink } = req.body;
   const imagePath = req.file ? req.file.filename : null;

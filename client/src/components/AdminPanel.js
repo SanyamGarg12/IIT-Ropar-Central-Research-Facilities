@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie } from 'react-icons/fa';
+import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie, FaTags } from 'react-icons/fa';
 import { API_BASED_URL } from '../config.js';
 
 const groupedAdminLinks = [
@@ -19,6 +19,7 @@ const groupedAdminLinks = [
     group: "Facility Management",
     links: [
       { to: "/admin/facilities", text: "Manage Facilities", icon: <FaBuilding /> },
+      { to: "/admin/categories", text: "Manage Categories", icon: <FaTags /> },
       { to: "/admin/adminManageBifurcations", text: "Manage Facility Bifurcations", icon: <FaLayerGroup /> },
       { to: "/admin/adminManageSpecialNotes", text: "Manage Facility Special Notes", icon: <FaStickyNote /> },
       { to: "/admin/adminManageBooking", text: "Manage Bookings", icon: <FaCalendarCheck /> },

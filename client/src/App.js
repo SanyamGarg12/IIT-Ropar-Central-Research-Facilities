@@ -38,6 +38,7 @@ import ViewFacilitySlots from './components/ViewFacilitySlots';
 import ManageQrCode from './components/ManageQrCode';
 import AdminManageSlots from './components/AdminManageSlots';
 import ManageSupervisors from './components/ManageSupervisors';
+import ManageCategories from './components/ManageCategories';
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -172,6 +173,11 @@ const App = () => {
                       <Route path="/facilities" element={
                         <AdminProtectedRoute>
                           <ManageFacilities />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/categories" element={
+                        <AdminProtectedRoute>
+                          <ManageCategories />
                         </AdminProtectedRoute>
                       } />
                       <Route path="/forms" element={
