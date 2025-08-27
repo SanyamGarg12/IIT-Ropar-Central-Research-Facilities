@@ -9,6 +9,7 @@ import {
   createRateLimiter,
   escapeHtml 
 } from '../utils/security';
+import RichTextEditor from './RichTextEditor';
 
 import {
   fetchFacilities,
@@ -404,33 +405,45 @@ const ManageFacilities = () => {
               disabled={isLoading}
             />
           </div>
-          <textarea
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            placeholder="Description"
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            rows="3"
-            disabled={isLoading}
-          />
-          <textarea
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            placeholder="Specifications"
-            name="specifications"
-            value={formData.specifications}
-            onChange={handleInputChange}
-            rows="3"
-            disabled={isLoading}
-          />
-          <textarea
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            placeholder="Usage Details"
-            name="usage_details"
-            value={formData.usage_details}
-            onChange={handleInputChange}
-            rows="3"
-            disabled={isLoading}
-          />
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Description
+            </label>
+            <RichTextEditor
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Enter facility description..."
+              name="description"
+              disabled={isLoading}
+              height="150px"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Specifications
+            </label>
+            <RichTextEditor
+              value={formData.specifications}
+              onChange={handleInputChange}
+              placeholder="Enter facility specifications..."
+              name="specifications"
+              disabled={isLoading}
+              height="200px"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              Usage Details
+            </label>
+            <RichTextEditor
+              value={formData.usage_details}
+              onChange={handleInputChange}
+              placeholder="Enter usage details..."
+              name="usage_details"
+              disabled={isLoading}
+              height="200px"
+            />
+          </div>
           <select
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             name="category_id"

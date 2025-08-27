@@ -41,76 +41,15 @@ const CardContent = ({ children, className }) => (
   </div>
 );
 
-// New component for displaying specifications
+// Component for displaying specifications with HTML support
 const SpecificationsDisplay = ({ specifications }) => {
   if (!specifications) return <p>No specifications available</p>;
   
-  // Helper function to determine if text is a heading
-  const isHeading = (text) => {
-    const headingPatterns = [
-      /^[A-Z][a-zA-Z\s]+:$/,                // Words ending with colon
-      /^[A-Z][a-zA-Z\s]+\s{2,}$/,           // Words ending with multiple spaces
-      /^[A-Z][A-Z\s]+$/,                    // ALL CAPS text
-      /^\s*[A-Z][a-zA-Z\s]+(system|detector|voltage|current|lens|stage|movement|holders|exchange|functions|modes|LCD|gun|chamber|pressure)s?\s*$/i // Common spec headings
-    ];
-    return headingPatterns.some(pattern => pattern.test(text));
-  };
-  
-  // Parse specifications into structured format
-  const parseSpecifications = (text) => {
-    if (!text) return [];
-    
-    const lines = text.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-    
-    const parsedSpecs = [];
-    let currentHeading = null;
-    let currentItems = [];
-    
-    lines.forEach(line => {
-      if (isHeading(line)) {
-        // If we have a previous heading with items, add it to the result
-        if (currentHeading) {
-          parsedSpecs.push({ heading: currentHeading, items: currentItems });
-          currentItems = [];
-        }
-        currentHeading = line.trim().replace(/\s+$/, '').replace(/:$/, '');
-      } else {
-        // Add the line as an item under the current heading
-        currentItems.push(line);
-      }
-    });
-    
-    // Add the last heading and its items
-    if (currentHeading && currentItems.length > 0) {
-      parsedSpecs.push({ heading: currentHeading, items: currentItems });
-    }
-    
-    // If no structure was detected, return the original text in a single section
-    if (parsedSpecs.length === 0 && lines.length > 0) {
-      parsedSpecs.push({ heading: 'Specifications', items: lines });
-    }
-    
-    return parsedSpecs;
-  };
-  
-  const specSections = parseSpecifications(specifications);
-  
   return (
-    <div className="specifications-container space-y-4">
-      {specSections.map((section, index) => (
-        <div key={index} className="spec-section">
-          <ul className="pl-4">
-            {section.items.map((item, itemIndex) => (
-              <li key={itemIndex} className="text-gray-600 mb-1">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
+    <div 
+      className="specifications-container text-gray-700 leading-relaxed rich-text-content"
+      dangerouslySetInnerHTML={{ __html: specifications }}
+    />
   );
 };
 
@@ -258,7 +197,10 @@ export default function FacilityDetail() {
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 leading-relaxed">{facility.description}</p>
+              <div 
+                className="text-gray-700 leading-relaxed rich-text-content"
+                dangerouslySetInnerHTML={{ __html: facility.description || '' }}
+              />
             </CardContent>
           </Card>
           <Card>
@@ -266,7 +208,10 @@ export default function FacilityDetail() {
               <CardTitle>Usage Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 leading-relaxed">{facility.usage_details}</p>
+              <div 
+                className="text-gray-700 leading-relaxed rich-text-content"
+                dangerouslySetInnerHTML={{ __html: facility.usage_details || '' }}
+              />
             </CardContent>
           </Card>
         </motion.div>
