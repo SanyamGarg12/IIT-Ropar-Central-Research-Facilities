@@ -25,17 +25,20 @@
     "mysql": "^2.18.1",
     "mysql2": "^3.11.5",
     "nodemailer": "^7.0.3",
+    "sharp": "^0.34.3",
     "xss-clean": "^0.1.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9",
+    "@types/jest": "^29.5.8",
     "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "@types/jest": "^29.5.8"
+    "nodemon": "^3.1.9",
+    "supertest": "^6.3.3"
   },
   "jest": {
     "testEnvironment": "node",
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
     "collectCoverageFrom": [
       "server.js",
       "!**/node_modules/**",

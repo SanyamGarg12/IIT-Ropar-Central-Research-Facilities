@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Footer from './Footer';
 import { Mail, MapPin, Plane, Train } from 'lucide-react';
@@ -22,6 +22,17 @@ const ContactUs = () => {
     }
   };
 
+  const [contactContent, setContactContent] = useState({
+    hero: { title: 'Contact Us', image: '/assets/IITRPR.jpg' },
+    emailAddresses: { title: 'Email Addresses', sections: [] },
+    transportation: { airport: {}, railway: {} },
+    campusDetails: {},
+    virtualTours: { title: 'Virtual Tours', videos: [] },
+    contactForm: { title: 'Contact Us', intro: '' },
+    footer: {}
+  });
+  const [loading, setLoading] = useState(true);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -33,6 +44,24 @@ const ContactUs = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadContactContent();
+  }, []);
+
+  const loadContactContent = async () => {
+    try {
+      const response = await fetch(`${API_BASED_URL}api/contact-content`);
+      if (response.ok) {
+        const data = await response.json();
+        setContactContent(data);
+      }
+    } catch (error) {
+      console.error('Failed to load contact content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -102,7 +131,7 @@ const ContactUs = () => {
         <div
           className="absolute inset-0 bg-cover bg-center transform scale-105 transition-transform duration-1000"
           style={{
-            backgroundImage: "url('/assets/IITRPR.jpg')",
+            backgroundImage: `url('${API_BASED_URL.replace(/\/$/, '')}${contactContent.hero?.image || '/assets/IITRPR.jpg'}')`,
           }}
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
@@ -113,7 +142,7 @@ const ContactUs = () => {
             transition={{ delay: 0.5, duration: 0.8 }}
           >
             <h1 className="text-6xl font-bold text-white tracking-tight drop-shadow-lg">
-              Contact Us
+              {contactContent.hero?.title || 'Contact Us'}
             </h1>
           </motion.div>
         </div>
@@ -136,37 +165,16 @@ const ContactUs = () => {
           >
             <div className="flex items-center gap-3 mb-6">
               <Mail className="h-6 w-6" />
-              <h2 className="text-2xl font-bold">Email Addresses</h2>
+              <h2 className="text-2xl font-bold">{contactContent.emailAddresses?.title || 'Email Addresses'}</h2>
             </div>
-            <div className="space-y-4">
-              <div>
-                <div className="font-medium">General Information</div>
-                <a href="mailto:info@iitrpr.ac.in" className="hover:underline">info@iitrpr.ac.in</a>
-              </div>
-              <div>
-                <div className="font-medium">Academic</div>
-                <a href="mailto:academics@iitrpr.ac.in" className="hover:underline">academics@iitrpr.ac.in</a>
-                <div className="text-sm mt-1">
-                  UG: <a href="mailto:deanug@iitrpr.ac.in" className="hover:underline">deanug@iitrpr.ac.in</a> &nbsp;|&nbsp; PG: <a href="mailto:deanpg@iitrpr.ac.in" className="hover:underline">deanpg@iitrpr.ac.in</a>
-                </div>
-              </div>
-              <div>
-                <div className="font-medium">Placement</div>
-                <a href="mailto:info@iitrpr.ac.in" className="hover:underline">info@iitrpr.ac.in</a>
-              </div>
-              <div>
-                <div className="font-medium">Website</div>
-                <a href="mailto:info@iitrpr.ac.in" className="hover:underline">info@iitrpr.ac.in</a>
-              </div>
-              <div>
-                <div className="font-medium">Student Verification</div>
-                <div className="space-y-2">
-                  <div>For UG: <a href="mailto:ugsection1@iitrpr.ac.in" className="hover:underline">ugsection1@iitrpr.ac.in</a></div>
-                  <div>For PG: <a href="mailto:office-academics-pg3@iitrpr.ac.in" className="hover:underline">office-academics-pg3@iitrpr.ac.in</a></div>
-                  <div>For Ph.D.: <a href="mailto:office-academics-pg1@iitrpr.ac.in" className="hover:underline">office-academics-pg1@iitrpr.ac.in</a></div>
-                </div>
-              </div>
-            </div>
+                         <div className="space-y-4">
+               {contactContent.emailAddresses?.emails?.map((emailItem, index) => (
+                 <div key={index}>
+                   <div className="font-medium">{emailItem.label}</div>
+                   <a href={`mailto:${emailItem.email}`} className="hover:underline">{emailItem.email}</a>
+                 </div>
+               ))}
+             </div>
           </motion.div>
 
           {/* Transportation Sections */}
@@ -181,15 +189,15 @@ const ContactUs = () => {
             <div className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg">
               <div className="flex items-center gap-3 mb-6">
                 <Plane className="h-6 w-6" />
-                <h2 className="text-2xl font-bold">From Airport</h2>
+                <h2 className="text-2xl font-bold">{contactContent.transportation?.airport?.title || 'From Airport'}</h2>
               </div>
               <div className="space-y-4">
-              <span className="font-semibold">From Chandigarh International Airport</span>
-                  <ul className="list-disc ml-6 mt-2 space-y-2">
-                    <li>By Taxi/Car: Hire a taxi from the airport directly to IIT Ropar (approx. 60 km, 1.5 hours).</li>
-                    <li>By Bus: Take a taxi/auto to ISBT Sector 43, Chandigarh. From there, take a bus to Rupnagar (Ropar) Bus Stand. From the bus stand, hire an auto-rickshaw or take a local bus to IIT Ropar main campus (approx. 6-7 km).</li>
-                    <li>By Train: Take a taxi/auto to Chandigarh Railway Station, then board a train to Rupnagar Railway Station (if available). From there, follow the directions below.</li>
-                  </ul>
+                <span className="font-semibold">{contactContent.transportation?.airport?.subtitle || 'From Chandigarh International Airport'}</span>
+                <ul className="list-disc ml-6 mt-2 space-y-2">
+                  {contactContent.transportation?.airport?.instructions?.map((instruction, index) => (
+                    <li key={index}>{instruction}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
@@ -197,13 +205,14 @@ const ContactUs = () => {
             <div className="bg-[#003B4C] rounded-2xl p-8 text-white shadow-lg">
               <div className="flex items-center gap-3 mb-6">
                 <Train className="h-6 w-6" />
-                <h2 className="text-2xl font-bold">From Railway Station</h2>
+                <h2 className="text-2xl font-bold">{contactContent.transportation?.railway?.title || 'From Railway Station'}</h2>
               </div>
-              <span className="font-semibold">From Rupnagar (Ropar) Railway Station (Closest Railway Station):</span>
-                  <ul className="list-disc ml-6 mt-2 space-y-2">
-                    <li>By Auto-Rickshaw: The main campus is about 6-7 km from the station. Auto-rickshaws are available outside and will take you directly to IIT Ropar main campus (approx. ₹150).</li>
-                    <li>By Bus: Local and institute buses are available from the bus stand (adjacent to the railway station) to IIT Ropar main campus. Check the institute bus schedule for timings.</li>
-                  </ul>
+              <span className="font-semibold">{contactContent.transportation?.railway?.subtitle || 'From Rupnagar (Ropar) Railway Station (Closest Railway Station):'}</span>
+              <ul className="list-disc ml-6 mt-2 space-y-2">
+                {contactContent.transportation?.railway?.instructions?.map((instruction, index) => (
+                  <li key={index}>{instruction}</li>
+                ))}
+              </ul>
             </div>
           </motion.div>
         </motion.div>
@@ -240,48 +249,45 @@ const ContactUs = () => {
           >
             {/* Address Card */}
             <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <h3 className="text-xl font-semibold text-[#002145] mb-4">Postal Address</h3>
+              <h3 className="text-xl font-semibold text-[#002145] mb-4">{contactContent.campusDetails?.postalAddress?.title || 'Postal Address'}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Indian Institute of Technology Ropar<br />
-                Rupnagar, Punjab - 140001<br />
-                India
+                {contactContent.campusDetails?.postalAddress?.content?.split('\n').map((line, index) => (
+                  <span key={index}>
+                    {line}
+                    {index < contactContent.campusDetails?.postalAddress?.content?.split('\n').length - 1 && <br />}
+                  </span>
+                ))}
               </p>
             </div>
 
             {/* Contact Details Card */}
             <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <h3 className="text-xl font-semibold text-[#002145] mb-4">Contact Details</h3>
+              <h3 className="text-xl font-semibold text-[#002145] mb-4">{contactContent.campusDetails?.contactDetails?.title || 'Contact Details'}</h3>
               <div className="space-y-3 text-gray-600">
-                <p><strong>Phone:</strong> +91-12345-67890</p>
-                <p><strong>Fax:</strong> +91-12345-67891</p>
-                <p><strong>Emergency Contact:</strong> +91-12345-67892</p>
+                <p><strong>Phone:</strong> {contactContent.campusDetails?.contactDetails?.phone || '+91-12345-67890'}</p>
+                <p><strong>Fax:</strong> {contactContent.campusDetails?.contactDetails?.fax || '+91-12345-67891'}</p>
+                <p><strong>Emergency Contact:</strong> {contactContent.campusDetails?.contactDetails?.emergency || '+91-12345-67892'}</p>
               </div>
             </div>
 
             {/* Gates Information Card */}
             <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <h3 className="text-xl font-semibold text-[#002145] mb-4">Campus Gates</h3>
+              <h3 className="text-xl font-semibold text-[#002145] mb-4">{contactContent.campusDetails?.gates?.title || 'Campus Gates'}</h3>
               <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-[#002145]">Main Gate (Gate 1)</h4>
-                  <p className="text-gray-600">24/7 access for vehicles and pedestrians</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-[#002145]">Gate 2 (Residential Area)</h4>
-                  <p className="text-gray-600">Open 6 AM to 10 PM for residents</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-[#002145]">Gate 3 (Service Gate)</h4>
-                  <p className="text-gray-600">Restricted access for service vehicles</p>
-                </div>
+                {contactContent.campusDetails?.gates?.gates?.map((gate, index) => (
+                  <div key={index}>
+                    <h4 className="font-medium text-[#002145]">{gate.name}</h4>
+                    <p className="text-gray-600">{gate.description}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Visiting Hours Card */}
             <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <h3 className="text-xl font-semibold text-[#002145] mb-4">Visiting Hours</h3>
+              <h3 className="text-xl font-semibold text-[#002145] mb-4">{contactContent.campusDetails?.visitingHours?.title || 'Visiting Hours'}</h3>
               <div className="space-y-3 text-gray-600">
-                <p><strong>Central Research Facility :</strong> Monday to Friday, 9 AM to 5:30 PM</p>
+                <p><strong>Central Research Facility:</strong> {contactContent.campusDetails?.visitingHours?.hours || 'Monday to Friday, 9 AM to 5:30 PM'}</p>
               </div>
             </div>
           </motion.div>
@@ -297,40 +303,31 @@ const ContactUs = () => {
         >
           <h2 className="text-2xl font-medium text-gray-900 flex items-center">
             <div className="w-1 h-8 bg-[#00B6BD] mr-3"></div>
-            Virtual Tours
+            {contactContent.virtualTours?.title || 'Virtual Tours'}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <motion.div 
-              className="aspect-video rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <iframe
-                src="https://www.youtube.com/embed/Tis7EuowoHo"
-                title="IIT Ropar Campus Tour"
-                className="w-full h-full"
-                allowFullScreen
-              ></iframe>
-            </motion.div>
-            <motion.div 
-              className="aspect-video rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <iframe
-                src="https://www.youtube.com/embed/grdSwnN4mqg"
-                title="IIITD Campus Tour - Hostel"
-                className="w-full h-full"
-                allowFullScreen
-              ></iframe>
-            </motion.div>
+            {contactContent.virtualTours?.videos?.map((video, index) => (
+              <motion.div 
+                key={index}
+                className="aspect-video rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <iframe
+                  src={video.url}
+                  title={video.title}
+                  className="w-full h-full"
+                  allowFullScreen
+                ></iframe>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
 
         <div className="contact-container">
-          <h2>Contact Us</h2>
+          <h2>{contactContent.contactForm?.title || 'Contact Us'}</h2>
           <p className="contact-intro">
-            We value your feedback! Please fill out the form below to share your thoughts about our website or facilities.
+            {contactContent.contactForm?.intro || 'We value your feedback! Please fill out the form below to share your thoughts about our website or facilities.'}
           </p>
           
           <form onSubmit={handleSubmit} className="contact-form">
@@ -407,16 +404,16 @@ const ContactUs = () => {
         <span className="text-gray-600 text-sm">
           Managed by{' '}
           <a
-            href="mailto:sanyam22448@iiitd.ac.in"
+            href={`mailto:${contactContent.footer?.email || 'sanyam22448@iiitd.ac.in'}`}
             className="text-blue-600 font-semibold hover:underline hover:text-blue-800 transition"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Sanyam Garg
+            {contactContent.footer?.managedBy || 'Sanyam Garg'}
           </a>
         </span>
         <a
-          href="https://github.com/SanyamGarg12"
+          href={contactContent.footer?.github || 'https://github.com/SanyamGarg12'}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-2 flex items-center text-gray-600 hover:text-black transition"

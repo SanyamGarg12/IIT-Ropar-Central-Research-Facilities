@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const xss = require('xss-clean');
 const hpp = require('hpp');
+const sharp = require('sharp');
 require("dotenv").config();
 const app = express();
 app.set('trust proxy', 1); 
@@ -4217,5 +4218,133 @@ app.put('/api/footer-content', (req, res) => {
   } catch (error) {
     console.error('Error updating footer content:', error);
     res.status(500).json({ error: 'Failed to update footer content' });
+  }
+});
+
+// Contact Page Management API Endpoints
+
+// Get contact page content
+app.get('/api/contact-content', (req, res) => {
+  try {
+    const contactPath = path.join(__dirname, 'contactContent.json');
+    if (!fs.existsSync(contactPath)) {
+      return res.status(404).json({ error: 'Contact content file not found' });
+    }
+    
+    const contactContent = JSON.parse(fs.readFileSync(contactPath, 'utf8'));
+    res.json(contactContent);
+  } catch (error) {
+    console.error('Error reading contact content:', error);
+    res.status(500).json({ error: 'Failed to read contact content' });
+  }
+});
+
+// Update contact page content
+app.put('/api/contact-content', (req, res) => {
+  try {
+    const contactContent = req.body;
+    
+    if (!contactContent) {
+      return res.status(400).json({ error: 'Contact content is required' });
+    }
+    
+    const contactPath = path.join(__dirname, 'contactContent.json');
+    fs.writeFileSync(contactPath, JSON.stringify(contactContent, null, 2));
+    
+    res.json({ message: 'Contact content updated successfully', contactContent });
+  } catch (error) {
+    console.error('Error updating contact content:', error);
+    res.status(500).json({ error: 'Failed to update contact content' });
+  }
+});
+
+// Function to resize image to fit specified dimensions
+const resizeImage = async (inputPath, outputPath, targetWidth, targetHeight) => {
+  try {
+    // Check if sharp is available
+    if (typeof sharp === 'undefined') {
+      console.log('Sharp library not available, skipping image resize');
+      return false;
+    }
+    
+    await sharp(inputPath)
+      .resize(targetWidth, targetHeight, {
+        fit: 'inside', // This ensures the image fits within the dimensions without cropping
+        withoutEnlargement: true // This prevents upscaling if the image is smaller
+      })
+      .jpeg({ quality: 85 }) // Optimize for web
+      .toFile(outputPath);
+    
+    return true;
+  } catch (error) {
+    console.error('Error resizing image:', error);
+    return false;
+  }
+};
+
+// Upload contact page hero image
+app.post('/api/contact-content/hero-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const originalPath = req.file.path;
+    const filename = req.file.filename;
+    const resizedFilename = `resized_${filename}`;
+    const resizedPath = path.join(__dirname, 'uploads', resizedFilename);
+    
+    // Resize image to optimal dimensions for hero section (1920x600)
+    let resizeSuccess = false;
+    try {
+      resizeSuccess = await resizeImage(originalPath, resizedPath, 1920, 600);
+    } catch (resizeError) {
+      console.error('Error during image resize:', resizeError);
+      resizeSuccess = false;
+    }
+    
+    if (!resizeSuccess) {
+      // If resizing fails, use original image
+      const imagePath = `/uploads/${filename}`;
+      
+      const contactPath = path.join(__dirname, 'contactContent.json');
+      const contactContent = JSON.parse(fs.readFileSync(contactPath, 'utf8'));
+      contactContent.hero.image = imagePath;
+      fs.writeFileSync(contactPath, JSON.stringify(contactContent, null, 2));
+      
+      return res.json({ 
+        message: 'Hero image updated successfully (original size - Sharp library not available)', 
+        imagePath: imagePath,
+        contactContent 
+      });
+    }
+    
+    // Use resized image
+    const imagePath = `/uploads/${resizedFilename}`;
+    
+    // Update the contact content with new image path
+    const contactPath = path.join(__dirname, 'contactContent.json');
+    const contactContent = JSON.parse(fs.readFileSync(contactPath, 'utf8'));
+    
+    contactContent.hero.image = imagePath;
+    
+    fs.writeFileSync(contactPath, JSON.stringify(contactContent, null, 2));
+    
+    // Try to remove original file to save space, but don't fail if it can't be deleted
+    try {
+      fs.unlinkSync(originalPath);
+    } catch (deleteError) {
+      console.log('Could not delete original file (this is normal on Windows):', deleteError.message);
+      // Continue with the response even if we can't delete the original file
+    }
+    
+    res.json({ 
+      message: 'Hero image updated successfully and resized to optimal dimensions', 
+      imagePath: imagePath,
+      contactContent 
+    });
+  } catch (error) {
+    console.error('Error updating hero image:', error);
+    res.status(500).json({ error: 'Failed to update hero image' });
   }
 });

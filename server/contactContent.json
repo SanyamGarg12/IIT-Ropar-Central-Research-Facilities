@@ -1,0 +1,113 @@
+{
+  "hero": {
+    "title": "Contact Us",
+    "image": "/uploads/resized_1756254920002.jpg"
+  },
+  "emailAddresses": {
+    "title": "Email Addresses",
+    "emails": [
+      {
+        "label": "Academic",
+        "email": "academics@iitrpr.ac.in"
+      },
+      {
+        "label": "Placement",
+        "email": "info@iitrpr.ac.in"
+      },
+      {
+        "label": "Website",
+        "email": "info@iitrpr.ac.in"
+      },
+      {
+        "label": "Student Verification - UG",
+        "email": "ugsection1@iitrpr.ac.in"
+      },
+      {
+        "label": "Student Verification - PG",
+        "email": "office-academics-pg3@iitrpr.ac.in"
+      },
+      {
+        "label": "Student Verification - Ph.D.",
+        "email": "office-academics-pg1@iitrpr.ac.in"
+      },
+      {
+        "label": "General",
+        "email": "info@iitrpr.ac.in"
+      }
+    ]
+  },
+  "transportation": {
+    "airport": {
+      "title": "From Airport",
+      "subtitle": "From Chandigarh International Airport",
+      "instructions": [
+        "By Taxi/Car: Hire a taxi from the airport directly to IIT Ropar (approx. 60 km, 1.5 hours).",
+        "By Bus: Take a taxi/auto to ISBT Sector 43, Chandigarh. From there, take a bus to Rupnagar (Ropar) Bus Stand. From the bus stand, hire an auto-rickshaw or take a local bus to IIT Ropar main campus (approx. 6-7 km).",
+        "By Train: Take a taxi/auto to Chandigarh Railway Station, then board a train to Rupnagar Railway Station (if available). From there, follow the directions below."
+      ]
+    },
+    "railway": {
+      "title": "From Railway Station",
+      "subtitle": "From Rupnagar (Ropar) Railway Station (Closest Railway Station):",
+      "instructions": [
+        "By Auto-Rickshaw: The main campus is about 6-7 km from the station. Auto-rickshaws are available outside and will take you directly to IIT Ropar main campus (approx. ₹150).",
+        "By Bus: Local and institute buses are available from the bus stand (adjacent to the railway station) to IIT Ropar main campus. Check the institute bus schedule for timings."
+      ]
+    }
+  },
+  "campusDetails": {
+    "postalAddress": {
+      "title": "Postal Address",
+      "content": "Indian Institute of Technology Ropar\nRupnagar, Punjab - 140001\nIndia"
+    },
+    "contactDetails": {
+      "title": "Contact Details",
+      "phone": "+91-12345-67890",
+      "fax": "+91-12345-67891",
+      "emergency": "+91-12345-67892"
+    },
+    "gates": {
+      "title": "Campus Gates",
+      "gates": [
+        {
+          "name": "Main Gate (Gate 1)",
+          "description": "24/7 access for vehicles and pedestrians"
+        },
+        {
+          "name": "Gate 2 (Residential Area)",
+          "description": "Open 6 AM to 10 PM for residents"
+        },
+        {
+          "name": "Gate 3 (Service Gate)",
+          "description": "Restricted access for service vehicles"
+        }
+      ]
+    },
+    "visitingHours": {
+      "title": "Visiting Hours",
+      "hours": "Monday to Friday, 9 AM to 5:30 PM"
+    }
+  },
+  "virtualTours": {
+    "title": "Virtual Tours",
+    "videos": [
+      {
+        "title": "IIT Ropar Campus Tour",
+        "url": "https://www.youtube.com/embed/Tis7EuowoHo"
+      },
+      {
+        "title": "IIITD Campus Tour - Hostel",
+        "url": "https://www.youtube.com/embed/grdSwnN4mqg"
+      }
+    ]
+  },
+  "contactForm": {
+    "title": "Contact Us",
+    "intro": "We value your feedback! Please fill out the form below to share your thoughts about our website or facilities."
+  },
+  "footer": {
+    "managedBy": "Sanyam Garg",
+    "email": "sanyam22448@iiitd.ac.in",
+    "github": "https://github.com/SanyamGarg12"
+  }
+}

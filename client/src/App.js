@@ -40,6 +40,7 @@ import AdminManageSlots from './components/AdminManageSlots';
 import ManageSupervisors from './components/ManageSupervisors';
 import ManageCategories from './components/ManageCategories';
 import ManageFooter from './components/ManageFooter';
+import ManageContact from './components/ManageContact';
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -279,6 +280,11 @@ const App = () => {
                       <Route path="/footer" element={
                         <AdminProtectedRoute>
                           <ManageFooter />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/contact" element={
+                        <AdminProtectedRoute>
+                          <ManageContact />
                         </AdminProtectedRoute>
                       } />
                     </Routes>
