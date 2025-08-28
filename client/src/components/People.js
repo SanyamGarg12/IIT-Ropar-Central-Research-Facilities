@@ -48,21 +48,68 @@ const People = () => {
       member.designation.toLowerCase() !== 'vice chairman'
   );
 
-  const staffOrder = [
+  // Define the hierarchy order for staff members
+  const staffHierarchy = [
+    'consultant',
+    'senior technical officer',
     'technical officer',
     'technical superintendent',
     'junior technical superintendent',
+    'senior lab assistant',
+    'junior lab assistant',
     'operator'
   ];
 
-  const sortedStaff = staff.sort((a, b) => {
-    const aIndex = staffOrder.indexOf(a.designation.toLowerCase());
-    const bIndex = staffOrder.indexOf(b.designation.toLowerCase());
-    if (aIndex === -1 && bIndex === -1) return 0;
-    if (aIndex === -1) return 1;
-    if (bIndex === -1) return -1;
-    return aIndex - bIndex;
-  });
+  // Group staff members by their designation hierarchy
+  const groupStaffByHierarchy = (staffList) => {
+    const grouped = {};
+    
+    // Initialize all hierarchy levels
+    staffHierarchy.forEach(level => {
+      grouped[level] = [];
+    });
+
+    // Group staff members by their designation
+    staffList.forEach(member => {
+      const designation = member.designation.toLowerCase();
+      console.log('Processing designation:', designation);
+      
+      // More specific matching logic to avoid false positives
+      if (designation.includes('consultant')) {
+        grouped['consultant'].push(member);
+        console.log('Added to consultant:', member.name);
+      } else if (designation.includes('junior technical supritendent') || designation.includes('junior technical superintendent')) {
+        grouped['junior technical superintendent'].push(member);
+        console.log('Added to junior technical superintendent:', member.name);
+      } else if (designation.includes('senior technical officer')) {
+        grouped['senior technical officer'].push(member);
+        console.log('Added to senior technical officer:', member.name);
+      } else if (designation.includes('technical officer')) {
+        grouped['technical officer'].push(member);
+        console.log('Added to technical officer:', member.name);
+      } else if (designation.includes('technical supritendent') || designation.includes('technical superintendent')) {
+        grouped['technical superintendent'].push(member);
+        console.log('Added to technical superintendent:', member.name);
+      } else if (designation.includes('senior lab assistant')) {
+        grouped['senior lab assistant'].push(member);
+        console.log('Added to senior lab assistant:', member.name);
+      } else if (designation.includes('junior lab assistant')) {
+        grouped['junior lab assistant'].push(member);
+        console.log('Added to junior lab assistant:', member.name);
+      } else if (designation.includes('operator')) {
+        grouped['operator'].push(member);
+        console.log('Added to operator:', member.name);
+      } else {
+        // Default to operator if no match found
+        grouped['operator'].push(member);
+        console.log('Defaulted to operator:', member.name, 'with designation:', designation);
+      }
+    });
+
+    return grouped;
+  };
+
+  const groupedStaff = groupStaffByHierarchy(staff);
 
   const getImageUrl = (imagePath) => {
     // return null;
@@ -239,13 +286,30 @@ const People = () => {
               Staff Members
             </motion.h1>
             
-            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12" variants={containerVariants}>
-              {sortedStaff.map((staffMember) => (
-                <motion.div key={staffMember.id} variants={itemVariants} className="col-span-1">
-                  <h2 className="text-2xl font-semibold text-center text-gray-700 mb-8">{staffMember.designation}</h2>
-                  <PersonCard person={staffMember} isStaff={true} />
-                </motion.div>
-              ))}
+            <motion.div className="space-y-16" variants={containerVariants}>
+              {staffHierarchy.map((hierarchyLevel) => {
+                const staffInLevel = groupedStaff[hierarchyLevel];
+                if (staffInLevel.length === 0) return null;
+
+                                 return (
+                   <motion.div key={hierarchyLevel} variants={itemVariants}>
+                     <h2 className="text-3xl font-semibold text-center text-gray-700 mb-8 capitalize">
+                       {hierarchyLevel === 'operator' ? 'Operators' : hierarchyLevel.replace(/([A-Z])/g, ' $1').trim()}
+                     </h2>
+                     <div className={`grid gap-12 ${
+                       staffInLevel.length === 1 
+                         ? 'grid-cols-1 justify-items-center' 
+                         : staffInLevel.length === 2 
+                         ? 'grid-cols-1 md:grid-cols-2 justify-items-center' 
+                         : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                     }`}>
+                       {staffInLevel.map((staffMember) => (
+                         <PersonCard key={staffMember.id} person={staffMember} isStaff={true} />
+                       ))}
+                     </div>
+                   </motion.div>
+                 );
+              })}
             </motion.div>
           </>
         )}
