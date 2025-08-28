@@ -1416,6 +1416,10 @@ app.get('/api/admin/operators-bookings', authenticateToken, (req, res) => {
               'cost', bh.cost,
               'schedule_id', bh.schedule_id,
               'receipt_path', bh.receipt_path,
+              'billing_address', bh.billing_address,
+              'gst_number', bh.gst_number,
+              'utr_number', bh.utr_number,
+              'transaction_date', bh.transaction_date,
               'bifurcations', (
                 SELECT JSON_ARRAYAGG(
                   JSON_OBJECT(
@@ -1587,7 +1591,19 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
   const userId = req.user.userId;
   const query = `
   SELECT
-    bh.*,
+    bh.booking_id,
+    bh.user_id,
+    bh.facility_id,
+    bh.schedule_id,
+    bh.booking_date,
+    bh.status,
+    bh.cost,
+    bh.receipt_path,
+    bh.operator_email,
+    bh.billing_address,
+    bh.gst_number,
+    bh.utr_number,
+    bh.transaction_date,
     f.name as facility_name,
     fs.start_time,
     fs.end_time,
@@ -1649,6 +1665,10 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
       bh.schedule_id,
       bh.booking_id,
       bh.receipt_path,
+      bh.billing_address,
+      bh.gst_number,
+      bh.utr_number,
+      bh.transaction_date,
       GROUP_CONCAT(
         JSON_OBJECT(
           'bifurcation_name', fb.bifurcation_name,
@@ -3494,7 +3514,21 @@ app.post('/api/booking-bifurcations', authenticateToken, (req, res) => {
 
 // Modify the existing booking endpoint
 app.post('/api/booking', authenticateToken, (req, res) => {
-  const { facility_id, date, schedule_id, user_id, operator_email, cost, user_type, receipt_path, bifurcation_ids } = req.body;
+  const { 
+    facility_id, 
+    date, 
+    schedule_id, 
+    user_id, 
+    operator_email, 
+    cost, 
+    user_type, 
+    receipt_path, 
+    bifurcation_ids,
+    billing_address,
+    gst_number,
+    utr_number,
+    transaction_date
+  } = req.body;
   
   // Check if user is internal (no payment required)
   const isInternalUser = user_type === 'Internal';
@@ -3504,17 +3538,46 @@ app.post('/api/booking', authenticateToken, (req, res) => {
     return res.status(400).json({ message: "Receipt is required for non-internal users" });
   }
   
-  // For internal users, set receipt_path to null or a placeholder
+  // For non-internal users, validate required billing fields
+  if (!isInternalUser) {
+    if (!billing_address) {
+      return res.status(400).json({ message: "Billing address is required for non-internal users" });
+    }
+    if (!utr_number) {
+      return res.status(400).json({ message: "UTR number is required for non-internal users" });
+    }
+    if (!transaction_date) {
+      return res.status(400).json({ message: "Transaction date is required for non-internal users" });
+    }
+  }
+  
+  // For internal users, set receipt_path and billing fields to null
   const finalReceiptPath = isInternalUser ? null : receipt_path;
+  const finalBillingAddress = isInternalUser ? null : billing_address;
+  const finalGstNumber = isInternalUser ? null : gst_number;
+  const finalUtrNumber = isInternalUser ? null : utr_number;
+  const finalTransactionDate = isInternalUser ? null : transaction_date;
   
   // First create the booking
   const bookingQuery = `
     INSERT INTO BookingHistory 
-    (facility_id, booking_date, schedule_id, user_id, operator_email, cost, receipt_path) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    (facility_id, booking_date, schedule_id, user_id, operator_email, cost, receipt_path, billing_address, gst_number, utr_number, transaction_date) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(bookingQuery, [facility_id, date, schedule_id, user_id, operator_email, cost, finalReceiptPath], (err, result) => {
+  db.query(bookingQuery, [
+    facility_id, 
+    date, 
+    schedule_id, 
+    user_id, 
+    operator_email, 
+    cost, 
+    finalReceiptPath,
+    finalBillingAddress,
+    finalGstNumber,
+    finalUtrNumber,
+    finalTransactionDate
+  ], (err, result) => {
     if (err) {
       console.error('Error creating booking:', err);
       return res.status(500).json({ message: 'Failed to create booking' });

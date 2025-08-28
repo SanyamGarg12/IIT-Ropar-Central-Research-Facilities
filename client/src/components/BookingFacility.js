@@ -35,6 +35,10 @@ function BookingFacility({ authToken }) {
   const navigate = useNavigate();
   const [qrCodeImage, setQrCodeImage] = useState(null);
   const [imageError, setImageError] = useState(false);
+  const [billingAddress, setBillingAddress] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [utrNumber, setUtrNumber] = useState("");
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split("T")[0]);
 
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
     const now = new Date();
@@ -362,7 +366,11 @@ function BookingFacility({ authToken }) {
           cost: totalCost,
           user_type: userType,
           receipt_path: receiptPath,
-          bifurcation_ids: selectedBifurcations
+          bifurcation_ids: selectedBifurcations,
+          billing_address: billingAddress,
+          gst_number: gstNumber,
+          utr_number: utrNumber,
+          transaction_date: transactionDate
         },
         { 
           headers: { 
@@ -708,6 +716,85 @@ function BookingFacility({ authToken }) {
                   }
                 })()}
 
+                {/* Billing Information Section - Only for non-internal users */}
+                {(() => {
+                  const token = localStorage.getItem("authToken");
+                  const decoded = jwtDecode(token);
+                  const userType = decoded.userType;
+                  const isInternalUser = userType === 'Internal';
+                  
+                  if (!isInternalUser) {
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                        <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                          <Building2 className="w-5 h-5 mr-2 text-blue-500" />
+                          Billing Information
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Please provide the following billing details for your booking.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Billing Address <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                              value={billingAddress}
+                              onChange={(e) => setBillingAddress(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              rows="3"
+                              placeholder="Enter your complete billing address"
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              GST Number
+                            </label>
+                            <input
+                              type="text"
+                              value={gstNumber}
+                              onChange={(e) => setGstNumber(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Enter GST number (if applicable)"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              UTR Number <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={utrNumber}
+                              onChange={(e) => setUtrNumber(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Enter UTR number"
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Date of Transaction <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              value={transactionDate}
+                              onChange={(e) => setTransactionDate(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Booking Summary and Action */}
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                   <div className="flex items-center justify-between mb-4">
@@ -729,7 +816,14 @@ function BookingFacility({ authToken }) {
                       const userType = decoded.userType;
                       const isInternalUser = userType === 'Internal';
                       
-                      return !selectedScheduleId || !facilityId || (!isInternalUser && !receipt) || isLoading || selectedBifurcations.length === 0;
+                      const basicValidation = !selectedScheduleId || !facilityId || isLoading || selectedBifurcations.length === 0;
+                      
+                      if (isInternalUser) {
+                        return basicValidation;
+                      } else {
+                        // For non-internal users, also check receipt and billing fields
+                        return basicValidation || !receipt || !billingAddress || !utrNumber || !transactionDate;
+                      }
                     })()}
                   >
                     {isLoading ? (

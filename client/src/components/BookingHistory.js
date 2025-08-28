@@ -555,6 +555,39 @@ function BookingCard({
                 <div>
                   <span className="font-semibold">Status Notes:</span> {getStatusMessage(booking.status, isInternalUser)}
                 </div>
+                
+                {/* Billing Information for Non-Internal Users */}
+                {!isInternalUser && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="font-semibold text-gray-700 mb-3">Billing Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <span className="font-medium text-gray-600">Billing Address:</span>
+                        <p className="text-gray-800 mt-1">
+                          {booking.billing_address || 'Not provided'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-600">GST Number:</span>
+                        <p className="text-gray-800 mt-1">
+                          {booking.gst_number || 'Not provided'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-600">UTR Number:</span>
+                        <p className="text-gray-800 mt-1">
+                          {booking.utr_number || 'Not provided'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-600">Transaction Date:</span>
+                        <p className="text-gray-800 mt-1">
+                          {booking.transaction_date ? new Date(booking.transaction_date).toLocaleDateString() : 'Not provided'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

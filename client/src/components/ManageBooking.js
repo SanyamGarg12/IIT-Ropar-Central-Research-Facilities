@@ -450,6 +450,39 @@ const ManageBooking = () => {
                       )}
                     </div>
 
+                    {/* Billing Information Section - Only for non-internal users */}
+                    {request.user_type !== 'Internal' && (
+                      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Billing Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Billing Address</p>
+                            <p className="text-sm font-medium text-gray-800">
+                              {request.billing_address || 'Not provided'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">GST Number</p>
+                            <p className="text-sm font-medium text-gray-800">
+                              {request.gst_number || 'Not provided'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">UTR Number</p>
+                            <p className="text-sm font-medium text-gray-800">
+                              {request.utr_number || 'Not provided'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Transaction Date</p>
+                            <p className="text-sm font-medium text-gray-800">
+                              {request.transaction_date ? new Date(request.transaction_date).toLocaleDateString() : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Bifurcations Section */}
                     {request.bifurcations && request.bifurcations.length > 0 && (
                       <div className="bg-gray-50 p-4 rounded-lg mb-6">

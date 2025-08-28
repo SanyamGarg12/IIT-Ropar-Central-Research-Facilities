@@ -344,6 +344,40 @@ const AdminManageBooking = () => {
                                       )}
                                     </div>
                                   </div>
+
+                                  {/* Billing Information Section - Only for non-internal users */}
+                                  {booking.user_type !== 'Internal' && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                      <h4 className="text-xs font-semibold text-gray-700 mb-2">Billing Information</h4>
+                                      <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                          <p className="text-gray-500">Billing Address:</p>
+                                          <p className="font-medium text-gray-800 truncate">
+                                            {booking.billing_address || 'Not provided'}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-gray-500">GST Number:</p>
+                                          <p className="font-medium text-gray-800">
+                                            {booking.gst_number || 'Not provided'}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-gray-500">UTR Number:</p>
+                                          <p className="font-medium text-gray-800">
+                                            {booking.utr_number || 'Not provided'}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-gray-500">Transaction Date:</p>
+                                          <p className="font-medium text-gray-800">
+                                            {booking.transaction_date ? new Date(booking.transaction_date).toLocaleDateString() : 'Not provided'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   <div className="flex flex-col items-end">
                                     <p className="text-gray-600">
                                       <span className="font-medium">Status:</span> {booking.status}
