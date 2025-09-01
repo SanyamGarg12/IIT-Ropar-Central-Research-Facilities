@@ -402,7 +402,7 @@ const ContactUs = () => {
       </div>
       <div className="flex flex-col items-center justify-center mt-12 mb-4">
         <span className="text-gray-600 text-sm">
-          Managed by{' '}
+          Developed and Maintained by{' '}
           <a
             href={`mailto:${contactContent.footer?.email || 'sanyam22448@iiitd.ac.in'}`}
             className="text-blue-600 font-semibold hover:underline hover:text-blue-800 transition"

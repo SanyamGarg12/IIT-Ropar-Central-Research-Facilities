@@ -294,7 +294,7 @@ const People = () => {
                                  return (
                    <motion.div key={hierarchyLevel} variants={itemVariants}>
                      <h2 className="text-3xl font-semibold text-center text-gray-700 mb-8 capitalize">
-                       {hierarchyLevel === 'operator' ? 'Operators' : hierarchyLevel.replace(/([A-Z])/g, ' $1').trim()}
+                       {hierarchyLevel === 'operator' ? 'Instrument InCharge' : hierarchyLevel.replace(/([A-Z])/g, ' $1').trim()}
                      </h2>
                      <div className={`grid gap-12 ${
                        staffInLevel.length === 1 

@@ -5,12 +5,12 @@
       "path": "/login"
     },
     {
-      "name": "Home",
-      "path": "/"
-    },
-    {
       "name": "About",
       "path": "/about"
+    },
+    {
+      "name": "Home",
+      "path": "/"
     },
     {
       "name": "Contact Us",

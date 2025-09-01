@@ -72,14 +72,6 @@
         {
           "name": "Main Gate (Gate 1)",
           "description": "24/7 access for vehicles and pedestrians"
-        },
-        {
-          "name": "Gate 2 (Residential Area)",
-          "description": "Open 6 AM to 10 PM for residents"
-        },
-        {
-          "name": "Gate 3 (Service Gate)",
-          "description": "Restricted access for service vehicles"
         }
       ]
     },
