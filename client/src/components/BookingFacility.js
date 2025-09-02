@@ -55,23 +55,29 @@ function BookingFacility({ authToken }) {
   }, []);
 
   const getBifurcationPrice = useCallback((bifurcation) => {
-    const token = localStorage.getItem("authToken");
-    const decoded = jwtDecode(token);
-    const userType = decoded.userType.toLowerCase();
+    if (!authToken) return bifurcation.price_external;
     
-    switch (userType) {
-      case 'internal':
-        return bifurcation.price_internal;
-      case 'internal consultancy':
-        return bifurcation.price_internal_consultancy;
-      case 'government r&d lab or external academics':
-        return bifurcation.price_external;
-      case 'private industry or private r&d lab':
-        return bifurcation.price_industry;
-      default:
-        return bifurcation.price_external;
+    try {
+      const decoded = jwtDecode(authToken);
+      const userType = decoded.userType.toLowerCase();
+      
+      switch (userType) {
+        case 'internal':
+          return bifurcation.price_internal;
+        case 'internal consultancy':
+          return bifurcation.price_internal_consultancy;
+        case 'government r&d lab or external academics':
+          return bifurcation.price_external;
+        case 'private industry or private r&d lab':
+          return bifurcation.price_industry;
+        default:
+          return bifurcation.price_external;
+      }
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return bifurcation.price_external;
     }
-  }, []);
+  }, [authToken]);
 
   const calculateTotalCost = useCallback((startTime, endTime) => {
     if (!startTime || !endTime) return 0;
@@ -163,7 +169,6 @@ function BookingFacility({ authToken }) {
     }
     setIsLoading(true);
     try {
-      const authToken = localStorage.getItem('authToken');
       if (!authToken) {
         alert('Authentication token not found. Please log in again.');
         navigate("/login");
@@ -172,7 +177,7 @@ function BookingFacility({ authToken }) {
       const response = await axios.get(
         `${API_BASED_URL}api/slots?facility_id=${facilityId}&date=${date}`,
         {
-          header: {
+          headers: {
             Authorization: authToken
           }
         }
@@ -191,7 +196,7 @@ function BookingFacility({ authToken }) {
     } finally {
       setIsLoading(false);
     }
-  }, [facilityId, date, navigate]);
+  }, [facilityId, date, navigate, authToken]);
 
   const fetchWeeklySlots = useCallback(async () => {
     if (!facilityId) {
@@ -200,7 +205,6 @@ function BookingFacility({ authToken }) {
     }
     setIsLoading(true);
     try {
-      const authToken = localStorage.getItem('authToken');
       if (!authToken) {
         alert('Authentication token not found. Please log in again.');
         navigate("/login");
@@ -209,6 +213,11 @@ function BookingFacility({ authToken }) {
 
       const response = await axios.get(
         `${API_BASED_URL}api/weekly-slots?facilityId=${facilityId}`,
+        {
+          headers: {
+            Authorization: authToken
+          }
+        }
       );
       if (response.status && (response.status === 401 || response.status === 403)) {
         alert("Session expired. Please log in again.");
@@ -222,7 +231,7 @@ function BookingFacility({ authToken }) {
     } finally {
       setIsLoading(false);
     }
-  }, [facilityId, navigate]);
+  }, [facilityId, navigate, authToken]);
 
   useEffect(() => {
     const fetchFacilities = async () => {

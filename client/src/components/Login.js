@@ -169,7 +169,6 @@ const Login = ({ onLogin }) => {
           >
             <option value="">Select User Type</option>
             <option value="Internal">Internal</option>
-            <option value="Internal Consultancy">Internal Consultancy</option>
             <option value="Government R&D Lab or External Academics">Government R&D Lab or External Academics</option>
             <option value="Private Industry or Private R&D Lab">Private Industry or Private R&D Lab</option>
           </select>

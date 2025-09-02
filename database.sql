@@ -1947,8 +1947,9 @@ CREATE TABLE FacilitySchedule (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     total_slots INT,
+    user_type ENUM('Internal', 'Government R&D Lab or External Academics', 'Private Industry or Private R&D Lab', 'SuperUser') NOT NULL,
     FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
-    UNIQUE (facility_id, weekday, start_time, end_time)
+    UNIQUE (facility_id, weekday, start_time, end_time, user_type)
 );
 
 -- Create the BookingHistory table
@@ -2252,6 +2253,14 @@ CREATE TABLE IF NOT EXISTS qr_code (
   image_url VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ); 
+
+CREATE TABLE IF NOT EXISTS email_otps (
+      email VARCHAR(255) PRIMARY KEY,
+      otp_hash VARCHAR(255) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      attempts INT NOT NULL DEFAULT 0,
+      last_sent_at DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -- Now insert data in the correct order
 -- -- Insert data into Categories

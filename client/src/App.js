@@ -56,7 +56,7 @@ const App = () => {
   };
 
   const ProtectedRoute = ({ children }) => {
-    return authToken ? children : <Navigate to="/login" />;
+    return authToken ? React.cloneElement(children, { authToken }) : <Navigate to="/login" />;
   };
 
   const AdminProtectedRoute = ({ children }) => {

@@ -34,6 +34,15 @@ const Register = () => {
   const [registrationAttempts, setRegistrationAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // OTP state
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpCooldownMs, setOtpCooldownMs] = useState(0);
+  const [otpSent, setOtpSent] = useState(false);
+
   const navigate = useNavigate();
 
   // Create rate limiter instance with increased limits
@@ -66,6 +75,14 @@ const Register = () => {
       return () => clearInterval(timer);
     }
   }, [lockoutTime, formData.email]);
+
+  // OTP resend cooldown timer
+  useEffect(() => {
+    if (otpCooldownMs > 0) {
+      const t = setInterval(() => setOtpCooldownMs((ms) => Math.max(0, ms - 1000)), 1000);
+      return () => clearInterval(t);
+    }
+  }, [otpCooldownMs]);
 
   useEffect(() => {
     if (formData.userType === "Internal") {
@@ -113,6 +130,12 @@ const Register = () => {
       ...prev,
       [name]: sanitizeInput(value)
     }));
+
+    if (name === 'email') {
+      setEmailVerified(false);
+      setOtp("");
+      setOtpSent(false);
+    }
   };
 
   const compressImage = async (file) => {
@@ -205,9 +228,76 @@ const Register = () => {
     }
   };
 
+  const handleSendOtp = async () => {
+    setErrorMessage("");
+    if (!validateEmail(formData.email)) {
+      setErrorMessage("Please enter a valid email address");
+      return;
+    }
+    try {
+      setOtpSending(true);
+      const response = await fetch(`${API_BASED_URL}auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 429 && data.message) {
+          const match = data.message.match(/(\d+)s/);
+          if (match) setOtpCooldownMs(parseInt(match[1], 10) * 1000);
+        }
+        throw new Error(data.message || 'Failed to send OTP');
+      }
+      // set cooldown explicitly to 10s
+      setOtpCooldownMs(10000);
+      setOtpSent(true);
+    } catch (err) {
+      setErrorMessage(err.message);
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setErrorMessage("");
+    if (!otp || otp.length !== 6) {
+      setErrorMessage("Enter the 6-digit OTP sent to your email");
+      return;
+    }
+    if (!otpSent) {
+      setErrorMessage("Please send an OTP to your email first.");
+      return;
+    }
+    try {
+      setOtpVerifying(true);
+      const response = await fetch(`${API_BASED_URL}auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        console.error('OTP verify error:', data);
+        throw new Error(data.message || 'OTP verification failed');
+      }
+      setEmailVerified(true);
+    } catch (err) {
+      setEmailVerified(false);
+      setErrorMessage(err.message);
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
+
+    if (!emailVerified) {
+      setErrorMessage("Please verify your email with OTP before registering.");
+      return;
+    }
 
     // Check if user is locked out
     if (lockoutTime) {
@@ -327,7 +417,7 @@ const Register = () => {
             <p className="mt-2 text-center text-gray-100">Join our research facility community</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="p-8 space-y-6" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
@@ -347,17 +437,49 @@ const Register = () => {
 
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    disabled={!!lockoutTime}
-                    autoComplete="email"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      disabled={!!lockoutTime}
+                      autoComplete="email"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={otpSending || otpCooldownMs > 0 || !validateEmail(formData.email)}
+                      className={`shrink-0 px-2 py-1 rounded-md text-xs sm:text-sm font-medium text-white ${otpSending || otpCooldownMs > 0 || !validateEmail(formData.email) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#003B4C] hover:bg-[#00B6BD]'} transition-colors`}
+                    >
+                      {otpSending ? 'Sending...' : otpCooldownMs > 0 ? `Resend in ${Math.ceil(otpCooldownMs/1000)}s` : 'Send OTP'}
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Enter 6-digit OTP"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0,6))}
+                      className="w-full sm:flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors px-3 py-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={otpVerifying || otp.length !== 6}
+                      className={`shrink-0 px-2 py-1 rounded-md text-xs sm:text-sm font-medium text-white ${otpVerifying || otp.length !== 6 ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} transition-colors`}
+                    >
+                      {otpVerifying ? 'Verifying...' : 'Verify'}
+                    </button>
+                  </div>
+                  {emailVerified && (
+                    <p className="text-green-600 text-sm mt-1">Email verified</p>
+                  )}
                 </div>
 
                 <div>
@@ -407,7 +529,6 @@ const Register = () => {
                   >
                     <option value="">Select User Type</option>
                     <option value="Internal">Internal</option>
-                    <option value="Internal Consultancy">Internal Consultancy</option>
                     <option value="Government R&D Lab or External Academics">Government R&D Lab or External Academics</option>
                     <option value="Private Industry or Private R&D Lab">Private Industry or Private R&D Lab</option>
                   </select>
@@ -574,9 +695,9 @@ const Register = () => {
             <div className="flex items-center justify-end">
               <button
                 type="submit"
-                disabled={isLoading || !!lockoutTime}
+                disabled={isLoading || !!lockoutTime || !emailVerified}
                 className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
-                  ${isLoading || lockoutTime 
+                  ${isLoading || lockoutTime || !emailVerified
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-[#003B4C] hover:bg-[#00B6BD] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B6BD]'
                   } transition-colors duration-200`}
@@ -587,7 +708,7 @@ const Register = () => {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 ) : null}
-                {isLoading ? "Registering..." : "Register"}
+                {isLoading ? "Registering..." : emailVerified ? "Register" : "Verify Email to Register"}
               </button>
             </div>
           </form>

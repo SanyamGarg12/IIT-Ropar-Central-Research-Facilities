@@ -2137,30 +2137,32 @@ function getWeekday(dateString) {
   return days[date.getDay()];
 }
 
-app.get("/api/slots", async (req, res) => {
+app.get("/api/slots", authenticateToken, async (req, res) => {
   const { facility_id, date } = req.query;
+  
+  // Get user type from JWT token (already decoded by authenticateToken middleware)
+  const userType = req.user.userType;
 
   // Check if the facility can be available on that weekday and find the number of slots
   const day = getWeekday(date);
 
   const checkSlotsQuery = `
-    SELECT schedule_id, start_time, end_time, total_slots 
+    SELECT schedule_id, start_time, end_time, total_slots, user_type
     FROM facilityschedule 
-    WHERE facility_id = ? AND weekday = ?
+    WHERE facility_id = ? AND weekday = ? AND user_type = ?
   `;
 
   try {
-    // Using await to fetch total slots
+    // Using await to fetch total slots for the specific user type
     const [totalSlots] = await db
       .promise()
-      .query(checkSlotsQuery, [facility_id, day]);
+      .query(checkSlotsQuery, [facility_id, day, userType]);
 
     if (totalSlots.length === 0) {
       return res
         .status(200)
         .json({ slots: [] });
     }
-
 
     // Check if any slots are already booked
     const checkBookedSlotsQuery = `
@@ -2173,7 +2175,6 @@ app.get("/api/slots", async (req, res) => {
     const [bookedSlots] = await db
       .promise()
       .query(checkBookedSlotsQuery, [facility_id, date]);
-
 
     // Extract schedule_ids of booked slots
     const bookedSlotIds = bookedSlots
@@ -2436,12 +2437,15 @@ app.post('/api/add-operator', authenticateToken, (req, res) => {
   });
 });
 
-app.get('/api/weekly-slots', (req, res) => {
+app.get('/api/weekly-slots', authenticateToken, (req, res) => {
   const { facilityId } = req.query;  // Changed from operatorId to facilityId
 
   if (!facilityId) {
     return res.status(400).json({ message: 'Facility ID is required' });
   }
+
+  // Get user type from JWT token (already decoded by authenticateToken middleware)
+  const userType = req.user.userType;
 
   // Query to fetch the selected facility
   db.query('SELECT id, name FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
@@ -2456,8 +2460,8 @@ app.get('/api/weekly-slots', (req, res) => {
 
     const facility = rows[0];  // Assuming only one facility is returned
 
-    // Query to fetch the schedule for the selected facility
-    db.query('SELECT weekday, start_time, end_time FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
+    // Query to fetch the schedule for the selected facility and user type
+    db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = ?', [facility.id, userType], (err, schedule) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ message: 'Failed to fetch schedule' });
@@ -2522,6 +2526,68 @@ app.get('/facilities/slots', authenticateToken, (req, res) => {
         }
       });
     });
+  });
+});
+
+// Fetch facilities and their slots for admin with user type filtering
+app.get('/admin/facilities/slots', authenticateToken, (req, res) => {
+  db.query('SELECT id, name FROM facilities', (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to fetch facilities' });
+    }
+
+    const facilities = [];
+    let pending = rows.length;
+
+    if (pending === 0) {
+      return res.json(facilities);
+    }
+
+    rows.forEach((facility) => {
+      db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Failed to fetch schedule' });
+        }
+
+        const slots = schedule.reduce((acc, { weekday, start_time, end_time, user_type }) => {
+          if (!acc[weekday]) acc[weekday] = [];
+          acc[weekday].push({ start_time, end_time, user_type });
+          return acc;
+        }, {});
+
+        facilities.push({ ...facility, slots });
+
+        if (--pending === 0) {
+          res.json(facilities);
+        }
+      });
+    });
+  });
+});
+
+// Fetch slots for a specific facility and user type
+app.get('/admin/facilities/slots/:facilityId/:userType', authenticateToken, (req, res) => {
+  const { facilityId, userType } = req.params;
+
+  if (!facilityId || !userType) {
+    return res.status(400).json({ message: 'Facility ID and user type are required' });
+  }
+
+  db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = ?', [facilityId, userType], (err, schedule) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Failed to fetch schedule' });
+    }
+
+    const slots = schedule.reduce((acc, { weekday, start_time, end_time, user_type }) => {
+      if (!acc[weekday]) acc[weekday] = [];
+      acc[weekday].push({ start_time, end_time, user_type });
+      return acc;
+    }, {});
+
+    res.json({ slots });
   });
 });
 
@@ -2641,9 +2707,9 @@ app.get('/admin/facilities/slots', authenticateToken, (req, res) => {
 // Admin add slot endpoint
 app.post('/admin/slots', authenticateToken, (req, res) => {
 
-  const { facilityId, weekday, start_time, end_time } = req.body;
+  const { facilityId, weekday, start_time, end_time, user_type } = req.body;
 
-  if (!facilityId || !weekday || !start_time || !end_time) {
+  if (!facilityId || !weekday || !start_time || !end_time || !user_type) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
@@ -2658,10 +2724,10 @@ app.post('/admin/slots', authenticateToken, (req, res) => {
       return res.status(404).json({ message: 'Facility not found' });
     }
 
-    // Check if slot already exists
+    // Check if slot already exists for this user type
     db.query(
-      'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
-      [facilityId, weekday, start_time, end_time],
+      'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ?',
+      [facilityId, weekday, start_time, end_time, user_type],
       (err, existingSlots) => {
         if (err) {
           console.error(err);
@@ -2669,13 +2735,13 @@ app.post('/admin/slots', authenticateToken, (req, res) => {
         }
 
         if (existingSlots.length > 0) {
-          return res.status(400).json({ message: 'Slot already exists for this time period' });
+          return res.status(400).json({ message: 'Slot already exists for this time period and user type' });
         }
 
         // Add the new slot
         db.query(
-          'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)',
-          [facilityId, weekday, start_time, end_time],
+          'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time, user_type) VALUES (?, ?, ?, ?, ?)',
+          [facilityId, weekday, start_time, end_time, user_type],
           (err) => {
             if (err) {
               console.error(err);
@@ -2724,16 +2790,35 @@ app.delete('/admin/slots', authenticateToken, (req, res) => {
           return res.status(400).json({ message: 'Cannot delete slot with existing bookings' });
         }
 
-        // Delete the slot
+        // Delete the slot (we need to get the user_type from the slot data)
+        // First get the slot details to find the user_type
         db.query(
-          'DELETE FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+          'SELECT user_type FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
           [facilityId, weekday, slot.start_time, slot.end_time],
-          (err) => {
+          (err, slotResults) => {
             if (err) {
               console.error(err);
-              return res.status(500).json({ message: 'Failed to delete slot' });
+              return res.status(500).json({ message: 'Failed to get slot details' });
             }
-            res.json({ message: 'Slot deleted successfully' });
+
+            if (slotResults.length === 0) {
+              return res.status(404).json({ message: 'Slot not found' });
+            }
+
+            const userType = slotResults[0].user_type;
+
+            // Delete the slot with user_type
+            db.query(
+              'DELETE FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ?',
+              [facilityId, weekday, slot.start_time, slot.end_time, userType],
+              (err) => {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).json({ message: 'Failed to delete slot' });
+                }
+                res.json({ message: 'Slot deleted successfully' });
+              }
+            );
           }
         );
       }
@@ -2775,7 +2860,7 @@ app.put('/admin/slots', authenticateToken, (req, res) => {
           return res.status(400).json({ message: 'Cannot update slot with existing bookings' });
         }
 
-        // Check if new slot time conflicts with existing slots
+        // Check if new slot time conflicts with existing slots for the same user type
         db.query(
           'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND (start_time != ? OR end_time != ?)',
           [facilityId, weekday, newSlot.start_time, newSlot.end_time, oldSlot.start_time, oldSlot.end_time],
@@ -2789,16 +2874,34 @@ app.put('/admin/slots', authenticateToken, (req, res) => {
               return res.status(400).json({ message: 'New slot time conflicts with existing slots' });
             }
 
-            // Update the slot
+            // Get the user_type from the old slot to maintain it
             db.query(
-              'UPDATE facilityschedule SET start_time = ?, end_time = ? WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
-              [newSlot.start_time, newSlot.end_time, facilityId, weekday, oldSlot.start_time, oldSlot.end_time],
-              (err) => {
+              'SELECT user_type FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+              [facilityId, weekday, oldSlot.start_time, oldSlot.end_time],
+              (err, slotResults) => {
                 if (err) {
                   console.error(err);
-                  return res.status(500).json({ message: 'Failed to update slot' });
+                  return res.status(500).json({ message: 'Failed to get slot details' });
                 }
-                res.json({ message: 'Slot updated successfully' });
+
+                if (slotResults.length === 0) {
+                  return res.status(404).json({ message: 'Slot not found' });
+                }
+
+                const userType = slotResults[0].user_type;
+
+                // Update the slot
+                db.query(
+                  'UPDATE facilityschedule SET start_time = ?, end_time = ? WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ?',
+                  [newSlot.start_time, newSlot.end_time, facilityId, weekday, oldSlot.start_time, oldSlot.end_time, userType],
+                  (err) => {
+                    if (err) {
+                      console.error(err);
+                      return res.status(500).json({ message: 'Failed to update slot' });
+                    }
+                    res.json({ message: 'Slot updated successfully' });
+                  }
+                );
               }
             );
           }
@@ -4409,5 +4512,147 @@ app.post('/api/contact-content/hero-image', upload.single('image'), async (req, 
   } catch (error) {
     console.error('Error updating hero image:', error);
     res.status(500).json({ error: 'Failed to update hero image' });
+  }
+});
+
+const OTP_EXPIRY_MS = 15 * 60 * 1000; 
+const OTP_RESEND_COOLDOWN_MS = 10 * 1000;
+const OTP_MAX_VERIFY_ATTEMPTS = 5; 
+
+app.post('/auth/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    // Basic email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format.' });
+    }
+
+    // Check resend cooldown
+    db.query('SELECT last_sent_at FROM email_otps WHERE email = ?', [email], async (selErr, rows) => {
+      if (selErr) {
+        console.error('OTP select error:', selErr);
+        return res.status(500).json({ message: 'Server error.' });
+      }
+
+      const now = new Date();
+      if (rows && rows.length > 0 && rows[0].last_sent_at) {
+        const last = new Date(rows[0].last_sent_at);
+        if (now - last < OTP_RESEND_COOLDOWN_MS) {
+          const waitMs = OTP_RESEND_COOLDOWN_MS - (now - last);
+          return res.status(429).json({ message: `Please wait ${Math.ceil(waitMs / 1000)}s before resending.` });
+        }
+      }
+
+      // Generate 6-digit numeric OTP
+      const otp = ('' + Math.floor(100000 + Math.random() * 900000));
+      const salt = await bcrypt.genSalt(10);
+      const otpHash = await bcrypt.hash(otp, salt);
+      const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+
+      // Upsert OTP
+      const upsertSql = `
+        INSERT INTO email_otps (email, otp_hash, expires_at, attempts, last_sent_at)
+        VALUES (?, ?, ?, 0, ?)
+        ON DUPLICATE KEY UPDATE
+          otp_hash = VALUES(otp_hash),
+          expires_at = VALUES(expires_at),
+          attempts = 0,
+          last_sent_at = VALUES(last_sent_at)
+      `;
+      db.query(upsertSql, [email, otpHash, expiresAt, now], async (upErr) => {
+        if (upErr) {
+          console.error('OTP upsert error:', upErr);
+          return res.status(500).json({ message: 'Server error.' });
+        }
+
+        try {
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Your OTP for Email Verification',
+            html: `
+              <div style="font-family:Arial,sans-serif;line-height:1.6;color:#222">
+                <h2 style="color:#003B4C;margin-bottom:8px">Email Verification</h2>
+                <p>Your One-Time Password (OTP) is:</p>
+                <div style="font-size:24px;font-weight:bold;letter-spacing:4px;margin:12px 0">${otp}</div>
+                <p>This code will expire in 15 minutes. Do not share it with anyone.</p>
+                <p style="color:#666;font-size:12px">If you did not request this, you can ignore this email.</p>
+              </div>
+            `,
+          };
+
+          await transporter.sendMail(mailOptions);
+          return res.json({ success: true, message: 'OTP sent successfully.' });
+        } catch (emailErr) {
+          console.error('Error sending OTP email:', emailErr);
+          return res.status(500).json({ message: 'Failed to send OTP email.' });
+        }
+      });
+    });
+  } catch (e) {
+    console.error('send-otp error:', e);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+app.post('/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required.' });
+    }
+
+    db.query('SELECT otp_hash, expires_at, attempts FROM email_otps WHERE email = ?', [email], async (selErr, rows) => {
+      if (selErr) {
+        console.error('OTP select error:', selErr);
+        return res.status(500).json({ message: 'Server error.' });
+      }
+      if (!rows || rows.length === 0) {
+        return res.status(400).json({ message: 'No OTP request found for this email.' });
+      }
+      const record = rows[0];
+
+      if (record.attempts >= OTP_MAX_VERIFY_ATTEMPTS) {
+        return res.status(429).json({ message: 'Too many incorrect attempts. Please request a new OTP.' });
+      }
+
+      if (new Date(record.expires_at) < new Date()) {
+        return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
+      }
+
+      const match = await bcrypt.compare(otp, record.otp_hash);
+      if (!match) {
+        db.query('UPDATE email_otps SET attempts = attempts + 1 WHERE email = ?', [email], (updErr) => {
+          if (updErr) console.error('OTP attempt update error:', updErr);
+          return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+        });
+        return;
+      }
+
+      // Success: delete the row
+      db.query('DELETE FROM email_otps WHERE email = ?', [email], (delErr) => {
+        if (delErr) {
+          console.error('OTP delete error:', delErr);
+          // Even if delete fails, consider verification successful but warn
+        }
+        return res.json({ success: true, verified: true });
+      });
+    });
+  } catch (e) {
+    console.error('verify-otp error:', e);
+    return res.status(500).json({ message: 'Server error.' });
   }
 });

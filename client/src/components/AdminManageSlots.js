@@ -17,6 +17,7 @@ import {
 } from 'react-icons/fa';
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const userTypes = ['Internal', 'Government R&D Lab or External Academics', 'Private Industry or Private R&D Lab', 'SuperUser'];
 
 const AdminManageSlots = () => {
     const [facilities, setFacilities] = useState([]);
@@ -26,6 +27,7 @@ const AdminManageSlots = () => {
     const [newSlots, setNewSlots] = useState({});
     const [editingSlot, setEditingSlot] = useState(null);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
+    const [selectedUserType, setSelectedUserType] = useState('Internal');
 
     useEffect(() => {
         const token = localStorage.getItem('userToken');
@@ -88,12 +90,36 @@ const AdminManageSlots = () => {
         }
     };
 
+    const fetchFacilitySlotsForUserType = async (facilityId, userType) => {
+        try {
+            const token = localStorage.getItem('userToken');
+            if (!token) {
+                console.error('Authentication token not found');
+                return null;
+            }
+
+            const response = await axios.get(`${API_BASED_URL}admin/facilities/slots/${facilityId}/${userType}`, {
+                headers: {
+                    Authorization: token
+                }
+            });
+            
+            if (response.data && response.data.slots) {
+                setSelectedFacility(prev => ({ ...prev, slots: response.data.slots }));
+            }
+            return response.data;
+        } catch (err) {
+            console.error('Failed to fetch facility slots for user type:', err);
+            return null;
+        }
+    };
+
     const handleFacilitySelect = async (facility) => {
         setSelectedFacility({ ...facility, activeDay: 'Monday' });
         setViewMode('detail');
 
-        // Fetch slots for the selected facility
-        const slotsData = await fetchFacilitySlots(facility.id);
+        // Fetch slots for the selected facility and user type
+        const slotsData = await fetchFacilitySlotsForUserType(facility.id, selectedUserType);
         if (slotsData) {
             setSelectedFacility(prev => ({ ...prev, slots: slotsData.slots || {} }));
         }
@@ -118,7 +144,8 @@ const AdminManageSlots = () => {
                     facilityId,
                     weekday,
                     start_time: newSlot.start_time,
-                    end_time: newSlot.end_time
+                    end_time: newSlot.end_time,
+                    user_type: selectedUserType
                 },
                 {
                     headers: {
@@ -127,8 +154,8 @@ const AdminManageSlots = () => {
                 }
             );
 
-            // Refresh facility data
-            const updatedSlots = await fetchFacilitySlots(facilityId);
+            // Refresh facility data for the current user type
+            const updatedSlots = await fetchFacilitySlotsForUserType(facilityId, selectedUserType);
             if (updatedSlots) {
                 setSelectedFacility(prev => ({ ...prev, slots: updatedSlots.slots || {} }));
             }
@@ -164,8 +191,8 @@ const AdminManageSlots = () => {
                 }
             });
 
-            // Refresh facility data
-            const updatedSlots = await fetchFacilitySlots(facilityId);
+            // Refresh facility data for the current user type
+            const updatedSlots = await fetchFacilitySlotsForUserType(facilityId, selectedUserType);
             if (updatedSlots) {
                 setSelectedFacility(prev => ({ ...prev, slots: updatedSlots.slots || {} }));
             }
@@ -208,8 +235,8 @@ const AdminManageSlots = () => {
                 }
             );
 
-            // Refresh facility data
-            const updatedSlots = await fetchFacilitySlots(editingSlot.facilityId);
+            // Refresh facility data for the current user type
+            const updatedSlots = await fetchFacilitySlotsForUserType(editingSlot.facilityId, selectedUserType);
             if (updatedSlots) {
                 setSelectedFacility(prev => ({ ...prev, slots: updatedSlots.slots || {} }));
             }
@@ -330,6 +357,32 @@ const AdminManageSlots = () => {
                         </div>
 
 
+                        {/* User Type Selector */}
+                        <div className="px-6 py-4 bg-blue-50 border-b">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-blue-800">User Type: {selectedUserType}</h3>
+                                <div className="flex space-x-2">
+                                    {userTypes.map(userType => (
+                                        <button
+                                            key={userType}
+                                            onClick={() => {
+                                                setSelectedUserType(userType);
+                                                // Refresh slots for the new user type
+                                                fetchFacilitySlotsForUserType(selectedFacility.id, userType);
+                                            }}
+                                            className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all duration-300 ${
+                                                selectedUserType === userType
+                                                    ? 'bg-blue-600 text-white shadow-lg'
+                                                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                                            }`}
+                                        >
+                                            {userType}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Days Navigation */}
                         <div className="px-6 py-4 bg-gray-50 border-b">
                             <div className="flex space-x-2 overflow-x-auto">
@@ -339,7 +392,7 @@ const AdminManageSlots = () => {
                                         onClick={() => setSelectedFacility(prev => ({ ...prev, activeDay: day }))}
                                         className={`px-4 py-2 rounded-lg whitespace-nowrap transition-all duration-300 ${selectedFacility.activeDay === day
                                                 ? 'bg-blue-600 text-white shadow-lg'
-                                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                                             }`}
                                     >
                                         {day}

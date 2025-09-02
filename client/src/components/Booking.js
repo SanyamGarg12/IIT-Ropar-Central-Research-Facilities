@@ -67,9 +67,9 @@ function Booking() {
       case "Publications":
         return <UserPublications />;
       case "Booking Facility":
-        return <BookingFacility />;
+        return <BookingFacility authToken={authToken} />;
       case "View Facilities Slots":
-        return <ViewFacilitySlots />;
+        return <ViewFacilitySlots authToken={authToken} />;
       case "Change Password":
         return <ChangePassword />;
       case "Logout":
