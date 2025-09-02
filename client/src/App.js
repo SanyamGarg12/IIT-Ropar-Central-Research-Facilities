@@ -31,6 +31,8 @@ import AdminManageBooking from "./components/AdminManageBooking";
 import ArchivedNews from './components/ArchivedNews';
 import SupervisorVerify from "./components/SupervisorVerify";
 import SupervisorBookingApproval from "./components/SupervisorBookingApproval";
+import SupervisorProfile from "./components/SupervisorProfile";
+import SupervisorChangePassword from "./components/SupervisorChangePassword";
 import AdminManageBifurcations from './components/AdminManageBifurcations';
 import AdminManageSpecialNotes from './components/AdminManageSpecialNotes';
 import AdminUserPubs from './components/AdminUserPubs';
@@ -41,6 +43,9 @@ import ManageSupervisors from './components/ManageSupervisors';
 import ManageCategories from './components/ManageCategories';
 import ManageFooter from './components/ManageFooter';
 import ManageContact from './components/ManageContact';
+import SupervisorManageBooking from "./components/SupervisorManageBooking";
+import SupervisorManageSuperusers from "./components/SupervisorManageSuperusers";
+import SupervisorPendingSuperusers from "./components/SupervisorPendingSuperusers";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -142,6 +147,11 @@ const App = () => {
                       <Route path="/archived-news" element={<ArchivedNews />} />
                       <Route path="/supervisor-verify" element={<SupervisorVerify />} />
                       <Route path="/supervisor-booking-approval" element={<SupervisorBookingApproval />} />
+                      <Route path="/supervisor/profile" element={<SupervisorProfile />} />
+                      <Route path="/supervisor/change-password" element={<SupervisorChangePassword />} />
+                      <Route path="/supervisor/bookings" element={<SupervisorManageBooking />} />
+                      <Route path="/supervisor/manage-superusers" element={<SupervisorManageSuperusers />} />
+        <Route path="/supervisor/pending-superusers" element={<SupervisorPendingSuperusers />} />
                       <Route
                         path="/view-facility-slots"
                         element={

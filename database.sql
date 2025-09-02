@@ -1845,6 +1845,7 @@ CREATE TABLE Supervisor (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     department_name VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NULL,
     wallet_balance DECIMAL(10,2) DEFAULT 0
 );
 
@@ -1947,6 +1948,7 @@ CREATE TABLE FacilitySchedule (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     total_slots INT,
+    status ENUM('Valid','Deprecated') NOT NULL DEFAULT 'Valid',
     user_type ENUM('Internal', 'Government R&D Lab or External Academics', 'Private Industry or Private R&D Lab', 'SuperUser') NOT NULL,
     FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
     UNIQUE (facility_id, weekday, start_time, end_time, user_type)
@@ -2217,6 +2219,8 @@ CREATE TABLE InternalUsers (
     department_name VARCHAR(100) NOT NULL,
     verification_token VARCHAR(128),
     verified TINYINT(1) DEFAULT 0,
+    isSuperUser ENUM('Y','N') NOT NULL DEFAULT 'N',
+    super_facility varchar(255),
     FOREIGN KEY (user_id) REFERENCES Users(user_id),
     FOREIGN KEY (supervisor_id) REFERENCES Supervisor(id)
 );
@@ -2380,3 +2384,19 @@ CREATE TABLE IF NOT EXISTS email_otps (
 -- (3, NOW() - INTERVAL '1' DAY + INTERVAL '1' HOUR, NULL),
 -- (4, NOW() - INTERVAL '5' HOUR, NOW() - INTERVAL '1' HOUR),
 -- (1, NOW() - INTERVAL '3' HOUR, NULL);
+CREATE TABLE IF NOT EXISTS superuser_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    facility_id INT NOT NULL,
+    reason TEXT,
+    status ENUM('pending', 'approved', 'cancelled') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed_at TIMESTAMP NULL,
+    processed_by INT NULL, -- supervisor_id or admin_id
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE
+);
+
+-- Add index for better performance
+CREATE INDEX idx_superuser_requests_user ON superuser_requests(user_id);
+CREATE INDEX idx_superuser_requests_status ON superuser_requests(status);

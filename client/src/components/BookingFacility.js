@@ -4,6 +4,7 @@ import { jwtDecode } from "jwt-decode";
 import {API_BASED_URL} from '../config.js'; 
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, CreditCard, QrCode, Building2, CheckCircle2 } from 'lucide-react';
+import SuperuserRegistration from './SuperuserRegistration';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
@@ -39,6 +40,8 @@ function BookingFacility({ authToken }) {
   const [gstNumber, setGstNumber] = useState("");
   const [utrNumber, setUtrNumber] = useState("");
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [superuserStatus, setSuperuserStatus] = useState(null);
+  const [showSuperuserModal, setShowSuperuserModal] = useState(false);
 
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
     const now = new Date();
@@ -259,6 +262,38 @@ function BookingFacility({ authToken }) {
       setTotalCost(cost);
     }
   }, [selectedBifurcations, selectedSlot, calculateTotalCost]);
+
+  // Fetch superuser status for internal users
+  useEffect(() => {
+    if (authToken) {
+      try {
+        const decoded = jwtDecode(authToken);
+        if (decoded.userType === 'Internal') {
+          fetchSuperuserStatus();
+        }
+      } catch (error) {
+        console.error('Error decoding token:', error);
+      }
+    }
+  }, [authToken]);
+
+  const fetchSuperuserStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASED_URL}api/user/superuser-status`, {
+        headers: { Authorization: authToken }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSuperuserStatus(data);
+      }
+    } catch (error) {
+      console.error('Error fetching superuser status:', error);
+    }
+  };
+
+  const handleSuperuserSuccess = () => {
+    fetchSuperuserStatus();
+  };
 
   const handleFetchSlots = () => {
     setSelectedSlot("");
@@ -508,6 +543,66 @@ function BookingFacility({ authToken }) {
                     ))}
                   </select>
                 </div>
+
+                {/* Superuser Status for Internal Users */}
+                {authToken && (() => {
+                  try {
+                    const decoded = jwtDecode(authToken);
+                    if (decoded.userType === 'Internal') {
+                      return (
+                        <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                          <h3 className="text-lg font-semibold text-blue-800 mb-3 flex items-center">
+                            <CheckCircle2 className="w-5 h-5 mr-2" />
+                            Superuser Status
+                          </h3>
+                          {superuserStatus ? (
+                            <div className="space-y-3">
+                              {superuserStatus.status === 'active' ? (
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-green-700 font-medium">✓ You are a Superuser</p>
+                                    <p className="text-sm text-blue-600">Facility: {superuserStatus.facilityName}</p>
+                                  </div>
+                                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                                    Active Superuser
+                                  </span>
+                                </div>
+                              ) : superuserStatus.status === 'pending' ? (
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-yellow-700 font-medium">⏳ Superuser Request Pending</p>
+                                    <p className="text-sm text-blue-600">Facility: {superuserStatus.requestFacilityName}</p>
+                                  </div>
+                                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+                                    Pending Approval
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-gray-700">Become a Superuser for a specific facility</p>
+                                    <p className="text-sm text-gray-600">Get priority access and special privileges</p>
+                                  </div>
+                                  <button
+                                    onClick={() => setShowSuperuserModal(true)}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                  >
+                                    Request Superuser Status
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-gray-600">Loading superuser status...</div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  } catch (error) {
+                    return null;
+                  }
+                })()}
 
                 {/* Bifurcations Section */}
                 {bifurcations.length > 0 && (
@@ -974,6 +1069,14 @@ function BookingFacility({ authToken }) {
           </div>
         </div>
       </div>
+
+      {/* Superuser Registration Modal */}
+      {showSuperuserModal && (
+        <SuperuserRegistration
+          onClose={() => setShowSuperuserModal(false)}
+          onSuccess={handleSuperuserSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -9,9 +9,6 @@ import {
     FaClock,
     FaPlus,
     FaTrash,
-    FaEdit,
-    FaSave,
-    FaTimes,
     FaEye,
     FaArrowLeft
 } from 'react-icons/fa';
@@ -25,7 +22,6 @@ const AdminManageSlots = () => {
     const [error, setError] = useState(null);
     const [selectedFacility, setSelectedFacility] = useState(null);
     const [newSlots, setNewSlots] = useState({});
-    const [editingSlot, setEditingSlot] = useState(null);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
     const [selectedUserType, setSelectedUserType] = useState('Internal');
 
@@ -174,8 +170,8 @@ const AdminManageSlots = () => {
         }
     };
 
-    const deleteSlot = async (facilityId, weekday, slot) => {
-        if (!window.confirm('Are you sure you want to delete this slot?')) return;
+    const deprecateSlot = async (facilityId, weekday, slot) => {
+        if (!window.confirm('Are you sure you want to deprecate this slot? It will be hidden from users but existing bookings will be preserved.')) return;
 
         try {
             const token = localStorage.getItem('userToken');
@@ -198,59 +194,11 @@ const AdminManageSlots = () => {
             }
             setError(null);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to delete slot');
+            setError(err.response?.data?.message || 'Failed to deprecate slot');
         }
     };
 
-    const startEditSlot = (facilityId, weekday, slot, index) => {
-        setEditingSlot({
-            facilityId,
-            weekday,
-            slot: { ...slot },
-            index
-        });
-    };
 
-    const saveEditSlot = async () => {
-        if (!editingSlot) return;
-
-        try {
-            const token = localStorage.getItem('userToken');
-            if (!token) {
-                setError('Authentication token not found');
-                return;
-            }
-
-            await axios.put(`${API_BASED_URL}admin/slots`,
-                {
-                    facilityId: editingSlot.facilityId,
-                    weekday: editingSlot.weekday,
-                    oldSlot: selectedFacility.slots[editingSlot.weekday][editingSlot.index],
-                    newSlot: editingSlot.slot
-                },
-                {
-                    headers: {
-                        Authorization: token
-                    }
-                }
-            );
-
-            // Refresh facility data for the current user type
-            const updatedSlots = await fetchFacilitySlotsForUserType(editingSlot.facilityId, selectedUserType);
-            if (updatedSlots) {
-                setSelectedFacility(prev => ({ ...prev, slots: updatedSlots.slots || {} }));
-            }
-
-            setEditingSlot(null);
-            setError(null);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update slot');
-        }
-    };
-
-    const cancelEdit = () => {
-        setEditingSlot(null);
-    };
 
     if (loading) return (
         <div className="flex items-center justify-center h-screen">
@@ -288,7 +236,7 @@ const AdminManageSlots = () => {
                         </Link>
                     </div>
                     <p className="text-gray-600 text-lg">
-                        View and manage time slots for all facilities across the week
+                        View and manage time slots for all facilities across the week. Slots can be added or deprecated (hidden from users while preserving existing bookings).
                     </p>
                 </div>
 
@@ -300,7 +248,7 @@ const AdminManageSlots = () => {
                             onClick={() => setError(null)}
                             className="absolute top-0 right-0 mt-2 mr-2 text-red-700 hover:text-red-900"
                         >
-                            <FaTimes />
+                            ×
                         </button>
                     </div>
                 )}
@@ -346,7 +294,6 @@ const AdminManageSlots = () => {
                                 onClick={() => {
                                     setViewMode('list');
                                     setSelectedFacility(null);
-                                    setEditingSlot(null);
                                 }}
                                 className="absolute left-6 top-1/2 -translate-y-1/2 bg-blue-500 bg-opacity-80 hover:bg-blue-400 text-white w-8 h-8 rounded flex items-center justify-center transition-all duration-200"
                                 aria-label="Back"
@@ -419,67 +366,20 @@ const AdminManageSlots = () => {
                                     <div className="space-y-3 mb-6">
                                         {selectedFacility.slots[selectedFacility.activeDay]?.map((slot, index) => (
                                             <div key={index} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border">
-                                                {editingSlot && editingSlot.facilityId === selectedFacility.id &&
-                                                    editingSlot.weekday === selectedFacility.activeDay &&
-                                                    editingSlot.index === index ? (
-                                                    <div className="flex items-center space-x-3 flex-1">
-                                                        <input
-                                                            type="time"
-                                                            value={editingSlot.slot.start_time}
-                                                            onChange={(e) => setEditingSlot(prev => ({
-                                                                ...prev,
-                                                                slot: { ...prev.slot, start_time: e.target.value }
-                                                            }))}
-                                                            className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                        />
-                                                        <span className="text-gray-500">to</span>
-                                                        <input
-                                                            type="time"
-                                                            value={editingSlot.slot.end_time}
-                                                            onChange={(e) => setEditingSlot(prev => ({
-                                                                ...prev,
-                                                                slot: { ...prev.slot, end_time: e.target.value }
-                                                            }))}
-                                                            className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                        />
-                                                        <button
-                                                            onClick={saveEditSlot}
-                                                            className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors"
-                                                        >
-                                                            <FaSave />
-                                                        </button>
-                                                        <button
-                                                            onClick={cancelEdit}
-                                                            className="bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600 transition-colors"
-                                                        >
-                                                            <FaTimes />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="flex items-center space-x-4">
-                                                            <span className="text-lg font-medium text-gray-800">
-                                                                {slot.start_time} - {slot.end_time}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <button
-                                                                onClick={() => startEditSlot(selectedFacility.id, selectedFacility.activeDay, slot, index)}
-                                                                className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 transition-colors"
-                                                                title="Edit slot"
-                                                            >
-                                                                <FaEdit />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => deleteSlot(selectedFacility.id, selectedFacility.activeDay, slot)}
-                                                                className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-colors"
-                                                                title="Delete slot"
-                                                            >
-                                                                <FaTrash />
-                                                            </button>
-                                                        </div>
-                                                    </>
-                                                )}
+                                                <div className="flex items-center space-x-4">
+                                                    <span className="text-lg font-medium text-gray-800">
+                                                        {slot.start_time} - {slot.end_time}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <button
+                                                        onClick={() => deprecateSlot(selectedFacility.id, selectedFacility.activeDay, slot)}
+                                                        className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-colors"
+                                                        title="Deprecate slot (hide from users)"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
 

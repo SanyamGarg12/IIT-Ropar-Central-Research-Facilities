@@ -1149,32 +1149,43 @@ app.post('/api/admin/login', (req, res) => {
     return res.status(400).json({ message: 'All fields are required.' });
   }
 
-  // Query the database to find the user by email
+  // First try management_cred (Admin/Operator)
   const query = "SELECT * FROM management_cred WHERE email = ?";
   db.query(query, [email], async (err, results) => {
     if (err) {
-      return res.status(500).json({ message: "Server error." });
+      return res.status(500).json({ message: 'Server error.' });
     }
 
-    // If the user does not exist
-    if (results.length === 0) {
-      return res.status(401).json({ message: "Invalid credentials." });
+    if (results.length > 0) {
+      const user = results[0];
+      if (password !== user.Pass) {
+        return res.status(401).json({ message: 'Invalid credentials.' });
+      }
+      const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+      return res.json({ token, position: user.Position, email: user.email });
     }
 
-    const user = results[0];
+    // Fallback: check Supervisor table using bcrypt password_hash
+    const supQuery = 'SELECT id, email, name, password_hash FROM Supervisor WHERE email = ?';
+    db.query(supQuery, [email], async (supErr, supRows) => {
+      if (supErr) {
+        return res.status(500).json({ message: 'Server error.' });
+      }
+      if (!supRows || supRows.length === 0) {
+        return res.status(401).json({ message: 'Invalid credentials.' });
+      }
 
-    // Compare the provided password with the hashed password stored in the database
-    if (password !== user.Pass) {
-      return res.status(401).json({ message: "Invalid credentials." });
-    }
-    // Generate a JWT token with the email and position
-    const token = jwt.sign({ email: user.email}, JWT_SECRET, { expiresIn: '1h' });
-
-    // Return the token and user's position in the response
-    res.json({
-      token,
-      position: user.Position,
-      email: user.email,
+      const sup = supRows[0];
+      try {
+        const ok = sup.password_hash ? await bcrypt.compare(String(password), sup.password_hash) : false;
+        if (!ok) {
+          return res.status(401).json({ message: 'Invalid credentials.' });
+        }
+        const token = jwt.sign({ email: sup.email, supervisorId: sup.id }, JWT_SECRET, { expiresIn: '1h' });
+        return res.json({ token, position: 'Supervisor', email: sup.email });
+      } catch (e) {
+        return res.status(500).json({ message: 'Server error.' });
+      }
     });
   });
 });
@@ -2140,29 +2151,74 @@ function getWeekday(dateString) {
 app.get("/api/slots", authenticateToken, async (req, res) => {
   const { facility_id, date } = req.query;
   
-  // Get user type from JWT token (already decoded by authenticateToken middleware)
+  // Get user type and user ID from JWT token (already decoded by authenticateToken middleware)
   const userType = req.user.userType;
+  const userId = req.user.userId;
 
   // Check if the facility can be available on that weekday and find the number of slots
   const day = getWeekday(date);
 
-  const checkSlotsQuery = `
-    SELECT schedule_id, start_time, end_time, total_slots, user_type
-    FROM facilityschedule 
-    WHERE facility_id = ? AND weekday = ? AND user_type = ?
-  `;
+  let checkSlotsQuery;
+  let queryParams;
+
+  // Special logic for internal users
+  if (userType === 'Internal') {
+    // Check if this user is a superuser for this specific facility
+    const superuserCheckQuery = `
+      SELECT isSuperUser, super_facility 
+      FROM InternalUsers 
+      WHERE user_id = ?
+    `;
+    
+    try {
+      const [superuserResult] = await db.promise().query(superuserCheckQuery, [userId]);
+      
+      if (superuserResult.length > 0) {
+        const user = superuserResult[0];
+        
+        if (user.isSuperUser === 'Y' && user.super_facility == facility_id) {
+          // Superuser: only show SuperUser slots for their facility
+          checkSlotsQuery = `
+            SELECT schedule_id, start_time, end_time, total_slots, user_type
+            FROM facilityschedule 
+            WHERE facility_id = ? AND weekday = ? AND user_type = 'SuperUser' AND status = 'Valid'
+          `;
+          queryParams = [facility_id, day];
+        } else {
+          // Regular internal user: show Internal slots for all facilities
+          checkSlotsQuery = `
+            SELECT schedule_id, start_time, end_time, total_slots, user_type
+            FROM facilityschedule 
+            WHERE facility_id = ? AND weekday = ? AND user_type = 'Internal' AND status = 'Valid'
+          `;
+          queryParams = [facility_id, day];
+        }
+      } else {
+        // Regular internal user: show Internal slots for all facilities
+        checkSlotsQuery = `
+          SELECT schedule_id, start_time, end_time, total_slots, user_type
+          FROM facilityschedule 
+          WHERE facility_id = ? AND weekday = ? AND user_type = 'Internal'
+        `;
+        queryParams = [facility_id, day];
+      }
+    } catch (err) {
+      console.error("Error checking superuser status:", err);
+      return res.status(500).send("Error checking user status");
+    }
+  } else {
+    // Non-internal users: use their user type as before
+    checkSlotsQuery = `
+      SELECT schedule_id, start_time, end_time, total_slots, user_type
+      FROM facilityschedule 
+      WHERE facility_id = ? AND weekday = ? AND user_type = ? AND status = 'Valid'
+    `;
+    queryParams = [facility_id, day, userType];
+  }
 
   try {
-    // Using await to fetch total slots for the specific user type
-    const [totalSlots] = await db
-      .promise()
-      .query(checkSlotsQuery, [facility_id, day, userType]);
-
-    if (totalSlots.length === 0) {
-      return res
-        .status(200)
-        .json({ slots: [] });
-    }
+    // Using await to fetch total slots for the appropriate user type
+    const [totalSlots] = await db.promise().query(checkSlotsQuery, queryParams);
 
     // Check if any slots are already booked
     const checkBookedSlotsQuery = `
@@ -2444,8 +2500,9 @@ app.get('/api/weekly-slots', authenticateToken, (req, res) => {
     return res.status(400).json({ message: 'Facility ID is required' });
   }
 
-  // Get user type from JWT token (already decoded by authenticateToken middleware)
+  // Get user type and user ID from JWT token (already decoded by authenticateToken middleware)
   const userType = req.user.userType;
+  const userId = req.user.userId;
 
   // Query to fetch the selected facility
   db.query('SELECT id, name FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
@@ -2460,28 +2517,89 @@ app.get('/api/weekly-slots', authenticateToken, (req, res) => {
 
     const facility = rows[0];  // Assuming only one facility is returned
 
-    // Query to fetch the schedule for the selected facility and user type
-    db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = ?', [facility.id, userType], (err, schedule) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ message: 'Failed to fetch schedule' });
-      }
+    // Special logic for internal users
+    if (userType === 'Internal') {
+      // Check if this user is a superuser for this specific facility
+      const superuserCheckQuery = `
+        SELECT isSuperUser, super_facility 
+        FROM InternalUsers 
+        WHERE user_id = ?
+      `;
+      
+      db.query(superuserCheckQuery, [userId], (err2, superuserResult) => {
+        if (err2) {
+          console.error("Error checking superuser status:", err2);
+          return res.status(500).json({ message: 'Failed to check user status' });
+        }
+        
+        let scheduleQuery;
+        let queryParams;
+        
+        if (superuserResult.length > 0) {
+          const user = superuserResult[0];
+          
+          if (user.isSuperUser === 'Y' && user.super_facility == facilityId) {
+            // Superuser: only show SuperUser slots for their facility
+            scheduleQuery = 'SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = "SuperUser" AND status = "Valid"';
+            queryParams = [facility.id];
+          } else {
+            // Regular internal user: show Internal slots for all facilities
+            scheduleQuery = 'SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = "Internal" AND status = "Valid"';
+            queryParams = [facility.id];
+          }
+        } else {
+          // Regular internal user: show Internal slots for all facilities
+          scheduleQuery = 'SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = "Internal"';
+          queryParams = [facility.id];
+        }
+        
+        // Query to fetch the schedule for the selected facility and appropriate user type
+        db.query(scheduleQuery, queryParams, (err3, schedule) => {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({ message: 'Failed to fetch schedule' });
+          }
 
-      const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
-        if (!acc[weekday]) acc[weekday] = [];
-        acc[weekday].push({ start_time, end_time });
-        return acc;
-      }, {});
+          const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
+            if (!acc[weekday]) acc[weekday] = [];
+            acc[weekday].push({ start_time, end_time });
+            return acc;
+          }, {});
 
-      // Return the facility with its corresponding slots
-      res.json({
-        facility: {
-          id: facility.id,
-          name: facility.name,
-          slots: slots,
-        },
+          // Return the facility with its corresponding slots
+          res.json({
+            facility: {
+              id: facility.id,
+              name: facility.name,
+              slots: slots,
+            },
+          });
+        });
       });
-    });
+    } else {
+      // Non-internal users: use their user type as before
+      db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = ? AND status = "Valid"', [facility.id, userType], (err2, schedule) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ message: 'Failed to fetch schedule' });
+        }
+
+        const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
+          if (!acc[weekday]) acc[weekday] = [];
+          acc[weekday].push({ start_time, end_time });
+          return acc;
+        }, {});
+
+        // Return the facility with its corresponding slots
+        res.json({
+          facility: {
+            id: facility.id,
+            name: facility.name,
+            slots: slots,
+          },
+        });
+      });
+    }
   });
 });
 
@@ -2545,7 +2663,7 @@ app.get('/admin/facilities/slots', authenticateToken, (req, res) => {
     }
 
     rows.forEach((facility) => {
-      db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
+      db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND status = "Valid"', [facility.id], (err, schedule) => {
         if (err) {
           console.error(err);
           return res.status(500).json({ message: 'Failed to fetch schedule' });
@@ -2575,7 +2693,7 @@ app.get('/admin/facilities/slots/:facilityId/:userType', authenticateToken, (req
     return res.status(400).json({ message: 'Facility ID and user type are required' });
   }
 
-  db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = ?', [facilityId, userType], (err, schedule) => {
+  db.query('SELECT weekday, start_time, end_time, user_type FROM facilityschedule WHERE facility_id = ? AND user_type = ? AND status = "Valid"', [facilityId, userType], (err, schedule) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ message: 'Failed to fetch schedule' });
@@ -2614,7 +2732,7 @@ app.post('/operator/slots', authenticateToken, (req, res) => {
     }
 
     db.query(
-      'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)',
+      'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time, status) VALUES (?, ?, ?, ?, "Valid")',
       [facilityId, weekday, start_time, end_time],
       (err) => {
         if (err) {
@@ -2628,7 +2746,7 @@ app.post('/operator/slots', authenticateToken, (req, res) => {
   });
 });
 
-// Delete a slot
+// Operator deprecate slot endpoint (marks slot as deprecated instead of deleting)
 app.delete('/operator/slots', authenticateToken, (req, res) => {
   const { facilityId, weekday, slot, operatorId } = req.body;
 
@@ -2651,58 +2769,20 @@ app.delete('/operator/slots', authenticateToken, (req, res) => {
     }
 
     db.query(
-      'DELETE FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
+      'UPDATE facilityschedule SET status = "Deprecated" WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
       [facilityId, weekday, slot.start_time, slot.end_time],
       (err) => {
         if (err) {
           console.error(err);
-          return res.status(500).json({ message: 'Failed to delete slot' });
+          return res.status(500).json({ message: 'Failed to deprecate slot' });
         }
-        res.json({ message: 'Slot deleted successfully' });
+        res.json({ message: 'Slot deprecated successfully' });
       }
     );
   });
 });
 
-// Admin endpoints for managing facility slots
-// Get all facilities with their slots for admin
-app.get('/admin/facilities/slots', authenticateToken, (req, res) => {
- 
-  db.query('SELECT id, name, description FROM facilities', (err, rows) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Failed to fetch facilities' });
-    }
 
-    const facilities = [];
-    let pending = rows.length;
-
-    if (pending === 0) {
-      return res.json(facilities);
-    }
-
-    rows.forEach((facility) => {
-      db.query('SELECT weekday, start_time, end_time FROM facilityschedule WHERE facility_id = ?', [facility.id], (err, schedule) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ message: 'Failed to fetch schedule' });
-        }
-
-        const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
-          if (!acc[weekday]) acc[weekday] = [];
-          acc[weekday].push({ start_time, end_time });
-          return acc;
-        }, {});
-
-        facilities.push({ ...facility, slots });
-
-        if (--pending === 0) {
-          res.json(facilities);
-        }
-      });
-    });
-  });
-});
 
 // Admin add slot endpoint
 app.post('/admin/slots', authenticateToken, (req, res) => {
@@ -2724,9 +2804,9 @@ app.post('/admin/slots', authenticateToken, (req, res) => {
       return res.status(404).json({ message: 'Facility not found' });
     }
 
-    // Check if slot already exists for this user type
+    // Check if slot already exists for this user type (only Valid slots)
     db.query(
-      'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ?',
+      'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ? AND status = "Valid"',
       [facilityId, weekday, start_time, end_time, user_type],
       (err, existingSlots) => {
         if (err) {
@@ -2738,9 +2818,9 @@ app.post('/admin/slots', authenticateToken, (req, res) => {
           return res.status(400).json({ message: 'Slot already exists for this time period and user type' });
         }
 
-        // Add the new slot
+        // Add the new slot with Valid status
         db.query(
-          'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time, user_type) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO facilityschedule (facility_id, weekday, start_time, end_time, user_type, status) VALUES (?, ?, ?, ?, ?, "Valid")',
           [facilityId, weekday, start_time, end_time, user_type],
           (err) => {
             if (err) {
@@ -2756,7 +2836,7 @@ app.post('/admin/slots', authenticateToken, (req, res) => {
   });
 });
 
-// Admin delete slot endpoint
+// Admin deprecate slot endpoint (marks slot as deprecated instead of deleting)
 app.delete('/admin/slots', authenticateToken, (req, res) => {
 
   const { facilityId, weekday, slot } = req.body;
@@ -2776,49 +2856,33 @@ app.delete('/admin/slots', authenticateToken, (req, res) => {
       return res.status(404).json({ message: 'Facility not found' });
     }
 
-    // Check if there are any bookings for this slot
+    // Get the slot details to find the user_type and mark as deprecated
     db.query(
-      'SELECT COUNT(*) as bookingCount FROM bookinghistory bh JOIN facilityschedule fs ON bh.schedule_id = fs.schedule_id WHERE fs.facility_id = ? AND fs.weekday = ? AND fs.start_time = ? AND fs.end_time = ?',
+      'SELECT user_type FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND status = "Valid"',
       [facilityId, weekday, slot.start_time, slot.end_time],
-      (err, bookingResults) => {
+      (err, slotResults) => {
         if (err) {
           console.error(err);
-          return res.status(500).json({ message: 'Failed to check bookings' });
+          return res.status(500).json({ message: 'Failed to get slot details' });
         }
 
-        if (bookingResults[0].bookingCount > 0) {
-          return res.status(400).json({ message: 'Cannot delete slot with existing bookings' });
+        if (slotResults.length === 0) {
+          return res.status(404).json({ message: 'Slot not found' });
         }
 
-        // Delete the slot (we need to get the user_type from the slot data)
-        // First get the slot details to find the user_type
+        const userType = slotResults[0].user_type;
+
+        // Mark the slot as deprecated instead of deleting
+        // This preserves existing bookings while hiding the slot from users
         db.query(
-          'SELECT user_type FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
-          [facilityId, weekday, slot.start_time, slot.end_time],
-          (err, slotResults) => {
+          'UPDATE facilityschedule SET status = "Deprecated" WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ? AND status = "Valid"',
+          [facilityId, weekday, slot.start_time, slot.end_time, userType],
+          (err) => {
             if (err) {
               console.error(err);
-              return res.status(500).json({ message: 'Failed to get slot details' });
+              return res.status(500).json({ message: 'Failed to deprecate slot' });
             }
-
-            if (slotResults.length === 0) {
-              return res.status(404).json({ message: 'Slot not found' });
-            }
-
-            const userType = slotResults[0].user_type;
-
-            // Delete the slot with user_type
-            db.query(
-              'DELETE FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ?',
-              [facilityId, weekday, slot.start_time, slot.end_time, userType],
-              (err) => {
-                if (err) {
-                  console.error(err);
-                  return res.status(500).json({ message: 'Failed to delete slot' });
-                }
-                res.json({ message: 'Slot deleted successfully' });
-              }
-            );
+            res.json({ message: 'Slot deprecated successfully' });
           }
         );
       }
@@ -2826,90 +2890,9 @@ app.delete('/admin/slots', authenticateToken, (req, res) => {
   });
 });
 
-// Admin update slot endpoint
-app.put('/admin/slots', authenticateToken, (req, res) => {
 
-  const { facilityId, weekday, oldSlot, newSlot } = req.body;
 
-  if (!facilityId || !weekday || !oldSlot || !newSlot) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
 
-  // Validate facility exists
-  db.query('SELECT id FROM facilities WHERE id = ?', [facilityId], (err, rows) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Failed to validate facility' });
-    }
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Facility not found' });
-    }
-
-    // Check if there are any bookings for the old slot
-    db.query(
-      'SELECT COUNT(*) as bookingCount FROM bookinghistory bh JOIN facilityschedule fs ON bh.schedule_id = fs.schedule_id WHERE fs.facility_id = ? AND fs.weekday = ? AND fs.start_time = ? AND fs.end_time = ?',
-      [facilityId, weekday, oldSlot.start_time, oldSlot.end_time],
-      (err, bookingResults) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ message: 'Failed to check bookings' });
-        }
-
-        if (bookingResults[0].bookingCount > 0) {
-          return res.status(400).json({ message: 'Cannot update slot with existing bookings' });
-        }
-
-        // Check if new slot time conflicts with existing slots for the same user type
-        db.query(
-          'SELECT schedule_id FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND (start_time != ? OR end_time != ?)',
-          [facilityId, weekday, newSlot.start_time, newSlot.end_time, oldSlot.start_time, oldSlot.end_time],
-          (err, conflictResults) => {
-            if (err) {
-              console.error(err);
-              return res.status(500).json({ message: 'Failed to check slot conflicts' });
-            }
-
-            if (conflictResults.length > 0) {
-              return res.status(400).json({ message: 'New slot time conflicts with existing slots' });
-            }
-
-            // Get the user_type from the old slot to maintain it
-            db.query(
-              'SELECT user_type FROM facilityschedule WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ?',
-              [facilityId, weekday, oldSlot.start_time, oldSlot.end_time],
-              (err, slotResults) => {
-                if (err) {
-                  console.error(err);
-                  return res.status(500).json({ message: 'Failed to get slot details' });
-                }
-
-                if (slotResults.length === 0) {
-                  return res.status(404).json({ message: 'Slot not found' });
-                }
-
-                const userType = slotResults[0].user_type;
-
-                // Update the slot
-                db.query(
-                  'UPDATE facilityschedule SET start_time = ?, end_time = ? WHERE facility_id = ? AND weekday = ? AND start_time = ? AND end_time = ? AND user_type = ?',
-                  [newSlot.start_time, newSlot.end_time, facilityId, weekday, oldSlot.start_time, oldSlot.end_time, userType],
-                  (err) => {
-                    if (err) {
-                      console.error(err);
-                      return res.status(500).json({ message: 'Failed to update slot' });
-                    }
-                    res.json({ message: 'Slot updated successfully' });
-                  }
-                );
-              }
-            );
-          }
-        );
-      }
-    );
-  });
-});
 
 app.get('/api/user-history/:userId', authenticateToken, (req, res) => {
   // console.log("Hellooo", req.params);
@@ -3689,78 +3672,248 @@ app.post('/api/booking', authenticateToken, (req, res) => {
     const booking_id = result.insertId;
     console.log('Created booking with ID:', booking_id);
 
-    // For internal users, send email to supervisor for approval
+    // For internal users, check if they are a superuser for this facility
     if (isInternalUser) {
-      // Get supervisor information for the internal user
-      const supervisorQuery = `
-        SELECT s.email, s.name, s.wallet_balance, u.full_name as user_name
-        FROM InternalUsers iu
-        JOIN Supervisor s ON iu.supervisor_id = s.id
-        JOIN Users u ON iu.user_id = u.user_id
-        WHERE iu.user_id = ?
+      // Check if this user is a superuser for this specific facility
+      const superuserCheckQuery = `
+        SELECT isSuperUser, super_facility 
+        FROM InternalUsers 
+        WHERE user_id = ?
       `;
       
-      console.log('Querying supervisor for user_id:', user_id);
-      db.query(supervisorQuery, [user_id], (supervisorErr, supervisorResults) => {
-        console.log('Supervisor query results:', supervisorResults);
-        if (supervisorErr || !supervisorResults.length) {
-          console.error('Error fetching supervisor info:', supervisorErr);
-          // Continue with booking creation even if supervisor email fails
+      db.query(superuserCheckQuery, [user_id], (superuserErr, superuserResults) => {
+        if (superuserErr || !superuserResults.length) {
+          console.error('Error checking superuser status:', superuserErr);
+          // Continue with regular supervisor approval process
+          handleRegularInternalUserBooking();
         } else {
-          const supervisor = supervisorResults[0];
+          const user = superuserResults[0];
           
-          // Send email to supervisor
-          const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-              user: process.env.EMAIL_USER,
-              pass: process.env.EMAIL_PASS
-            }
-          });
-
-          console.log('Creating approval URL with supervisor:', { booking_id, supervisorEmail: supervisor.email });
-          const tokenString = `${booking_id}:${supervisor.email}`;
-          const encodedToken = Buffer.from(tokenString).toString('base64');
-          console.log('Token generation details:', {
-            tokenString,
-            encodedToken,
-            booking_id_type: typeof booking_id,
-            supervisor_email_type: typeof supervisor.email
-          });
-          const approveUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-booking-approval?booking_id=${booking_id}&token=${encodedToken}`;
-          console.log('Approval URL:', approveUrl);
-          
-          const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: supervisor.email,
-            subject: 'Internal User Booking Approval Required',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">Booking Approval Required</h2>
-                <p>Dear ${supervisor.name},</p>
-                <p>${supervisor.user_name} has requested to book a facility slot and requires your approval.</p>
-                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <h3 style="margin-top: 0;">Booking Details:</h3>
-                  <p><strong>Cost:</strong> ₹${cost}</p>
-                  <p><strong>Date:</strong> ${date}</p>
-                  <p><strong>Your Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
-                </div>
-                <p>Please click the button below to review and approve this booking:</p>
-                <a href="${approveUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Review Booking</a>
-                <p style="color: #6b7280; font-size: 14px;">If you have sufficient funds in your wallet, you can approve this booking. The cost will be deducted from your wallet balance.</p>
-              </div>
-            `
-          };
-
-          transporter.sendMail(mailOptions, (emailErr) => {
-            if (emailErr) {
-              console.error('Failed to send supervisor email:', emailErr);
-            } else {
-              console.log('Supervisor approval email sent successfully');
-            }
-          });
+          if (user.isSuperUser === 'Y' && user.super_facility == facility_id) {
+            // Superuser booking their designated facility - auto-approve and deduct from supervisor wallet
+            handleSuperuserBooking();
+          } else {
+            // Regular internal user - send to supervisor for approval
+            handleRegularInternalUserBooking();
+          }
         }
       });
+      
+      // Function to handle superuser booking (auto-approve)
+      function handleSuperuserBooking() {
+        // Get supervisor information for the superuser
+        const supervisorQuery = `
+          SELECT s.id, s.email, s.name, s.wallet_balance, u.full_name as user_name
+          FROM InternalUsers iu
+          JOIN Supervisor s ON iu.supervisor_id = s.id
+          JOIN Users u ON iu.user_id = u.user_id
+          WHERE iu.user_id = ?
+        `;
+        
+        db.query(supervisorQuery, [user_id], (supervisorErr, supervisorResults) => {
+          if (supervisorErr || !supervisorResults.length) {
+            console.error('Error fetching supervisor info for superuser:', supervisorErr);
+            // If supervisor info not found, set status to pending
+            updateBookingStatus(booking_id, 'Pending');
+            return;
+          }
+          
+          const supervisor = supervisorResults[0];
+          
+          // Check if supervisor has sufficient wallet balance
+          if (supervisor.wallet_balance >= cost) {
+            // Sufficient funds - auto-approve and deduct from wallet
+            updateBookingStatus(booking_id, 'Approved');
+            deductFromSupervisorWallet(supervisor.id, cost);
+            
+            // Send notification email to supervisor about auto-approval
+            sendSuperuserAutoApprovalEmail(supervisor, cost, date);
+          } else {
+            // Insufficient funds - set status to pending and notify user
+            updateBookingStatus(booking_id, 'Pending');
+            // Send notification to supervisor about insufficient funds
+            sendInsufficientFundsNotification(supervisor, cost, date);
+          }
+        });
+      }
+      
+      // Function to handle regular internal user booking (supervisor approval required)
+      function handleRegularInternalUserBooking() {
+        // Get supervisor information for the internal user
+        const supervisorQuery = `
+          SELECT s.email, s.name, s.wallet_balance, u.full_name as user_name
+          FROM InternalUsers iu
+          JOIN Supervisor s ON iu.supervisor_id = s.id
+          JOIN Users u ON iu.user_id = u.user_id
+          WHERE iu.user_id = ?
+        `;
+        
+        console.log('Querying supervisor for user_id:', user_id);
+        db.query(supervisorQuery, [user_id], (supervisorErr, supervisorResults) => {
+          console.log('Supervisor query results:', supervisorResults);
+          if (supervisorErr || !supervisorResults.length) {
+            console.error('Error fetching supervisor info:', supervisorErr);
+            // Continue with booking creation even if supervisor email fails
+          } else {
+            const supervisor = supervisorResults[0];
+            
+            // Send email to supervisor
+            const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+              }
+            });
+
+            console.log('Creating approval URL with supervisor:', { booking_id, supervisorEmail: supervisor.email });
+            const tokenString = `${booking_id}:${supervisor.email}`;
+            const encodedToken = Buffer.from(tokenString).toString('base64');
+            console.log('Token generation details:', {
+              tokenString,
+              encodedToken,
+              booking_id_type: typeof booking_id,
+              supervisor_email_type: typeof supervisor.email
+            });
+            const approveUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-booking-approval?booking_id=${booking_id}&token=${encodedToken}`;
+            console.log('Approval URL:', approveUrl);
+            
+            const mailOptions = {
+              from: process.env.EMAIL_USER,
+              to: supervisor.email,
+              subject: 'Internal User Booking Approval Required',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #2563eb;">Booking Approval Required</h2>
+                  <p>Dear ${supervisor.name},</p>
+                  <p>${supervisor.user_name} has requested to book a facility slot and requires your approval.</p>
+                  <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="margin-top: 0;">Booking Details:</h3>
+                    <p><strong>Cost:</strong> ₹${cost}</p>
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Your Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
+                  </div>
+                  <p>Please click the button below to review and approve this booking:</p>
+                  <a href="${approveUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Review Booking</a>
+                  <p style="color: #6b7280; font-size: 14px;">If you have sufficient funds in your wallet, you can approve this booking. The cost will be deducted from your wallet balance.</p>
+                </div>
+              `
+            };
+
+            transporter.sendMail(mailOptions, (emailErr) => {
+              if (emailErr) {
+                console.error('Failed to send supervisor email:', emailErr);
+              } else {
+                console.log('Supervisor approval email sent successfully');
+              }
+            });
+          }
+        });
+      }
+      
+      // Helper function to update booking status
+      function updateBookingStatus(bookingId, status) {
+        const updateQuery = 'UPDATE BookingHistory SET status = ? WHERE booking_id = ?';
+        db.query(updateQuery, [status, bookingId], (updateErr) => {
+          if (updateErr) {
+            console.error('Error updating booking status:', updateErr);
+          } else {
+            console.log(`Booking ${bookingId} status updated to ${status}`);
+          }
+        });
+      }
+      
+      // Helper function to deduct amount from supervisor wallet
+      function deductFromSupervisorWallet(supervisorId, amount) {
+        const deductQuery = 'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?';
+        db.query(deductQuery, [amount, supervisorId], (deductErr) => {
+          if (deductErr) {
+            console.error('Error deducting from supervisor wallet:', deductErr);
+          } else {
+            console.log(`₹${amount} deducted from supervisor ${supervisorId} wallet`);
+          }
+        });
+      }
+      
+      // Helper function to send superuser auto-approval notification
+      function sendSuperuserAutoApprovalEmail(supervisor, cost, date) {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+        
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: supervisor.email,
+          subject: 'Superuser Booking Auto-Approved',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #10b981;">Superuser Booking Auto-Approved</h2>
+              <p>Dear ${supervisor.name},</p>
+              <p>A superuser under your supervision has automatically booked their designated facility.</p>
+              <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                <h3 style="margin-top: 0; color: #10b981;">Auto-Approval Details:</h3>
+                <p><strong>Amount Deducted:</strong> ₹${cost}</p>
+                <p><strong>Date:</strong> ${date}</p>
+                <p><strong>New Wallet Balance:</strong> ₹${supervisor.wallet_balance - cost}</p>
+              </div>
+              <p style="color: #6b7280; font-size: 14px;">This booking was automatically approved as the user is a superuser for this facility. The amount has been deducted from your wallet.</p>
+            </div>
+          `
+        };
+        
+        transporter.sendMail(mailOptions, (emailErr) => {
+          if (emailErr) {
+            console.error('Failed to send superuser auto-approval email:', emailErr);
+          } else {
+            console.log('Superuser auto-approval email sent successfully');
+          }
+        });
+      }
+      
+      // Helper function to send insufficient funds notification
+      function sendInsufficientFundsNotification(supervisor, cost, date) {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+        
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: supervisor.email,
+          subject: '⚠️ Insufficient Funds for Superuser Booking',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #dc2626;">⚠️ Insufficient Funds for Superuser Booking</h2>
+              <p>Dear ${supervisor.name},</p>
+              <p>A superuser under your supervision attempted to book their designated facility, but your wallet has insufficient funds.</p>
+              <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+                <h3 style="margin-top: 0; color: #dc2626;">Booking Details:</h3>
+                <p><strong>Required Amount:</strong> ₹${cost}</p>
+                <p><strong>Date:</strong> ${date}</p>
+                <p><strong>Current Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
+                <p><strong>Shortfall:</strong> ₹${cost - supervisor.wallet_balance}</p>
+              </div>
+              <p style="color: #dc2626; font-weight: bold;">Please top up your wallet to enable superuser bookings.</p>
+              <p style="color: #6b7280; font-size: 14px;">The booking is currently pending and will be automatically approved once sufficient funds are available.</p>
+            </div>
+          `
+        };
+        
+        transporter.sendMail(mailOptions, (emailErr) => {
+          if (emailErr) {
+            console.error('Failed to send insufficient funds notification:', emailErr);
+          } else {
+            console.log('Insufficient funds notification sent successfully');
+          }
+        });
+      }
     }
 
     // Then create the bifurcation entries
@@ -4121,10 +4274,14 @@ app.get('/api/all-supervisors', (req, res) => {
 
 // API to add a new supervisor
 app.post('/api/add-supervisor', (req, res) => {
-  const { name, email, department_name, wallet_balance } = req.body;
+  const { name, email, department_name, wallet_balance, password } = req.body;
   
   if (!name || !email || !department_name) {
     return res.status(400).json({ error: 'Name, email, and department are required' });
+  }
+
+  if (!password || String(password).length < 6) {
+    return res.status(400).json({ error: 'Password is required (min 6 chars)' });
   }
 
   // Validate email format
@@ -4140,16 +4297,66 @@ app.post('/api/add-supervisor', (req, res) => {
     return res.status(400).json({ error: 'Invalid wallet balance' });
   }
 
-  const query = 'INSERT INTO Supervisor (name, email, department_name, wallet_balance) VALUES (?, ?, ?, ?)';
-  db.query(query, [name, email, department_name, parsedBalance], (err, result) => {
-    if (err) {
-      console.error('Error adding supervisor:', err);
-      if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(400).json({ error: 'Email already exists' });
-      }
+  // Check unique email first
+  db.query('SELECT id FROM Supervisor WHERE email = ?', [email], async (checkErr, rows) => {
+    if (checkErr) {
+      console.error('Error checking supervisor email:', checkErr);
       return res.status(500).json({ error: 'Failed to add supervisor' });
     }
-    res.json({ message: 'Supervisor added successfully', id: result.insertId });
+    if (rows && rows.length > 0) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(String(password), salt);
+
+      const query = 'INSERT INTO Supervisor (name, email, department_name, wallet_balance, password_hash) VALUES (?, ?, ?, ?, ?)';
+      db.query(query, [name, email, department_name, parsedBalance, passwordHash], async (err, result) => {
+        if (err) {
+          console.error('Error adding supervisor:', err);
+          return res.status(500).json({ error: 'Failed to add supervisor' });
+        }
+
+        try {
+          // Send credential email
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Supervisor Account Created',
+            html: `
+              <div style="font-family:Arial,sans-serif;line-height:1.6;color:#222">
+                <h2 style="color:#003B4C;margin-bottom:8px">Your Supervisor Account</h2>
+                <p>Dear ${name},</p>
+                <p>An administrator has created your supervisor account.</p>
+                <p><strong>Login Email:</strong> ${email}<br/>
+                   <strong>Temporary Password:</strong> ${String(password).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+                <p>Please change your password after first login.</p>
+                <p>If you did not expect this, please contact the administrator.</p>
+              </div>
+            `,
+          };
+
+          await transporter.sendMail(mailOptions);
+        } catch (emailErr) {
+          console.error('Error sending supervisor credential email:', emailErr);
+          // Do not fail the request if email fails; report partial success
+        }
+
+        res.json({ message: 'Supervisor added successfully', id: result.insertId });
+      });
+    } catch (hashErr) {
+      console.error('Error hashing supervisor password:', hashErr);
+      return res.status(500).json({ error: 'Failed to add supervisor' });
+    }
   });
 });
 
@@ -4655,4 +4862,669 @@ app.post('/auth/verify-otp', async (req, res) => {
     console.error('verify-otp error:', e);
     return res.status(500).json({ message: 'Server error.' });
   }
+});
+
+// Supervisor self endpoints
+app.get('/api/supervisor/me', authenticateToken, (req, res) => {
+  try {
+    const email = req.user && req.user.email ? req.user.email : null;
+    if (!email) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const q = 'SELECT id, name, email, department_name, wallet_balance FROM Supervisor WHERE email = ?';
+    db.query(q, [email], (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+      return res.json(rows[0]);
+    });
+  } catch {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.post('/api/supervisor/change-password', authenticateToken, async (req, res) => {
+  try {
+    const email = req.user && req.user.email ? req.user.email : null;
+    if (!email) return res.status(401).json({ message: 'Unauthorized' });
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({ message: 'Invalid password data' });
+    }
+    db.query('SELECT id, password_hash FROM Supervisor WHERE email = ?', [email], async (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+      const sup = rows[0];
+      const ok = sup.password_hash ? await bcrypt.compare(String(currentPassword), sup.password_hash) : false;
+      if (!ok) return res.status(401).json({ message: 'Current password incorrect' });
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(String(newPassword), salt);
+      db.query('UPDATE Supervisor SET password_hash = ? WHERE id = ?', [hash, sup.id], (uErr) => {
+        if (uErr) return res.status(500).json({ message: 'Failed to update password' });
+        return res.json({ success: true, message: 'Password updated successfully' });
+      });
+    });
+  } catch (e) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Supervisor: list pending internal users assigned to this supervisor
+app.get('/api/supervisor/pending-internal-users', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+    const q = `
+      SELECT u.user_id, u.full_name, u.email, iu.department_name
+      FROM InternalUsers iu
+      JOIN Users u ON u.user_id = iu.user_id
+      WHERE iu.supervisor_id = ? AND u.verified = 'NO'
+      ORDER BY u.full_name
+    `;
+    db.query(q, [supId], (e2, r2) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      return res.json(r2);
+    });
+  });
+});
+
+// Supervisor: list approved/managed internal users
+app.get('/api/supervisor/managed-internal-users', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+    const q = `
+      SELECT u.user_id, u.full_name, u.email, iu.department_name
+      FROM InternalUsers iu
+      JOIN Users u ON u.user_id = iu.user_id
+      WHERE iu.supervisor_id = ? AND u.verified = 'YES'
+      ORDER BY u.full_name
+    `;
+    db.query(q, [supId], (e2, r2) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      return res.json(r2);
+    });
+  });
+});
+
+// Supervisor: approve internal user
+app.post('/api/supervisor/approve-internal-user', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const { user_id } = req.body || {};
+  if (!user_id) return res.status(400).json({ message: 'user_id is required' });
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+    // ensure mapping exists
+    const qMap = 'SELECT 1 FROM InternalUsers WHERE supervisor_id = ? AND user_id = ?';
+    db.query(qMap, [supId, user_id], (e2, r2) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!r2 || r2.length === 0) return res.status(404).json({ message: 'Mapping not found' });
+      const q = "UPDATE Users SET verified = 'YES' WHERE user_id = ?";
+      db.query(q, [user_id], (e3) => {
+        if (e3) return res.status(500).json({ message: 'Failed to approve user' });
+        return res.json({ success: true, message: 'User approved' });
+      });
+    });
+  });
+});
+
+// Supervisor: remove internal user mapping (and set verified to NO)
+app.delete('/api/supervisor/internal-user/:userId', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const userId = req.params.userId;
+  if (!userId) return res.status(400).json({ message: 'userId is required' });
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+    const delQ = 'DELETE FROM InternalUsers WHERE supervisor_id = ? AND user_id = ?';
+    db.query(delQ, [supId, userId], (e2, r2) => {
+      if (e2) return res.status(500).json({ message: 'Failed to remove mapping' });
+      if (r2.affectedRows === 0) return res.status(404).json({ message: 'Mapping not found' });
+      db.query("UPDATE Users SET verified = 'NO' WHERE user_id = ?", [userId], (e3) => {
+        if (e3) return res.status(500).json({ message: 'Failed to update user' });
+        return res.json({ success: true, message: 'User removed from your supervision' });
+      });
+    });
+  });
+});
+
+// Supervisor: list bookings for own internal users
+app.get('/api/supervisor/bookings', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const { status, from, to } = req.query;
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    let where = 'iu.supervisor_id = ?';
+    const params = [supId];
+    if (status) { where += ' AND bh.status = ?'; params.push(status); }
+    if (from) { where += ' AND DATE(bh.booking_date) >= ?'; params.push(from); }
+    if (to) { where += ' AND DATE(bh.booking_date) <= ?'; params.push(to); }
+
+    const q = `
+      SELECT bh.booking_id, bh.facility_id, f.name AS facility_name, bh.booking_date, bh.cost, bh.status,
+             u.user_id, u.full_name, u.email
+      FROM BookingHistory bh
+      JOIN Users u ON u.user_id = bh.user_id
+      JOIN InternalUsers iu ON iu.user_id = u.user_id
+      JOIN Facilities f ON f.id = bh.facility_id
+      WHERE ${where}
+      ORDER BY bh.booking_date DESC, bh.booking_id DESC
+      LIMIT 500
+    `;
+    db.query(q, params, (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      return res.json(rows);
+    });
+  });
+});
+
+// Supervisor: update booking status (approve/reject/cancel) for own users
+app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const bookingId = req.params.id;
+  const { action } = req.body || {};
+  if (!['approve', 'reject', 'cancel'].includes(action)) {
+    return res.status(400).json({ message: 'Invalid action' });
+  }
+
+  const qSup = 'SELECT id, wallet_balance FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    const qBk = `
+      SELECT bh.booking_id, bh.status, bh.cost, s.id AS supervisor_id, s.wallet_balance
+      FROM BookingHistory bh
+      JOIN Users u ON u.user_id = bh.user_id
+      JOIN InternalUsers iu ON iu.user_id = u.user_id
+      JOIN Supervisor s ON s.id = iu.supervisor_id
+      WHERE bh.booking_id = ? AND s.id = ?
+    `;
+    db.query(qBk, [bookingId, supId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
+      const bk = rows[0];
+
+      if (bk.status !== 'Pending' && action !== 'cancel') {
+        return res.status(400).json({ message: 'Only pending bookings can be approved/rejected' });
+      }
+
+      if (action === 'approve') {
+        if (Number(bk.wallet_balance) < Number(bk.cost)) {
+          return res.status(400).json({ message: 'Insufficient wallet balance' });
+        }
+        const q1 = 'UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?';
+        const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?';
+        db.query(q1, [bookingId], (u1) => {
+          if (u1) return res.status(500).json({ message: 'Failed to update booking' });
+          db.query(q2, [Number(bk.cost), supId], (u2) => {
+            if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
+            return res.json({ success: true, message: 'Booking approved', new_wallet_balance: Number(bk.wallet_balance) - Number(bk.cost) });
+          });
+        });
+      } else if (action === 'reject') {
+        // Reject booking - no refund needed as it was never charged
+        db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
+          if (u) return res.status(500).json({ message: 'Failed to update booking' });
+          return res.json({ success: true, message: 'Booking rejected' });
+        });
+      } else if (action === 'cancel') {
+        // Cancel approved booking - refund the amount to supervisor wallet
+        if (bk.status === 'Approved') {
+          const q1 = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
+          const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance + ? WHERE id = ?';
+          
+          db.query(q1, [bookingId], (u1) => {
+            if (u1) return res.status(500).json({ message: 'Failed to update booking' });
+            db.query(q2, [Number(bk.cost), supId], (u2) => {
+              if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
+              return res.json({ 
+                success: true, 
+                message: 'Booking cancelled and amount refunded', 
+                new_wallet_balance: Number(bk.wallet_balance) + Number(bk.cost),
+                refunded_amount: Number(bk.cost)
+              });
+            });
+          });
+        } else {
+          // Cannot cancel non-approved bookings
+          return res.status(400).json({ message: 'Only approved bookings can be cancelled' });
+        }
+      }
+    });
+  });
+});
+
+// Internal user: request to become superuser for a facility
+app.post('/api/superuser/request', authenticateToken, (req, res) => {
+  console.log('Superuser request - req.user:', req.user);
+  const userId = req.user && req.user.userId;
+  if (!userId) {
+    console.log('No userId found in JWT token');
+    return res.status(401).json({ message: 'Unauthorized - No userId in token' });
+  }
+  
+  const { facility_id, reason } = req.body;
+  if (!facility_id || !reason) {
+    return res.status(400).json({ message: 'Facility ID and reason are required' });
+  }
+
+  // Check if user is internal and not already a superuser
+  const qCheck = `
+    SELECT iu.id, iu.isSuperUser
+    FROM InternalUsers iu 
+    WHERE iu.user_id = ?
+  `;
+  db.query(qCheck, [userId], (e1, rows) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!rows || rows.length === 0) return res.status(404).json({ message: 'Internal user not found' });
+    
+    const user = rows[0];
+    if (user.isSuperUser === 'Y') {
+      return res.status(400).json({ message: 'You are already a superuser' });
+    }
+
+    // Check if facility exists
+    db.query('SELECT id, name FROM Facilities WHERE id = ?', [facility_id], (e2, fRows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!fRows || fRows.length === 0) return res.status(404).json({ message: 'Facility not found' });
+
+      // Check if there's already a pending request for this user
+      const qCheckPending = 'SELECT id FROM superuser_requests WHERE user_id = ? AND status = "pending"';
+      db.query(qCheckPending, [userId], (e3, pendingRows) => {
+        if (e3) return res.status(500).json({ message: 'Server error' });
+        
+        if (pendingRows && pendingRows.length > 0) {
+          // Update existing pending request
+          const qUpdate = 'UPDATE superuser_requests SET facility_id = ?, reason = ? WHERE user_id = ? AND status = "pending"';
+          db.query(qUpdate, [facility_id, reason, userId], (e4) => {
+            if (e4) return res.status(500).json({ message: 'Failed to update request' });
+            return res.json({ success: true, message: 'Superuser request updated successfully' });
+          });
+        } else {
+          // Create new request
+          const qInsert = 'INSERT INTO superuser_requests (user_id, facility_id, reason) VALUES (?, ?, ?)';
+          db.query(qInsert, [userId, facility_id, reason], (e4) => {
+            if (e4) return res.status(500).json({ message: 'Failed to create request' });
+            return res.json({ success: true, message: 'Superuser request submitted successfully' });
+          });
+        }
+      });
+    });
+  });
+});
+
+// Supervisor: get current superusers (approved)
+app.get('/api/supervisor/current-superusers', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    const q = `
+      SELECT iu.id, iu.user_id, iu.full_name, iu.email, iu.department_name, 
+             iu.super_facility, f.name AS facility_name
+      FROM InternalUsers iu
+      JOIN Facilities f ON f.id = iu.super_facility
+      WHERE iu.supervisor_id = ? AND iu.super_facility IS NOT NULL AND iu.isSuperUser = 'Y'
+      ORDER BY iu.id DESC
+    `;
+    db.query(q, [supId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      return res.json(rows);
+    });
+  });
+});
+
+// Supervisor: get pending superuser requests
+app.get('/api/supervisor/pending-superusers', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    const q = `
+      SELECT sr.id, sr.user_id, sr.facility_id, sr.reason, sr.requested_at,
+             iu.full_name, iu.email, iu.department_name, f.name AS facility_name
+      FROM superuser_requests sr
+      JOIN InternalUsers iu ON iu.user_id = sr.user_id
+      JOIN Facilities f ON f.id = sr.facility_id
+      WHERE iu.supervisor_id = ? AND sr.status = 'pending'
+      ORDER BY sr.requested_at DESC
+    `;
+    db.query(q, [supId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      return res.json(rows);
+    });
+  });
+});
+
+// Supervisor: approve superuser request
+app.post('/api/supervisor/approve-superuser/:userId', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const targetUserId = req.params.userId;
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    // Get the pending request for this user
+    const qCheck = `
+      SELECT sr.id, sr.facility_id, sr.reason, iu.full_name, f.name AS facility_name
+      FROM superuser_requests sr
+      JOIN InternalUsers iu ON iu.user_id = sr.user_id
+      JOIN Facilities f ON f.id = sr.facility_id
+      WHERE sr.user_id = ? AND iu.supervisor_id = ? AND sr.status = 'pending'
+    `;
+    db.query(qCheck, [targetUserId, supId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Pending request not found or not under your supervision' });
+
+      const request = rows[0];
+      
+      // Get a connection from the pool for transaction
+      db.getConnection((e3, connection) => {
+        if (e3) return res.status(500).json({ message: 'Server error' });
+        
+        // Start transaction
+        connection.beginTransaction((e4) => {
+          if (e4) {
+            connection.release();
+            return res.status(500).json({ message: 'Server error' });
+          }
+          
+          // Update the request status to approved
+          const qUpdateRequest = 'UPDATE superuser_requests SET status = "approved", processed_at = NOW(), processed_by = ? WHERE id = ?';
+          connection.query(qUpdateRequest, [supId, request.id], (e5) => {
+            if (e5) {
+              return connection.rollback(() => {
+                connection.release();
+                res.status(500).json({ message: 'Failed to approve request' });
+              });
+            }
+            
+            // Update the user to be a superuser and set the facility
+            const qUpdateUser = 'UPDATE InternalUsers SET isSuperUser = "Y", super_facility = ? WHERE user_id = ?';
+            connection.query(qUpdateUser, [request.facility_id, targetUserId], (e6) => {
+              if (e6) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json({ message: 'Failed to approve superuser' });
+                });
+              }
+              
+              // Commit the transaction
+              connection.commit((e7) => {
+                if (e7) {
+                  connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json({ message: 'Server error' });
+                  });
+                  return;
+                }
+                
+                connection.release();
+                return res.json({ 
+                  success: true, 
+                  message: `Superuser approved for ${request.full_name} (${request.facility_name})` 
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+// Supervisor: reject superuser request
+app.post('/api/supervisor/reject-superuser/:userId', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const targetUserId = req.params.userId;
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    // Get the pending request for this user
+    const qCheck = `
+      SELECT sr.id, sr.facility_id, iu.full_name, f.name AS facility_name
+      FROM superuser_requests sr
+      JOIN InternalUsers iu ON iu.user_id = sr.user_id
+      JOIN Facilities f ON f.id = sr.facility_id
+      WHERE sr.user_id = ? AND iu.supervisor_id = ? AND sr.status = 'pending'
+    `;
+    db.query(qCheck, [targetUserId, supId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Pending request not found or not under your supervision' });
+
+      const request = rows[0];
+      
+      // Update the request status to cancelled
+      const qUpdate = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = ? WHERE id = ?';
+      db.query(qUpdate, [supId, request.id], (e3) => {
+        if (e3) return res.status(500).json({ message: 'Failed to reject superuser request' });
+        return res.json({ 
+          success: true, 
+          message: `Superuser request rejected for ${request.full_name} (${request.facility_name})` 
+        });
+      });
+    });
+  });
+});
+
+// Supervisor: remove superuser status
+app.post('/api/supervisor/remove-superuser/:userId', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  const targetUserId = req.params.userId;
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    // Verify the target user is under this supervisor and is currently a superuser
+    const qCheck = `
+      SELECT iu.id, iu.full_name, iu.super_facility, f.name AS facility_name
+      FROM InternalUsers iu
+      LEFT JOIN Facilities f ON f.id = iu.super_facility
+      WHERE iu.user_id = ? AND iu.supervisor_id = ? AND iu.isSuperUser = 'Y'
+    `;
+    db.query(qCheck, [targetUserId, supId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Superuser not found or not under your supervision' });
+
+      const user = rows[0];
+      
+      // Remove superuser status and clear facility assignment so user can request again
+      const qUpdate = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
+      db.query(qUpdate, [targetUserId], (e3) => {
+        if (e3) return res.status(500).json({ message: 'Failed to remove superuser status' });
+        
+        // Also mark any existing requests as cancelled
+        const qUpdateRequests = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = ? WHERE user_id = ? AND status IN ("pending", "approved")';
+        db.query(qUpdateRequests, [supId, targetUserId], (e4) => {
+          if (e4) {
+            console.error('Failed to update superuser requests:', e4);
+          }
+          return res.json({ 
+            success: true, 
+            message: `Superuser status removed for ${user.full_name} (${user.facility_name})` 
+          });
+        });
+      });
+    });
+  });
+});
+
+// Get user's superuser status
+app.get('/api/user/superuser-status', authenticateToken, (req, res) => {
+  const userId = req.user && req.user.userId;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  // Get user's current superuser status and any pending requests
+  const q = `
+    SELECT 
+      iu.isSuperUser,
+      iu.super_facility,
+      f.name AS facility_name,
+      sr.status AS request_status,
+      sr.facility_id AS request_facility_id,
+      f2.name AS request_facility_name
+    FROM InternalUsers iu
+    LEFT JOIN Facilities f ON f.id = iu.super_facility
+    LEFT JOIN superuser_requests sr ON sr.user_id = iu.user_id AND sr.status = 'pending'
+    LEFT JOIN Facilities f2 ON f2.id = sr.facility_id
+    WHERE iu.user_id = ?
+  `;
+  db.query(q, [userId], (e, rows) => {
+    if (e) return res.status(500).json({ message: 'Server error' });
+    if (!rows || rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    
+    const user = rows[0];
+    
+    // Determine the status to show
+    let status = 'none';
+    let facilityName = null;
+    
+    if (user.isSuperUser === 'Y') {
+      status = 'active';
+      facilityName = user.facility_name;
+    } else if (user.request_status === 'pending') {
+      status = 'pending';
+      facilityName = user.request_facility_name;
+    }
+    
+    return res.json({
+      status: status,
+      isSuperUser: user.isSuperUser === 'Y',
+      superFacility: user.super_facility,
+      facilityName: facilityName,
+      requestStatus: user.request_status,
+      requestFacilityName: user.request_facility_name
+    });
+  });
+});
+
+// Admin: get all superusers
+app.get('/api/admin/superusers', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+
+  // Check if user is admin
+  const qAdmin = 'SELECT Position FROM management_cred WHERE email = ?';
+  db.query(qAdmin, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(403).json({ message: 'Admin access required' });
+    
+    const admin = r1[0];
+    if (admin.Position !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    // Get all superusers with their details
+    const q = `
+      SELECT iu.id, iu.user_id, iu.full_name, iu.email, iu.department_name, 
+             iu.super_facility, f.name AS facility_name, s.name AS supervisor_name
+      FROM InternalUsers iu
+      LEFT JOIN Facilities f ON f.id = iu.super_facility
+      LEFT JOIN Supervisor s ON s.id = iu.supervisor_id
+      WHERE iu.isSuperUser = 'Y'
+      ORDER BY iu.full_name
+    `;
+    db.query(q, (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      return res.json(rows);
+    });
+  });
+});
+
+// Admin: revoke superuser status
+app.post('/api/admin/revoke-superuser/:userId', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+
+  // Check if user is admin
+  const qAdmin = 'SELECT Position FROM management_cred WHERE email = ?';
+  db.query(qAdmin, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(403).json({ message: 'Admin access required' });
+    
+    const admin = r1[0];
+    if (admin.Position !== 'Admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const targetUserId = req.params.userId;
+    
+    // Check if target user exists and is a superuser
+    const qCheck = `
+      SELECT iu.id, iu.full_name, iu.email, iu.super_facility, f.name AS facility_name
+      FROM InternalUsers iu
+      LEFT JOIN Facilities f ON f.id = iu.super_facility
+      WHERE iu.user_id = ? AND iu.isSuperUser = 'Y'
+    `;
+    db.query(qCheck, [targetUserId], (e2, rows) => {
+      if (e2) return res.status(500).json({ message: 'Server error' });
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Superuser not found' });
+
+      const user = rows[0];
+      
+      // Revoke superuser status and clear facility assignment so user can request again
+      const qUpdate = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
+      db.query(qUpdate, [targetUserId], (e3) => {
+        if (e3) return res.status(500).json({ message: 'Failed to revoke superuser status' });
+        
+        // Also mark any existing requests as cancelled
+        const qUpdateRequests = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = NULL WHERE user_id = ? AND status IN ("pending", "approved")';
+        db.query(qUpdateRequests, [targetUserId], (e4) => {
+          if (e4) {
+            console.error('Failed to update superuser requests:', e4);
+          }
+          return res.json({ 
+            success: true, 
+            message: `Superuser status revoked for ${user.full_name} (${user.facility_name})` 
+          });
+        });
+      });
+    });
+  });
 });

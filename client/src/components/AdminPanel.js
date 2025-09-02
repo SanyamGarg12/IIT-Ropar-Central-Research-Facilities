@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie, FaTags, FaLink, FaEnvelope } from 'react-icons/fa';
+import { Link, useNavigate } from "react-router-dom";
+import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie, FaTags, FaLink, FaEnvelope, FaListUl, FaWallet, FaUserShield } from 'react-icons/fa';
 import { API_BASED_URL } from '../config.js';
 
 const groupedAdminLinks = [
@@ -47,6 +47,7 @@ const AdminDashboard = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("userToken");
@@ -75,6 +76,10 @@ const AdminDashboard = () => {
         localStorage.setItem('userEmail', data.email);
         setIsLoggedIn(true);
         setUserPosition(data.position);
+        // Redirect supervisors to their panel entry to avoid admin-only routes
+        if (data.position === 'Supervisor') {
+          navigate('/supervisor-verify');
+        }
       } else {
         setError("Invalid email or password");
       }
@@ -131,26 +136,30 @@ const AdminDashboard = () => {
               <p className="text-2xl font-semibold text-center text-gray-800 mb-10">
                 Welcome, {userPosition}!
               </p>
-              <div className="space-y-12">
-                {userPosition === "Admin" && groupedAdminLinks.map((section, idx) => (
-                  <div key={section.group}>
-                    <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">{section.group}</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-                      {section.links.filter(link => !link.adminOnly || userPosition === "Admin").map((link, i) => (
-                        <Link
-                          key={link.to}
-                          to={link.to}
-                          className="flex flex-col items-center justify-center bg-indigo-50 border border-indigo-200 rounded-xl shadow-md p-8 hover:bg-indigo-100 hover:shadow-xl transition-all duration-300 ease-in-out group text-center min-h-[140px]"
-                        >
-                          <span className="text-3xl mb-3 text-indigo-600 group-hover:text-indigo-800">{link.icon}</span>
-                          <span className="text-lg font-semibold text-indigo-900 group-hover:text-indigo-700">{link.text}</span>
-                        </Link>
-                      ))}
+              {userPosition === 'Supervisor' ? (
+                <SupervisorLinks />
+              ) : (
+                <div className="space-y-12">
+                  {userPosition === "Admin" && groupedAdminLinks.map((section, idx) => (
+                    <div key={section.group}>
+                      <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">{section.group}</h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+                        {section.links.filter(link => !link.adminOnly || userPosition === "Admin").map((link, i) => (
+                          <Link
+                            key={link.to}
+                            to={link.to}
+                            className="flex flex-col items-center justify-center bg-indigo-50 border border-indigo-200 rounded-xl shadow-md p-8 hover:bg-indigo-100 hover:shadow-xl transition-all duration-300 ease-in-out group text-center min-h-[140px]"
+                          >
+                            <span className="text-3xl mb-3 text-indigo-600 group-hover:text-indigo-800">{link.icon}</span>
+                            <span className="text-lg font-semibold text-indigo-900 group-hover:text-indigo-700">{link.text}</span>
+                          </Link>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {userPosition !== "Admin" && <OperatorLinks />}
-              </div>
+                  ))}
+                  {userPosition !== "Admin" && <OperatorLinks />}
+                </div>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full mt-12 bg-red-500 text-white font-bold py-2 px-4 rounded-md hover:bg-red-600 transition duration-300 ease-in-out transform hover:scale-105"
@@ -190,6 +199,34 @@ const OperatorLinks = () => {
             className="flex flex-col items-center justify-center bg-indigo-50 border border-indigo-200 rounded-xl shadow-md p-8 hover:bg-indigo-100 hover:shadow-xl transition-all duration-300 ease-in-out group text-center min-h-[140px]"
           >
             <span className="text-3xl mb-3 text-indigo-600 group-hover:text-indigo-800">🔗</span>
+            <span className="text-lg font-semibold text-indigo-900 group-hover:text-indigo-700">{link.text}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SupervisorLinks = () => {
+  const links = [
+    { to: "/supervisor/bookings", text: "Manage Bookings", icon: <FaCalendarCheck /> },
+    { to: "/supervisor-verify", text: "Verify Users", icon: <FaListUl /> },
+    { to: "/supervisor/pending-superusers", text: "Pending Superuser Requests", icon: <FaUserShield /> },
+    { to: "/supervisor/manage-superusers", text: "Manage Current Superusers", icon: <FaUserShield /> },
+    { to: "/supervisor/profile", text: "My Profile & Wallet", icon: <FaUserTie /> },
+    { to: "/supervisor/change-password", text: "Change Password", icon: <FaKey /> },
+  ];
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-indigo-700 mb-6 border-b pb-2">Supervisor Actions</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+        {links.map((link) => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className="flex flex-col items-center justify-center bg-indigo-50 border border-indigo-200 rounded-xl shadow-md p-8 hover:bg-indigo-100 hover:shadow-xl transition-all duration-300 ease-in-out group text-center min-h-[140px]"
+          >
+            <span className="text-3xl mb-3 text-indigo-600 group-hover:text-indigo-800">{link.icon}</span>
             <span className="text-lg font-semibold text-indigo-900 group-hover:text-indigo-700">{link.text}</span>
           </Link>
         ))}
