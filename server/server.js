@@ -1157,8 +1157,8 @@ app.post('/api/admin/login', (req, res) => {
     }
 
     if (results.length > 0) {
-      const user = results[0];
-      if (password !== user.Pass) {
+    const user = results[0];
+    if (password !== user.Pass) {
         return res.status(401).json({ message: 'Invalid credentials.' });
       }
       const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
@@ -1616,10 +1616,8 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
     bh.utr_number,
     bh.transaction_date,
     f.name as facility_name,
-    fs.start_time,
-    fs.end_time,
     GROUP_CONCAT(
-      JSON_OBJECT(
+      DISTINCT JSON_OBJECT(
         'bifurcation_name', fb.bifurcation_name,
         'sample_count', bb.sample_count,
         'pricing_type', fb.pricing_type
@@ -1629,8 +1627,6 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
     BookingHistory bh
   INNER JOIN
     Facilities f ON bh.facility_id = f.id
-  INNER JOIN
-    FacilitySchedule fs ON bh.schedule_id = fs.schedule_id
   LEFT JOIN
     BookingBifurcations bb ON bh.booking_id = bb.booking_id
   LEFT JOIN
@@ -1649,14 +1645,68 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
       return res.status(500).send('Error fetching booking history.');
     }
     
-    const formattedResults = results.map(booking => ({
-      ...booking,
-      facility_name: booking.facility_name,
-      slot: `${booking.start_time} - ${booking.end_time}`,
-      bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
-    }));
+    // Process each booking to get slot information
+    const processedResults = [];
+    let processed = 0;
     
-    res.json(formattedResults);
+    if (results.length === 0) {
+      return res.json([]);
+    }
+    
+    results.forEach((booking, index) => {
+      // Parse schedule_ids and get slot information
+      const scheduleIds = booking.schedule_id.split(',').map(id => parseInt(id.trim()));
+      
+      // Get slot information for all schedule IDs
+      const slotQuery = `
+        SELECT schedule_id, start_time, end_time, weekday
+        FROM FacilitySchedule 
+        WHERE schedule_id IN (${scheduleIds.map(() => '?').join(',')})
+        ORDER BY start_time
+      `;
+      
+      db.query(slotQuery, scheduleIds, (slotErr, slotResults) => {
+        if (slotErr) {
+          console.error('Error fetching slot details:', slotErr);
+          // Fallback - use basic info
+          processedResults[index] = {
+            ...booking,
+            slots: [],
+            slot: 'Multiple slots',
+            bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
+          };
+        } else {
+          // Format slot information
+          const slots = slotResults.map(slot => ({
+            schedule_id: slot.schedule_id,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            weekday: slot.weekday,
+            timeSlot: `${slot.start_time} - ${slot.end_time}`
+          }));
+          
+          // Create combined slot display
+          const slotDisplay = slots.length > 1 
+            ? `${slots.length} slots (${slots[0].start_time} - ${slots[slots.length-1].end_time})`
+            : slots.length === 1 
+            ? `${slots[0].start_time} - ${slots[0].end_time}`
+            : 'No slots';
+          
+          processedResults[index] = {
+            ...booking,
+            slots: slots,
+            slot: slotDisplay,
+            bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
+          };
+        }
+        
+        processed++;
+        if (processed === results.length) {
+          // All bookings processed, send response
+          res.json(processedResults);
+        }
+      });
+    });
   });
 });
 
@@ -1681,7 +1731,7 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
       bh.utr_number,
       bh.transaction_date,
       GROUP_CONCAT(
-        JSON_OBJECT(
+        DISTINCT JSON_OBJECT(
           'bifurcation_name', fb.bifurcation_name,
           'sample_count', bb.sample_count,
           'pricing_type', fb.pricing_type
@@ -1709,13 +1759,68 @@ app.get('/api/booking-requests', authenticateToken, (req, res) => {
       return res.status(500).send('Error fetching booking history.');
     }
 
-    // Parse the bifurcations JSON string into an array
-    const formattedResults = results.map(booking => ({
-      ...booking,
-      bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
-    }));
+    // Process each booking to get slot information
+    const processedResults = [];
+    let processed = 0;
+    
+    if (results.length === 0) {
+      return res.json([]);
+    }
 
-    res.status(200).json(formattedResults);
+    results.forEach((booking, index) => {
+      // Parse schedule_ids and get slot information
+      const scheduleIds = booking.schedule_id.split(',').map(id => parseInt(id.trim()));
+      
+      // Get slot information for all schedule IDs
+      const slotQuery = `
+        SELECT schedule_id, start_time, end_time, weekday
+        FROM FacilitySchedule 
+        WHERE schedule_id IN (${scheduleIds.map(() => '?').join(',')})
+        ORDER BY start_time
+      `;
+      
+      db.query(slotQuery, scheduleIds, (slotErr, slotResults) => {
+        if (slotErr) {
+          console.error('Error fetching slot details:', slotErr);
+          // Fallback - use basic info
+          processedResults[index] = {
+            ...booking,
+            slots: [],
+            slot: 'Multiple slots',
+            bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
+          };
+        } else {
+          // Format slot information
+          const slots = slotResults.map(slot => ({
+            schedule_id: slot.schedule_id,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            weekday: slot.weekday,
+            timeSlot: `${slot.start_time} - ${slot.end_time}`
+          }));
+          
+          // Create combined slot display
+          const slotDisplay = slots.length > 1 
+            ? `${slots.length} slots (${slots[0].start_time} - ${slots[slots.length-1].end_time})`
+            : slots.length === 1 
+            ? `${slots[0].start_time} - ${slots[0].end_time}`
+            : 'No slots';
+          
+          processedResults[index] = {
+            ...booking,
+            slots: slots,
+            slot: slotDisplay,
+            bifurcations: booking.bifurcations ? JSON.parse(`[${booking.bifurcations}]`) : []
+          };
+        }
+        
+        processed++;
+        if (processed === results.length) {
+          // All bookings processed, send response
+          res.status(200).json(processedResults);
+        }
+      });
+    });
   });
 });
 
@@ -2168,9 +2273,9 @@ app.get("/api/slots", authenticateToken, async (req, res) => {
       SELECT isSuperUser, super_facility 
       FROM InternalUsers 
       WHERE user_id = ?
-    `;
-    
-    try {
+  `;
+
+  try {
       const [superuserResult] = await db.promise().query(superuserCheckQuery, [userId]);
       
       if (superuserResult.length > 0) {
@@ -2220,11 +2325,11 @@ app.get("/api/slots", authenticateToken, async (req, res) => {
     // Using await to fetch total slots for the appropriate user type
     const [totalSlots] = await db.promise().query(checkSlotsQuery, queryParams);
 
-    // Check if any slots are already booked
+    // Check if any slots are already booked (Pending or Approved)
     const checkBookedSlotsQuery = `
       SELECT schedule_id, status 
       FROM bookinghistory 
-      WHERE facility_id = ? AND booking_date = ?
+      WHERE facility_id = ? AND booking_date = ? AND status IN ('Pending', 'Approved')
     `;
 
     // Using await to fetch booked slots
@@ -2232,15 +2337,18 @@ app.get("/api/slots", authenticateToken, async (req, res) => {
       .promise()
       .query(checkBookedSlotsQuery, [facility_id, date]);
 
-    // Extract schedule_ids of booked slots
-    const bookedSlotIds = bookedSlots
-      .filter((slot) => slot.status === "Approved")
-      .map((slot) => slot.schedule_id);
+    // Extract schedule_ids of booked slots (handle comma-separated values)
+    const bookedSlotIds = new Set();
+    bookedSlots.forEach((slot) => {
+      // Handle comma-separated schedule_ids
+      const scheduleIds = slot.schedule_id.toString().split(',').map(id => parseInt(id.trim()));
+      scheduleIds.forEach(id => bookedSlotIds.add(id));
+    });
 
     // Add 'available' field to each slot, indicating whether the slot is available for booking
     const slotsWithAvailability = totalSlots.map((slot) => ({
       ...slot,
-      available: !bookedSlotIds.includes(slot.schedule_id),
+      available: !bookedSlotIds.has(slot.schedule_id),
     }));
 
     // Return all slots with the 'available' field
@@ -2557,24 +2665,24 @@ app.get('/api/weekly-slots', authenticateToken, (req, res) => {
         db.query(scheduleQuery, queryParams, (err3, schedule) => {
           if (err3) {
             console.error(err3);
-            return res.status(500).json({ message: 'Failed to fetch schedule' });
-          }
+        return res.status(500).json({ message: 'Failed to fetch schedule' });
+      }
 
-          const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
-            if (!acc[weekday]) acc[weekday] = [];
-            acc[weekday].push({ start_time, end_time });
-            return acc;
-          }, {});
+      const slots = schedule.reduce((acc, { weekday, start_time, end_time }) => {
+        if (!acc[weekday]) acc[weekday] = [];
+        acc[weekday].push({ start_time, end_time });
+        return acc;
+      }, {});
 
-          // Return the facility with its corresponding slots
-          res.json({
-            facility: {
-              id: facility.id,
-              name: facility.name,
-              slots: slots,
-            },
-          });
-        });
+      // Return the facility with its corresponding slots
+      res.json({
+        facility: {
+          id: facility.id,
+          name: facility.name,
+          slots: slots,
+        },
+      });
+    });
       });
     } else {
       // Non-internal users: use their user type as before
@@ -2926,6 +3034,120 @@ app.get('/api/user-history/:userId', authenticateToken, (req, res) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Start the server
+// Auto-cancel pending bookings older than 3 hours
+const autoCancelOldPendingBookings = () => {
+  const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3 hours ago
+  
+  const query = `
+    SELECT bh.booking_id, bh.user_id, u.email, u.full_name, f.name as facility_name, bh.cost,
+           iu.supervisor_id, s.email as supervisor_email, s.name as supervisor_name
+    FROM BookingHistory bh
+    JOIN Users u ON bh.user_id = u.user_id
+    JOIN Facilities f ON bh.facility_id = f.id
+    LEFT JOIN InternalUsers iu ON u.user_id = iu.user_id
+    LEFT JOIN Supervisor s ON iu.supervisor_id = s.id
+    WHERE bh.status = 'Pending' 
+    AND bh.created_at <= ?
+  `;
+  
+  db.query(query, [threeHoursAgo], (err, results) => {
+    if (err) {
+      console.error('Error fetching old pending bookings:', err);
+      return;
+    }
+    
+    if (results.length === 0) return;
+    
+    console.log(`Auto-cancelling ${results.length} pending bookings older than 3 hours`);
+    
+    results.forEach(booking => {
+      // Cancel the booking
+      const updateQuery = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
+      db.query(updateQuery, [booking.booking_id], (updateErr) => {
+        if (updateErr) {
+          console.error(`Error cancelling booking ${booking.booking_id}:`, updateErr);
+          return;
+        }
+        
+        console.log(`Auto-cancelled booking ${booking.booking_id} for user ${booking.full_name}`);
+        
+        // Send notification email to user
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+        
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: booking.email,
+          subject: 'Booking Auto-Cancelled - 3 Hour Time Limit Exceeded',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #ef4444;">Booking Auto-Cancelled</h2>
+              <p>Dear ${booking.full_name},</p>
+              <p>Your booking request has been automatically cancelled because it was not approved within 3 hours.</p>
+              <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                <h3 style="margin-top: 0; color: #ef4444;">Booking Details:</h3>
+                <p><strong>Booking ID:</strong> ${booking.booking_id}</p>
+                <p><strong>Facility:</strong> ${booking.facility_name}</p>
+                <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                <p><strong>Status:</strong> Auto-Cancelled</p>
+              </div>
+              <p>The time slot is now available for other users to book. You may submit a new booking request if needed.</p>
+              ${booking.supervisor_email ? `<p>Your supervisor (${booking.supervisor_name}) has been notified about this auto-cancellation.</p>` : ''}
+            </div>
+          `
+        };
+        
+        transporter.sendMail(mailOptions, (emailErr) => {
+          if (emailErr) {
+            console.error(`Failed to send auto-cancellation email to ${booking.email}:`, emailErr);
+          }
+        });
+        
+        // If internal user, notify supervisor
+        if (booking.supervisor_email) {
+          const supervisorMailOptions = {
+            from: process.env.EMAIL_USER,
+            to: booking.supervisor_email,
+            subject: 'Internal User Booking Auto-Cancelled',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #ef4444;">Internal User Booking Auto-Cancelled</h2>
+                <p>Dear ${booking.supervisor_name},</p>
+                <p>An internal user booking under your supervision has been automatically cancelled due to the 3-hour time limit.</p>
+                <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                  <h3 style="margin-top: 0; color: #ef4444;">Booking Details:</h3>
+                  <p><strong>User:</strong> ${booking.full_name} (${booking.email})</p>
+                  <p><strong>Booking ID:</strong> ${booking.booking_id}</p>
+                  <p><strong>Facility:</strong> ${booking.facility_name}</p>
+                  <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                </div>
+                <p>The user has been notified and the time slot is now available for other bookings.</p>
+              </div>
+            `
+          };
+          
+          transporter.sendMail(supervisorMailOptions, (emailErr) => {
+            if (emailErr) {
+              console.error(`Failed to send supervisor notification to ${booking.supervisor_email}:`, emailErr);
+            }
+          });
+        }
+      });
+    });
+  });
+};
+
+// Run auto-cancellation every 30 minutes
+setInterval(autoCancelOldPendingBookings, 30 * 60 * 1000);
+
+// Run once on startup to clean up any existing old bookings
+autoCancelOldPendingBookings();
+
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
@@ -3598,15 +3820,164 @@ app.post('/api/booking-bifurcations', authenticateToken, (req, res) => {
   });
 });
 
-// Modify the existing booking endpoint
+// Validation function for multiple slots
+function validateMultipleSlots(facility_id, schedule_ids, user_type, date, callback) {
+  // Ensure facility_id is a number for proper comparison
+  const numericFacilityId = parseInt(facility_id);
+  
+  // First, get the facility booking limits for this user type
+  db.query(`
+    SELECT max_hours_per_booking 
+    FROM facility_booking_limits 
+    WHERE facility_id = ? AND user_type = ?
+  `, [facility_id, user_type], (limitErr, limitResults) => {
+    if (limitErr) {
+      console.error('Error fetching booking limits:', limitErr);
+      return callback({ valid: false, message: 'Failed to fetch booking limits' });
+    }
+    
+    const maxHours = limitResults.length > 0 ? limitResults[0].max_hours_per_booking : 8;
+    
+    // Get slot details and validate
+    db.query(`
+      SELECT 
+        fs.schedule_id,
+        fs.weekday,
+        fs.start_time,
+        fs.end_time,
+        fs.user_type,
+        fs.facility_id
+      FROM FacilitySchedule fs
+      WHERE fs.schedule_id IN (${schedule_ids.map(() => '?').join(',')}) 
+      AND fs.status = 'Valid'
+      ORDER BY fs.weekday, fs.start_time
+    `, schedule_ids, (err, slots) => {
+      if (err) {
+        console.error('Error validating slots:', err);
+        return callback({ valid: false, message: 'Failed to validate slots' });
+      }
+      
+      if (slots.length !== schedule_ids.length) {
+        return callback({ valid: false, message: 'Some selected slots are not available or invalid' });
+      }
+      
+      // Check if all slots are for the same facility and user type
+      const facilityIds = [...new Set(slots.map(s => s.facility_id))];
+      const userTypes = [...new Set(slots.map(s => s.user_type))];
+      
+      if (facilityIds.length > 1 || facilityIds[0] !== numericFacilityId) {
+        console.log('Facility validation failed:', {
+          facilityIds,
+          requestFacilityId: facility_id,
+          numericFacilityId,
+          facilityIdsType: typeof facilityIds[0],
+          requestFacilityIdType: typeof facility_id
+        });
+        return callback({ valid: false, message: 'All slots must be from the same facility' });
+      }
+      
+      if (userTypes.length > 1 || userTypes[0] !== user_type) {
+        return callback({ valid: false, message: 'All slots must be for the same user type' });
+      }
+      
+      // Check if slots are consecutive (same day, adjacent times)
+      const slotsByDay = {};
+      slots.forEach(slot => {
+        if (!slotsByDay[slot.weekday]) {
+          slotsByDay[slot.weekday] = [];
+        }
+        slotsByDay[slot.weekday].push(slot);
+      });
+      
+      // Slots must all be on the same day for consecutive validation
+      const days = Object.keys(slotsByDay);
+      if (days.length > 1) {
+        return callback({ valid: false, message: 'All selected slots must be on the same day' });
+      }
+      
+      // Check consecutive slots
+      const daySlots = slotsByDay[days[0]];
+      if (daySlots.length > 1) {
+        daySlots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+        
+        for (let i = 1; i < daySlots.length; i++) {
+          const prevSlot = daySlots[i - 1];
+          const currentSlot = daySlots[i];
+          
+          if (prevSlot.end_time !== currentSlot.start_time) {
+            return callback({ valid: false, message: 'Selected slots must be consecutive (adjacent times)' });
+          }
+        }
+      }
+      
+      // Calculate total hours and check against limit
+      let totalHours = 0;
+      
+      slots.forEach(slot => {
+        const startTime = new Date(`2000-01-01 ${slot.start_time}`);
+        const endTime = new Date(`2000-01-01 ${slot.end_time}`);
+        const hours = (endTime - startTime) / (1000 * 60 * 60);
+        totalHours += hours;
+      });
+      
+      if (totalHours > maxHours) {
+        return callback({ 
+          valid: false, 
+          message: `Total booking hours (${totalHours.toFixed(1)}) exceed the limit of ${maxHours} hours for ${user_type} users` 
+        });
+      }
+      
+      // Check if any slots are already booked (across all user types)
+      const checkBookedQuery = `
+        SELECT schedule_id, status
+        FROM BookingHistory 
+        WHERE facility_id = ? 
+        AND booking_date = ? 
+        AND status IN ('Pending', 'Approved')
+      `;
+      
+      db.query(checkBookedQuery, [facility_id, date], (bookingErr, bookingResults) => {
+        if (bookingErr) {
+          console.error('Error checking slot availability:', bookingErr);
+          return callback({ valid: false, message: 'Failed to check slot availability' });
+        }
+        
+        // Extract all booked slot IDs (handle comma-separated values)
+        const bookedSlotIds = new Set();
+        bookingResults.forEach(booking => {
+          const scheduleIds = booking.schedule_id.split(',').map(id => parseInt(id.trim()));
+          scheduleIds.forEach(id => bookedSlotIds.add(id));
+        });
+        
+        // Check if any of our selected slots are already booked
+        const conflictingSlots = schedule_ids.filter(id => bookedSlotIds.has(parseInt(id)));
+        if (conflictingSlots.length > 0) {
+          return callback({ 
+            valid: false, 
+            message: `Some selected slots are already booked: ${conflictingSlots.join(', ')}` 
+          });
+        }
+        
+        callback({ 
+          valid: true, 
+          totalHours, 
+          slots,
+          maxHours 
+        });
+      });
+    });
+  });
+}
+
+// Multiple slot booking endpoint
 app.post('/api/booking', authenticateToken, (req, res) => {
   const { 
     facility_id, 
     date, 
-    schedule_id, 
+    schedule_ids, // Changed from schedule_id to schedule_ids (array)
     user_id, 
     operator_email, 
-    cost, 
+    cost, // Cost calculated by frontend
     user_type, 
     receipt_path, 
     bifurcation_ids,
@@ -3615,6 +3986,17 @@ app.post('/api/booking', authenticateToken, (req, res) => {
     utr_number,
     transaction_date
   } = req.body;
+  
+  // Validate schedule_ids is an array
+  if (!Array.isArray(schedule_ids) || schedule_ids.length === 0) {
+    return res.status(400).json({ message: "Schedule IDs must be an array with at least one slot" });
+  }
+  
+  // Convert to integers and validate
+  const validScheduleIds = schedule_ids.map(id => parseInt(id)).filter(id => !isNaN(id));
+  if (validScheduleIds.length !== schedule_ids.length) {
+    return res.status(400).json({ message: "All schedule IDs must be valid numbers" });
+  }
   
   // Check if user is internal (no payment required)
   const isInternalUser = user_type === 'Internal';
@@ -3637,6 +4019,15 @@ app.post('/api/booking', authenticateToken, (req, res) => {
     }
   }
   
+  // Validate multiple slots
+  validateMultipleSlots(facility_id, validScheduleIds, user_type, date, (validationResult) => {
+    if (!validationResult.valid) {
+      return res.status(400).json({ message: validationResult.message });
+    }
+    
+    // Use cost from frontend (calculated through bifurcations)
+    const calculatedCost = cost;
+  
   // For internal users, set receipt_path and billing fields to null
   const finalReceiptPath = isInternalUser ? null : receipt_path;
   const finalBillingAddress = isInternalUser ? null : billing_address;
@@ -3644,7 +4035,10 @@ app.post('/api/booking', authenticateToken, (req, res) => {
   const finalUtrNumber = isInternalUser ? null : utr_number;
   const finalTransactionDate = isInternalUser ? null : transaction_date;
   
-  // First create the booking
+    // Convert schedule_ids array to comma-separated string for database storage
+    const scheduleIdString = validScheduleIds.join(',');
+    
+    // Create the booking with comma-separated schedule_id
   const bookingQuery = `
     INSERT INTO BookingHistory 
     (facility_id, booking_date, schedule_id, user_id, operator_email, cost, receipt_path, billing_address, gst_number, utr_number, transaction_date) 
@@ -3654,10 +4048,10 @@ app.post('/api/booking', authenticateToken, (req, res) => {
   db.query(bookingQuery, [
     facility_id, 
     date, 
-    schedule_id, 
+      scheduleIdString, // Comma-separated string of schedule IDs
     user_id, 
     operator_email, 
-    cost, 
+      calculatedCost, // Use calculated cost
     finalReceiptPath,
     finalBillingAddress,
     finalGstNumber,
@@ -3721,94 +4115,96 @@ app.post('/api/booking', authenticateToken, (req, res) => {
           const supervisor = supervisorResults[0];
           
           // Check if supervisor has sufficient wallet balance
-          if (supervisor.wallet_balance >= cost) {
+          if (supervisor.wallet_balance >= calculatedCost) {
             // Sufficient funds - auto-approve and deduct from wallet
             updateBookingStatus(booking_id, 'Approved');
-            deductFromSupervisorWallet(supervisor.id, cost);
+            deductFromSupervisorWallet(supervisor.id, calculatedCost);
             
             // Send notification email to supervisor about auto-approval
-            sendSuperuserAutoApprovalEmail(supervisor, cost, date);
+            sendSuperuserAutoApprovalEmail(supervisor, calculatedCost, date, validationResult);
           } else {
             // Insufficient funds - set status to pending and notify user
             updateBookingStatus(booking_id, 'Pending');
             // Send notification to supervisor about insufficient funds
-            sendInsufficientFundsNotification(supervisor, cost, date);
+            sendInsufficientFundsNotification(supervisor, calculatedCost, date, validationResult);
           }
         });
       }
       
       // Function to handle regular internal user booking (supervisor approval required)
       function handleRegularInternalUserBooking() {
-        // Get supervisor information for the internal user
-        const supervisorQuery = `
-          SELECT s.email, s.name, s.wallet_balance, u.full_name as user_name
-          FROM InternalUsers iu
-          JOIN Supervisor s ON iu.supervisor_id = s.id
-          JOIN Users u ON iu.user_id = u.user_id
-          WHERE iu.user_id = ?
-        `;
-        
-        console.log('Querying supervisor for user_id:', user_id);
-        db.query(supervisorQuery, [user_id], (supervisorErr, supervisorResults) => {
-          console.log('Supervisor query results:', supervisorResults);
-          if (supervisorErr || !supervisorResults.length) {
-            console.error('Error fetching supervisor info:', supervisorErr);
-            // Continue with booking creation even if supervisor email fails
-          } else {
-            const supervisor = supervisorResults[0];
-            
-            // Send email to supervisor
-            const transporter = nodemailer.createTransport({
-              service: 'gmail',
-              auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-              }
-            });
+      // Get supervisor information for the internal user
+      const supervisorQuery = `
+        SELECT s.email, s.name, s.wallet_balance, u.full_name as user_name
+        FROM InternalUsers iu
+        JOIN Supervisor s ON iu.supervisor_id = s.id
+        JOIN Users u ON iu.user_id = u.user_id
+        WHERE iu.user_id = ?
+      `;
+      
+      console.log('Querying supervisor for user_id:', user_id);
+      db.query(supervisorQuery, [user_id], (supervisorErr, supervisorResults) => {
+        console.log('Supervisor query results:', supervisorResults);
+        if (supervisorErr || !supervisorResults.length) {
+          console.error('Error fetching supervisor info:', supervisorErr);
+          // Continue with booking creation even if supervisor email fails
+        } else {
+          const supervisor = supervisorResults[0];
+          
+          // Send email to supervisor
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            }
+          });
 
-            console.log('Creating approval URL with supervisor:', { booking_id, supervisorEmail: supervisor.email });
-            const tokenString = `${booking_id}:${supervisor.email}`;
-            const encodedToken = Buffer.from(tokenString).toString('base64');
-            console.log('Token generation details:', {
-              tokenString,
-              encodedToken,
-              booking_id_type: typeof booking_id,
-              supervisor_email_type: typeof supervisor.email
-            });
-            const approveUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-booking-approval?booking_id=${booking_id}&token=${encodedToken}`;
-            console.log('Approval URL:', approveUrl);
-            
-            const mailOptions = {
-              from: process.env.EMAIL_USER,
-              to: supervisor.email,
-              subject: 'Internal User Booking Approval Required',
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2 style="color: #2563eb;">Booking Approval Required</h2>
-                  <p>Dear ${supervisor.name},</p>
-                  <p>${supervisor.user_name} has requested to book a facility slot and requires your approval.</p>
-                  <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <h3 style="margin-top: 0;">Booking Details:</h3>
-                    <p><strong>Cost:</strong> ₹${cost}</p>
-                    <p><strong>Date:</strong> ${date}</p>
-                    <p><strong>Your Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
-                  </div>
-                  <p>Please click the button below to review and approve this booking:</p>
-                  <a href="${approveUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Review Booking</a>
-                  <p style="color: #6b7280; font-size: 14px;">If you have sufficient funds in your wallet, you can approve this booking. The cost will be deducted from your wallet balance.</p>
+          console.log('Creating approval URL with supervisor:', { booking_id, supervisorEmail: supervisor.email });
+          const tokenString = `${booking_id}:${supervisor.email}`;
+          const encodedToken = Buffer.from(tokenString).toString('base64');
+          console.log('Token generation details:', {
+            tokenString,
+            encodedToken,
+            booking_id_type: typeof booking_id,
+            supervisor_email_type: typeof supervisor.email
+          });
+          const approveUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:3000'}/supervisor-booking-approval?booking_id=${booking_id}&token=${encodedToken}`;
+          console.log('Approval URL:', approveUrl);
+          
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: supervisor.email,
+            subject: 'Internal User Booking Approval Required',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Booking Approval Required</h2>
+                <p>Dear ${supervisor.name},</p>
+                <p>${supervisor.user_name} has requested to book a facility slot and requires your approval.</p>
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin-top: 0;">Booking Details:</h3>
+                    <p><strong>Cost:</strong> ₹${calculatedCost}</p>
+                  <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Total Hours:</strong> ${validationResult.totalHours.toFixed(1)} hours</p>
+                    <p><strong>Number of Slots:</strong> ${validScheduleIds.length}</p>
+                  <p><strong>Your Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
                 </div>
-              `
-            };
+                <p>Please click the button below to review and approve this booking:</p>
+                <a href="${approveUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Review Booking</a>
+                <p style="color: #6b7280; font-size: 14px;">If you have sufficient funds in your wallet, you can approve this booking. The cost will be deducted from your wallet balance.</p>
+              </div>
+            `
+          };
 
-            transporter.sendMail(mailOptions, (emailErr) => {
-              if (emailErr) {
-                console.error('Failed to send supervisor email:', emailErr);
-              } else {
-                console.log('Supervisor approval email sent successfully');
-              }
-            });
-          }
-        });
+          transporter.sendMail(mailOptions, (emailErr) => {
+            if (emailErr) {
+              console.error('Failed to send supervisor email:', emailErr);
+            } else {
+              console.log('Supervisor approval email sent successfully');
+            }
+          });
+        }
+      });
       }
       
       // Helper function to update booking status
@@ -3836,7 +4232,7 @@ app.post('/api/booking', authenticateToken, (req, res) => {
       }
       
       // Helper function to send superuser auto-approval notification
-      function sendSuperuserAutoApprovalEmail(supervisor, cost, date) {
+      function sendSuperuserAutoApprovalEmail(supervisor, cost, date, validationInfo) {
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -3858,6 +4254,8 @@ app.post('/api/booking', authenticateToken, (req, res) => {
                 <h3 style="margin-top: 0; color: #10b981;">Auto-Approval Details:</h3>
                 <p><strong>Amount Deducted:</strong> ₹${cost}</p>
                 <p><strong>Date:</strong> ${date}</p>
+                <p><strong>Total Hours:</strong> ${validationInfo.totalHours.toFixed(1)} hours</p>
+                <p><strong>Number of Slots:</strong> ${validationInfo.slots.length}</p>
                 <p><strong>New Wallet Balance:</strong> ₹${supervisor.wallet_balance - cost}</p>
               </div>
               <p style="color: #6b7280; font-size: 14px;">This booking was automatically approved as the user is a superuser for this facility. The amount has been deducted from your wallet.</p>
@@ -3875,7 +4273,7 @@ app.post('/api/booking', authenticateToken, (req, res) => {
       }
       
       // Helper function to send insufficient funds notification
-      function sendInsufficientFundsNotification(supervisor, cost, date) {
+      function sendInsufficientFundsNotification(supervisor, cost, date, validationInfo) {
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -3894,11 +4292,13 @@ app.post('/api/booking', authenticateToken, (req, res) => {
               <p>Dear ${supervisor.name},</p>
               <p>A superuser under your supervision attempted to book their designated facility, but your wallet has insufficient funds.</p>
               <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
-                <h3 style="margin-top: 0; color: #dc2626;">Booking Details:</h3>
-                <p><strong>Required Amount:</strong> ₹${cost}</p>
-                <p><strong>Date:</strong> ${date}</p>
-                <p><strong>Current Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
-                <p><strong>Shortfall:</strong> ₹${cost - supervisor.wallet_balance}</p>
+                 <h3 style="margin-top: 0; color: #dc2626;">Booking Details:</h3>
+                 <p><strong>Required Amount:</strong> ₹${cost}</p>
+                 <p><strong>Date:</strong> ${date}</p>
+                 <p><strong>Total Hours:</strong> ${validationInfo.totalHours.toFixed(1)} hours</p>
+                 <p><strong>Number of Slots:</strong> ${validationInfo.slots.length}</p>
+                 <p><strong>Current Wallet Balance:</strong> ₹${supervisor.wallet_balance}</p>
+                 <p><strong>Shortfall:</strong> ₹${cost - supervisor.wallet_balance}</p>
               </div>
               <p style="color: #dc2626; font-weight: bold;">Please top up your wallet to enable superuser bookings.</p>
               <p style="color: #6b7280; font-size: 14px;">The booking is currently pending and will be automatically approved once sufficient funds are available.</p>
@@ -3938,7 +4338,10 @@ app.post('/api/booking', authenticateToken, (req, res) => {
             res.json({ 
               message: isInternalUser ? 'Booking submitted for supervisor approval' : 'Booking created successfully',
               booking_id: booking_id,
-              requires_supervisor_approval: isInternalUser
+              requires_supervisor_approval: isInternalUser,
+              total_hours: validationResult.totalHours,
+              total_cost: cost,
+              slot_count: validScheduleIds.length
             });
           }
         });
@@ -3947,9 +4350,136 @@ app.post('/api/booking', authenticateToken, (req, res) => {
       res.json({ 
         message: isInternalUser ? 'Booking submitted for supervisor approval' : 'Booking created successfully',
         booking_id: booking_id,
-        requires_supervisor_approval: isInternalUser
+        requires_supervisor_approval: isInternalUser,
+        total_hours: validationResult.totalHours,
+        total_cost: validationResult.totalCost,
+        slot_count: validScheduleIds.length
       });
     }
+  });
+  });
+});
+
+// Get facility booking limits for admin panel
+app.get('/api/admin/facilities/limits', authenticateToken, (req, res) => {
+  db.query(`
+    SELECT
+      f.id,
+      f.name,
+      c.name as category_name
+    FROM Facilities f
+    LEFT JOIN Categories c ON f.category_id = c.id
+    ORDER BY f.name
+  `, (err, facilities) => {
+    if (err) {
+      console.error('Error fetching facilities:', err);
+      return res.status(500).json({ message: 'Failed to fetch facilities' });
+    }
+
+    // Fetch user-type-specific limits for each facility
+    const facilitiesWithLimits = facilities.map(facility => {
+      return new Promise((resolve) => {
+        db.query(`
+          SELECT user_type, max_hours_per_booking
+          FROM facility_booking_limits
+          WHERE facility_id = ?
+        `, [facility.id], (limitErr, limits) => {
+          if (limitErr) {
+            console.error('Error fetching limits for facility:', facility.id, limitErr);
+            resolve({
+              ...facility,
+              limits: []
+            });
+          } else {
+            resolve({
+              ...facility,
+              limits: limits
+            });
+          }
+        });
+      });
+    });
+
+    Promise.all(facilitiesWithLimits).then(results => {
+      res.json(results);
+    });
+  });
+});
+
+// Update facility booking limits
+app.put('/api/admin/facilities/limits/:facilityId', authenticateToken, (req, res) => {
+  const { facilityId } = req.params;
+  const { limits } = req.body; // Array of { user_type, max_hours_per_booking }
+
+  if (!Array.isArray(limits)) {
+    return res.status(400).json({ message: 'Limits must be an array' });
+  }
+
+  // Validate each limit
+  for (const limit of limits) {
+    if (!limit.user_type || typeof limit.max_hours_per_booking !== 'number' || limit.max_hours_per_booking <= 0) {
+      return res.status(400).json({ message: 'Invalid limit format' });
+    }
+  }
+
+  // Use transaction to ensure atomicity
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Error getting database connection:', err);
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+
+    connection.beginTransaction(async (err) => {
+      if (err) {
+        connection.release();
+        console.error('Error beginning transaction:', err);
+        return res.status(500).json({ message: 'Transaction error' });
+      }
+
+      try {
+        // Delete existing limits for this facility
+        await new Promise((resolve, reject) => {
+          connection.query('DELETE FROM facility_booking_limits WHERE facility_id = ?', [facilityId], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        // Insert new limits
+        for (const limit of limits) {
+          await new Promise((resolve, reject) => {
+            connection.query(`
+              INSERT INTO facility_booking_limits (facility_id, user_type, max_hours_per_booking)
+              VALUES (?, ?, ?)
+            `, [facilityId, limit.user_type, limit.max_hours_per_booking], (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+        }
+
+        // Commit transaction
+        connection.commit((err) => {
+          if (err) {
+            connection.rollback(() => {
+              connection.release();
+              console.error('Error committing transaction:', err);
+              return res.status(500).json({ message: 'Failed to update limits' });
+            });
+          } else {
+            connection.release();
+            res.json({ message: 'Facility booking limits updated successfully' });
+          }
+        });
+
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          console.error('Error in transaction:', error);
+          res.status(500).json({ message: 'Failed to update limits' });
+        });
+      }
+    });
   });
 });
 
@@ -4304,8 +4834,8 @@ app.post('/api/add-supervisor', (req, res) => {
       return res.status(500).json({ error: 'Failed to add supervisor' });
     }
     if (rows && rows.length > 0) {
-      return res.status(400).json({ error: 'Email already exists' });
-    }
+        return res.status(400).json({ error: 'Email already exists' });
+      }
 
     try {
       const salt = await bcrypt.genSalt(10);
@@ -4315,8 +4845,8 @@ app.post('/api/add-supervisor', (req, res) => {
       db.query(query, [name, email, department_name, parsedBalance, passwordHash], async (err, result) => {
         if (err) {
           console.error('Error adding supervisor:', err);
-          return res.status(500).json({ error: 'Failed to add supervisor' });
-        }
+      return res.status(500).json({ error: 'Failed to add supervisor' });
+    }
 
         try {
           // Send credential email
@@ -4351,7 +4881,7 @@ app.post('/api/add-supervisor', (req, res) => {
           // Do not fail the request if email fails; report partial success
         }
 
-        res.json({ message: 'Supervisor added successfully', id: result.insertId });
+    res.json({ message: 'Supervisor added successfully', id: result.insertId });
       });
     } catch (hashErr) {
       console.error('Error hashing supervisor password:', hashErr);
@@ -5021,7 +5551,7 @@ app.get('/api/supervisor/bookings', authenticateToken, (req, res) => {
     if (to) { where += ' AND DATE(bh.booking_date) <= ?'; params.push(to); }
 
     const q = `
-      SELECT bh.booking_id, bh.facility_id, f.name AS facility_name, bh.booking_date, bh.cost, bh.status,
+      SELECT bh.booking_id, bh.facility_id, bh.schedule_id, f.name AS facility_name, bh.booking_date, bh.cost, bh.status,
              u.user_id, u.full_name, u.email
       FROM BookingHistory bh
       JOIN Users u ON u.user_id = bh.user_id
@@ -5033,7 +5563,67 @@ app.get('/api/supervisor/bookings', authenticateToken, (req, res) => {
     `;
     db.query(q, params, (e2, rows) => {
       if (e2) return res.status(500).json({ message: 'Server error' });
-      return res.json(rows);
+      
+      // Process each booking to get slot information
+      const processedResults = [];
+      let processed = 0;
+      
+      if (rows.length === 0) {
+        return res.json([]);
+      }
+
+      rows.forEach((booking, index) => {
+        // Parse schedule_ids and get slot information
+        const scheduleIds = booking.schedule_id.split(',').map(id => parseInt(id.trim()));
+        
+        // Get slot information for all schedule IDs
+        const slotQuery = `
+          SELECT schedule_id, start_time, end_time, weekday
+          FROM FacilitySchedule 
+          WHERE schedule_id IN (${scheduleIds.map(() => '?').join(',')})
+          ORDER BY start_time
+        `;
+        
+        db.query(slotQuery, scheduleIds, (slotErr, slotResults) => {
+          if (slotErr) {
+            console.error('Error fetching slot details:', slotErr);
+            // Fallback - use basic info
+            processedResults[index] = {
+              ...booking,
+              slots: [],
+              slot: 'Multiple slots'
+            };
+          } else {
+            // Format slot information
+            const slots = slotResults.map(slot => ({
+              schedule_id: slot.schedule_id,
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              weekday: slot.weekday,
+              timeSlot: `${slot.start_time} - ${slot.end_time}`
+            }));
+            
+            // Create combined slot display
+            const slotDisplay = slots.length > 1 
+              ? `${slots.length} slots (${slots[0].start_time} - ${slots[slots.length-1].end_time})`
+              : slots.length === 1 
+              ? `${slots[0].start_time} - ${slots[0].end_time}`
+              : 'No slots';
+            
+            processedResults[index] = {
+              ...booking,
+              slots: slots,
+              slot: slotDisplay
+            };
+          }
+          
+          processed++;
+          if (processed === rows.length) {
+            // All bookings processed, send response
+            res.json(processedResults);
+          }
+        });
+      });
     });
   });
 });
@@ -5067,29 +5657,63 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
       if (!rows || rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
       const bk = rows[0];
 
-      if (bk.status !== 'Pending' && action !== 'cancel') {
-        return res.status(400).json({ message: 'Only pending bookings can be approved/rejected' });
-      }
+      // Supervisors can change booking status regardless of current status
+      // No restrictions - allow flexible status management
 
       if (action === 'approve') {
         if (Number(bk.wallet_balance) < Number(bk.cost)) {
           return res.status(400).json({ message: 'Insufficient wallet balance' });
         }
+        
+        // Only deduct money if the booking is not already approved
+        if (bk.status === 'Approved') {
+          // Already approved, just update status (no wallet deduction needed)
+          return res.json({ 
+            success: true, 
+            message: 'Booking is already approved', 
+            new_wallet_balance: Number(bk.wallet_balance) 
+          });
+        }
+        
+        // Approve and deduct from wallet
         const q1 = 'UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?';
         const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?';
         db.query(q1, [bookingId], (u1) => {
           if (u1) return res.status(500).json({ message: 'Failed to update booking' });
           db.query(q2, [Number(bk.cost), supId], (u2) => {
             if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
-            return res.json({ success: true, message: 'Booking approved', new_wallet_balance: Number(bk.wallet_balance) - Number(bk.cost) });
+            return res.json({ 
+              success: true, 
+              message: 'Booking approved and amount deducted', 
+              new_wallet_balance: Number(bk.wallet_balance) - Number(bk.cost) 
+            });
           });
         });
       } else if (action === 'reject') {
-        // Reject booking - no refund needed as it was never charged
-        db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
-          if (u) return res.status(500).json({ message: 'Failed to update booking' });
-          return res.json({ success: true, message: 'Booking rejected' });
-        });
+        // If rejecting an approved booking, refund the money
+        if (bk.status === 'Approved') {
+          const q1 = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
+          const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance + ? WHERE id = ?';
+          
+          db.query(q1, [bookingId], (u1) => {
+            if (u1) return res.status(500).json({ message: 'Failed to update booking' });
+            db.query(q2, [Number(bk.cost), supId], (u2) => {
+              if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
+              return res.json({ 
+                success: true, 
+                message: 'Booking rejected and amount refunded', 
+                new_wallet_balance: Number(bk.wallet_balance) + Number(bk.cost),
+                refunded_amount: Number(bk.cost)
+              });
+            });
+          });
+        } else {
+          // Reject non-approved booking - no refund needed
+          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
+            if (u) return res.status(500).json({ message: 'Failed to update booking' });
+            return res.json({ success: true, message: 'Booking rejected' });
+          });
+        }
       } else if (action === 'cancel') {
         // Cancel approved booking - refund the amount to supervisor wallet
         if (bk.status === 'Approved') {
@@ -5109,8 +5733,11 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
             });
           });
         } else {
-          // Cannot cancel non-approved bookings
-          return res.status(400).json({ message: 'Only approved bookings can be cancelled' });
+          // Cancel non-approved booking - no refund needed
+          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
+            if (u) return res.status(500).json({ message: 'Failed to update booking' });
+            return res.json({ success: true, message: 'Booking cancelled' });
+          });
         }
       }
     });
@@ -5528,3 +6155,5 @@ app.post('/api/admin/revoke-superuser/:userId', authenticateToken, (req, res) =>
     });
   });
 });
+
+// End of server configuration

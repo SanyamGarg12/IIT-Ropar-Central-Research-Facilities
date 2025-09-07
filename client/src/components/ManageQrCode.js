@@ -66,7 +66,7 @@ function ManageQrCode() {
         {
           headers: {
             'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${localStorage.getItem('userToken')}`
+            Authorization: localStorage.getItem('userToken')
           }
         }
       );

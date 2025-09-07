@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, Loader2, Eye, Download } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Eye, Download, Upload } from 'lucide-react';
 import UserHistoryModal from './UserHistoryModal';
 import {API_BASED_URL} from '../config.js';
 
@@ -14,6 +14,7 @@ const AdminManageBooking = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [expandedOperator, setExpandedOperator] = useState(null);
   const [downloadingReceipt, setDownloadingReceipt] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
 
   const authToken = localStorage.getItem('userToken');
 
@@ -144,6 +145,48 @@ const AdminManageBooking = () => {
       setError('Error downloading receipt. Please try again.');
     } finally {
       setDownloadingReceipt(null);
+    }
+  };
+
+  const handleFileUpload = async (bookingId, file) => {
+    if (!file) {
+      setError('Please select a file to upload.');
+      return;
+    }
+
+    if (file.type !== 'application/zip' && !file.name.endsWith('.zip')) {
+      setError('Please upload a zip file only.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bookingId', bookingId);
+    formData.append('resultDate', new Date());
+
+    try {
+      setUploadingId(bookingId);
+      await axios.post(`${API_BASED_URL}api/upload-results`, formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          Authorization: `${authToken}`
+        }
+      });
+      setSuccessMessage('Results uploaded successfully.');
+      
+      // Update the operators state to reflect the upload
+      setOperators(operators.map(operator => ({
+        ...operator,
+        bookings: operator.bookings.map(booking => 
+          String(booking.booking_id) === String(bookingId) 
+            ? { ...booking, resultsUploaded: true } 
+            : booking
+        )
+      })));
+    } catch (err) {
+      setError('Failed to upload results. Please try again.');
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -390,6 +433,40 @@ const AdminManageBooking = () => {
                                         <Eye className="w-4 h-4 mr-1" />
                                         View History
                                       </button>
+                                      
+                                      {/* Upload Results Button - Show for Approved bookings */}
+                                      {booking.status === 'Approved' && !booking.resultsUploaded ? (
+                                        <div className="relative">
+                                          <input
+                                            type="file"
+                                            id={`file-upload-${booking.booking_id}`}
+                                            className="hidden"
+                                            accept=".zip"
+                                            onChange={(e) => handleFileUpload(booking.booking_id, e.target.files[0])}
+                                          />
+                                          <label
+                                            htmlFor={`file-upload-${booking.booking_id}`}
+                                            className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-full text-sm transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 flex items-center cursor-pointer"
+                                          >
+                                            {uploadingId === booking.booking_id ? (
+                                              <>
+                                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                                Uploading...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Upload className="w-4 h-4 mr-1" />
+                                                Upload Results
+                                              </>
+                                            )}
+                                          </label>
+                                        </div>
+                                      ) : booking.status === 'Approved' && booking.resultsUploaded ? (
+                                        <div className="bg-green-100 text-green-700 py-1 px-3 rounded-full text-sm flex items-center">
+                                          <CheckCircle className="w-4 h-4 mr-1" />
+                                          Results Uploaded
+                                        </div>
+                                      ) : null}
                                       {booking.status === 'Pending' && (
                                         <>
                                           <button

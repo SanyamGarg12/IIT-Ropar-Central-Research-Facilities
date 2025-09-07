@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import Sidebar from "./Sidebar";
 import UserProfile from "./UserProfile";
@@ -34,14 +35,38 @@ function Booking() {
   const [activeOption, setActiveOption] = useState("User Profile");
   const [userType, setUserType] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
     if (authToken) {
       try {
-        const tokenPayload = JSON.parse(atob(authToken.split(".")[1]));
-        setUserType(tokenPayload.userType || "Unknown");
-        setUserId(tokenPayload.userId || "Unknown");
+        const decoded = jwtDecode(authToken);
+        setUserType(decoded.userType || "Unknown");
+        setUserId(decoded.userId || "Unknown");
+        
+        // Fetch user's full name using userId
+        const fetchUserName = async () => {
+          try {
+            const clientUserId = localStorage.getItem("ClientUserId");
+            if (clientUserId) {
+              const response = await fetch(`${API_BASED_URL}api/UserProfile/${clientUserId}`);
+              if (response.ok) {
+                const userData = await response.json();
+                setUserName(userData.full_name || userData.name || "User");
+              } else {
+                setUserName("User");
+              }
+            } else {
+              setUserName("User");
+            }
+          } catch (error) {
+            console.error("Error fetching user name:", error);
+            setUserName("User");
+          }
+        };
+        
+        fetchUserName();
       } catch (error) {
         console.error("Invalid token:", error);
         // Clear local storage and redirect to login if token is invalid
@@ -106,7 +131,9 @@ function Booking() {
                 whileTap={{ scale: 0.95 }}
               >
                 <User className="h-6 w-6" />
-        
+                {userName && (
+                  <span className="text-sm font-medium">Hi, {userName}!</span>
+                )}
                 <motion.div
                   animate={{ rotate: isUserMenuOpen ? 180 : 0 }}
                   transition={{ duration: 0.3 }}

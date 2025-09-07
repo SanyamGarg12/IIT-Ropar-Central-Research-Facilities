@@ -46,6 +46,7 @@ import ManageContact from './components/ManageContact';
 import SupervisorManageBooking from "./components/SupervisorManageBooking";
 import SupervisorManageSuperusers from "./components/SupervisorManageSuperusers";
 import SupervisorPendingSuperusers from "./components/SupervisorPendingSuperusers";
+import AdminManageFacilityLimits from "./components/AdminManageFacilityLimits";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -280,6 +281,11 @@ const App = () => {
                       <Route path="/manage-slots" element={
                         <AdminProtectedRoute>
                           <AdminManageSlots />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/facility-limits" element={
+                        <AdminProtectedRoute>
+                          <AdminManageFacilityLimits />
                         </AdminProtectedRoute>
                       } />
                       <Route path="/supervisors" element={

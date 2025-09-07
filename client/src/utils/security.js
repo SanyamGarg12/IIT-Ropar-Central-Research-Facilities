@@ -84,7 +84,7 @@ export const secureFetch = async (url, options = {}) => {
   };
 
   if (token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`;
+    defaultHeaders['Authorization'] = token;
   }
 
   const response = await fetch(url, {

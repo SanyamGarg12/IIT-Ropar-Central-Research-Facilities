@@ -89,15 +89,30 @@ const SupervisorManageBooking = () => {
                   <td className="px-4 py-2">₹{b.cost}</td>
                   <td className="px-4 py-2">{b.status}</td>
                   <td className="px-4 py-2 space-x-2">
-                    {b.status === 'Pending' && (
-                      <>
-                        <button onClick={()=>act(b.booking_id,'approve')} className="px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700">Approve</button>
-                        <button onClick={()=>act(b.booking_id,'reject')} className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700">Reject</button>
-                      </>
-                    )}
-                    {b.status !== 'Cancelled' && (
-                      <button onClick={()=>act(b.booking_id,'cancel')} className="px-3 py-1 rounded border">Cancel</button>
-                    )}
+                    {/* Show approve/reject buttons for all statuses */}
+                    <button 
+                      onClick={()=>act(b.booking_id,'approve')} 
+                      className={`px-3 py-1 rounded text-white hover:opacity-90 ${
+                        b.status === 'Approved' 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-green-600 hover:bg-green-700'
+                      }`}
+                      disabled={b.status === 'Approved'}
+                    >
+                      {b.status === 'Approved' ? 'Approved' : 'Approve'}
+                    </button>
+                    <button 
+                      onClick={()=>act(b.booking_id,'reject')} 
+                      className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Reject
+                    </button>
+                    <button 
+                      onClick={()=>act(b.booking_id,'cancel')} 
+                      className="px-3 py-1 rounded border hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
                   </td>
                 </tr>
               ))}

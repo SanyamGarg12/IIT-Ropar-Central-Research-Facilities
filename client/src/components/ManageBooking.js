@@ -567,7 +567,7 @@ const ManageBooking = () => {
                           </div>
                         )}
                         
-                        {request.status === 'Approved' && request.user_type !== 'Internal' && (
+                        {request.status === 'Approved' && (
                           <>
                             <button
                               onClick={() => handleBookingAction(request.booking_id, 'Cancelled')}

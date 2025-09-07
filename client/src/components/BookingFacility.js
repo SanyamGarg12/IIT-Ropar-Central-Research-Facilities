@@ -16,9 +16,10 @@ const getImageUrl = (imagePath) => {
 function BookingFacility({ authToken }) {
   const [facilityId, setFacilityId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [selectedSlot, setSelectedSlot] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedScheduleId, setSelectedScheduleId] = useState("");
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
+  const [facilityLimits, setFacilityLimits] = useState({});
   const [facilities, setFacilities] = useState([]);
   const [operatorEmail, setOperatorEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,10 +33,25 @@ function BookingFacility({ authToken }) {
   const [selectedBifurcations, setSelectedBifurcations] = useState([]);
   const [sampleCounts, setSampleCounts] = useState({});
   const [totalCost, setTotalCost] = useState(0);
+  const [userName, setUserName] = useState("");
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const [qrCodeImage, setQrCodeImage] = useState(null);
   const [imageError, setImageError] = useState(false);
+
+  // Extract user name from JWT token on component mount
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUserName(decoded.full_name || decoded.name || "User");
+      } catch (error) {
+        console.error("Error decoding token:", error);
+        setUserName("User");
+      }
+    }
+  }, []);
   const [billingAddress, setBillingAddress] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [utrNumber, setUtrNumber] = useState("");
@@ -82,10 +98,16 @@ function BookingFacility({ authToken }) {
     }
   }, [authToken]);
 
-  const calculateTotalCost = useCallback((startTime, endTime) => {
-    if (!startTime || !endTime) return 0;
+  const calculateTotalCost = useCallback(() => {
+    if (selectedSlots.length === 0) return 0;
     
-    const duration = calculateDuration(startTime, endTime);
+    // Calculate total duration from all selected slots
+    let totalDuration = 0;
+    selectedSlots.forEach(slot => {
+      const duration = calculateDuration(slot.start_time, slot.end_time);
+      totalDuration += duration;
+    });
+    
     let total = 0;
     
     selectedBifurcations.forEach(bifurcationId => {
@@ -98,13 +120,16 @@ function BookingFacility({ authToken }) {
       let bifurcationCost = 0;
       switch (bifurcation.pricing_type) {
         case 'slot':
-          bifurcationCost = price * sampleCount;
+          // For slot-based pricing, multiply by number of slots
+          bifurcationCost = price * selectedSlots.length * sampleCount;
           break;
         case 'hour':
-          bifurcationCost = price * duration * sampleCount;
+          // For hour-based pricing, multiply by total duration
+          bifurcationCost = price * totalDuration * sampleCount;
           break;
         case 'half-hour':
-          bifurcationCost = price * (duration * 2) * sampleCount;
+          // For half-hour-based pricing, multiply by total half-hours
+          bifurcationCost = price * (totalDuration * 2) * sampleCount;
           break;
         default:
           bifurcationCost = price * sampleCount;
@@ -114,18 +139,85 @@ function BookingFacility({ authToken }) {
     });
     
     return total;
-  }, [calculateDuration, selectedBifurcations, bifurcations, getBifurcationPrice, sampleCounts]);
+  }, [calculateDuration, selectedSlots, selectedBifurcations, bifurcations, getBifurcationPrice, sampleCounts]);
 
   const handleSlotClick = useCallback((slot) => {
     if (isWithin24Hours(date, slot.start_time)) {
       alert("Cannot book slots that start within the next 24 hours. Please select a different slot.");
       return;
     }
-    setSelectedSlot(`${slot.start_time} - ${slot.end_time}`);
-    setSelectedScheduleId(slot.schedule_id || "");
-    const cost = calculateTotalCost(slot.start_time, slot.end_time);
-    setTotalCost(cost);
-  }, [calculateTotalCost, date, isWithin24Hours]);
+
+    const scheduleId = slot.schedule_id;
+    const isSelected = selectedScheduleIds.includes(scheduleId);
+
+    if (isSelected) {
+      // Deselect the slot
+      setSelectedSlots(prev => prev.filter(s => s.schedule_id !== scheduleId));
+      setSelectedScheduleIds(prev => prev.filter(id => id !== scheduleId));
+    } else {
+      // Check if adding this slot would exceed limits or break consecutiveness
+      const newSelectedSlots = [...selectedSlots, slot].sort((a, b) => 
+        a.start_time.localeCompare(b.start_time)
+      );
+      
+      if (!validateSlotSelection(newSelectedSlots)) {
+        return;
+      }
+      
+      // Add the slot
+      setSelectedSlots(newSelectedSlots);
+      setSelectedScheduleIds(prev => [...prev, scheduleId]);
+    }
+  }, [calculateTotalCost, date, isWithin24Hours, selectedSlots, selectedScheduleIds, facilityLimits]);
+
+  const validateSlotSelection = useCallback((slots) => {
+    if (slots.length === 0) return true;
+
+    // Get user type and facility limits
+    const token = localStorage.getItem("authToken");
+    if (!token) return false;
+    
+    try {
+      const decoded = jwtDecode(token);
+      const userType = decoded.userType;
+      const maxHours = facilityLimits[userType] || 8;
+      
+      // Check total hours
+      let totalHours = 0;
+      slots.forEach(slot => {
+        const duration = calculateDuration(slot.start_time, slot.end_time);
+        totalHours += duration;
+      });
+      
+      if (totalHours > maxHours) {
+        alert(`Total booking hours (${totalHours.toFixed(1)}) would exceed the limit of ${maxHours} hours for ${userType} users.`);
+        return false;
+      }
+      
+      // Check consecutiveness (if more than 1 slot)
+      if (slots.length > 1) {
+        // All slots must be on the same day (same weekday)
+        const weekdays = [...new Set(slots.map(s => s.weekday))];
+        if (weekdays.length > 1) {
+          alert("All selected slots must be on the same day of the week.");
+          return false;
+        }
+        
+        // Check if slots are consecutive
+        for (let i = 1; i < slots.length; i++) {
+          if (slots[i - 1].end_time !== slots[i].start_time) {
+            alert("Selected slots must be consecutive (adjacent times).");
+            return false;
+          }
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error validating slot selection:', error);
+      return false;
+    }
+  }, [calculateDuration, facilityLimits]);
 
   const fetchBifurcations = useCallback(async (facilityId) => {
     try {
@@ -134,6 +226,33 @@ function BookingFacility({ authToken }) {
     } catch (err) {
       console.error('Error fetching bifurcations:', err);
       alert("Failed to fetch facility bifurcations. Please try again.");
+    }
+  }, []);
+
+  const fetchFacilityLimits = useCallback(async (facilityId) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await axios.get(`${API_BASED_URL}api/admin/facilities/limits`, {
+        headers: { Authorization: token }
+      });
+      
+      const facility = response.data.find(f => f.id == facilityId);
+      if (facility) {
+        const limitsObj = {};
+        facility.limits.forEach(limit => {
+          limitsObj[limit.user_type] = limit.max_hours_per_booking;
+        });
+        setFacilityLimits(limitsObj);
+      }
+    } catch (err) {
+      console.error('Error fetching facility limits:', err);
+      // Set default limits if fetch fails
+      setFacilityLimits({
+        'Internal': 8,
+        'Government R&D Lab or External Academics': 6,
+        'Private Industry or Private R&D Lab': 4,
+        'SuperUser': 10
+      });
     }
   }, []);
 
@@ -246,6 +365,7 @@ function BookingFacility({ authToken }) {
           setFacilityId(firstFacility.id);
           setOperatorEmail(firstFacility.operator_email);
           fetchBifurcations(firstFacility.id);
+          fetchFacilityLimits(firstFacility.id);
         }
       } catch (err) {
         console.error(err);
@@ -256,12 +376,9 @@ function BookingFacility({ authToken }) {
   }, [fetchBifurcations]);
 
   useEffect(() => {
-    if (selectedSlot) {
-      const [startTime, endTime] = selectedSlot.split(" - ");
-      const cost = calculateTotalCost(startTime, endTime);
-      setTotalCost(cost);
-    }
-  }, [selectedBifurcations, selectedSlot, calculateTotalCost]);
+    const cost = calculateTotalCost();
+    setTotalCost(cost);
+  }, [selectedBifurcations, selectedSlots, calculateTotalCost, sampleCounts]);
 
   // Fetch superuser status for internal users
   useEffect(() => {
@@ -296,8 +413,8 @@ function BookingFacility({ authToken }) {
   };
 
   const handleFetchSlots = () => {
-    setSelectedSlot("");
-    setSelectedScheduleId("");
+    setSelectedSlots([]);
+    setSelectedScheduleIds([]);
     fetchSlots();
   };
 
@@ -404,10 +521,10 @@ function BookingFacility({ authToken }) {
         {
           facility_id: facilityId,
           date,
-          schedule_id: selectedScheduleId,
+          schedule_ids: selectedScheduleIds, // Changed to array
           user_id: userId,
           operator_email: operatorEmail,
-          cost: totalCost,
+          cost: totalCost, // Add the calculated cost from frontend
           user_type: userType,
           receipt_path: receiptPath,
           bifurcation_ids: selectedBifurcations,
@@ -464,12 +581,12 @@ function BookingFacility({ authToken }) {
       );
 
       const successMessage = isInternalUser 
-        ? "Booking submitted for supervisor approval. You will receive an email once approved."
-        : "Booking submitted for approval";
+        ? `Booking submitted for supervisor approval. ${selectedSlots.length} slot(s) selected for ${bookingResponse.data.total_hours?.toFixed(1) || 'N/A'} hours. You will receive an email once approved.`
+        : `Booking submitted for approval. ${selectedSlots.length} slot(s) booked for ${bookingResponse.data.total_hours?.toFixed(1) || 'N/A'} hours.`;
       
       alert(successMessage);
-      setSelectedSlot("");
-      setSelectedScheduleId("");
+      setSelectedSlots([]);
+      setSelectedScheduleIds([]);
       setReceipt(null);
       setSelectedBifurcations([]);
       setSampleCounts({});
@@ -506,10 +623,38 @@ function BookingFacility({ authToken }) {
           <div className="lg:col-span-3">
             <div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold text-gray-800">Book a Facility</h2>
+                <div>
+                  {userName && (
+                    <p className="text-lg text-gray-600 mb-2">Hi, {userName}!</p>
+                  )}
+                  <h2 className="text-3xl font-bold text-gray-800">Book a Facility</h2>
+                </div>
                 <div className="flex items-center space-x-2 text-blue-600">
                   <Building2 className="w-6 h-6" />
                   <span className="font-medium">IIT Ropar</span>
+                </div>
+              </div>
+              
+              {/* 3-Hour Auto-Cancellation Notice */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-amber-800">Important Notice</h3>
+                    <div className="mt-2 text-sm text-amber-700">
+                      <p>
+                        <strong>⏰ Auto-Cancellation Policy:</strong> Your booking request will be automatically cancelled if not approved within <strong>3 hours</strong>. 
+                        During this time, the selected slots will be blocked for other users.
+                      </p>
+                      <p className="mt-1">
+                        Please ensure your supervisor or operator reviews your request promptly.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -527,9 +672,10 @@ function BookingFacility({ authToken }) {
                       if (selectedFacility) {
                         setOperatorEmail(selectedFacility.operator_email);
                         fetchBifurcations(selectedFacilityId);
+                        fetchFacilityLimits(selectedFacilityId);
                       }
-                      setSelectedSlot("");
-                      setSelectedScheduleId("");
+                      setSelectedSlots([]);
+                      setSelectedScheduleIds([]);
                       setAvailableSlots([]);
                       setSelectedBifurcations([]);
                     }}
@@ -669,8 +815,8 @@ function BookingFacility({ authToken }) {
                       value={date}
                       onChange={(e) => {
                         setDate(e.target.value);
-                        setSelectedSlot("");
-                        setSelectedScheduleId("");
+                        setSelectedSlots([]);
+                        setSelectedScheduleIds([]);
                         setAvailableSlots([]);
                       }}
                       className="w-full p-4 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300 ease-in-out bg-white"
@@ -716,8 +862,8 @@ function BookingFacility({ authToken }) {
                                   ? "bg-white hover:bg-green-50 text-gray-800 border border-gray-300 hover:border-green-500"
                                   : "bg-gray-100 cursor-not-allowed text-gray-500"
                               } ${
-                                selectedScheduleId === slot.schedule_id
-                                  ? "ring-2 ring-green-500 bg-green-50"
+                                selectedScheduleIds.includes(slot.schedule_id)
+                                  ? "ring-2 ring-blue-500 bg-blue-50 border-blue-500"
                                   : ""
                               }`}
                               title={isSlotWithin24Hours ? "Cannot book slots that start within 24 hours" : ""}
@@ -734,6 +880,49 @@ function BookingFacility({ authToken }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Selected Slots Summary */}
+                {selectedSlots.length > 0 && (
+                  <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                      <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500" />
+                      Selected Slots ({selectedSlots.length})
+                    </h3>
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                        {selectedSlots.map((slot, index) => (
+                          <div key={slot.schedule_id} className="flex items-center justify-between bg-blue-100 p-2 rounded-lg">
+                            <span className="text-sm font-medium text-blue-800">
+                              {slot.start_time} - {slot.end_time}
+                            </span>
+                            <button
+                              onClick={() => handleSlotClick(slot)}
+                              className="text-blue-600 hover:text-blue-800 ml-2"
+                              title="Remove slot"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-600 border-t pt-3">
+                        <span>Total Duration: {selectedSlots.reduce((total, slot) => total + calculateDuration(slot.start_time, slot.end_time), 0).toFixed(1)} hours</span>
+                        <span>Max Allowed: {(() => {
+                          const token = localStorage.getItem("authToken");
+                          if (token) {
+                            try {
+                              const decoded = jwtDecode(token);
+                              return facilityLimits[decoded.userType] || 8;
+                            } catch (e) {
+                              return 8;
+                            }
+                          }
+                          return 8;
+                        })()} hours</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Payment Receipt Section - Only for non-internal users */}
                 {(() => {
@@ -903,9 +1092,9 @@ function BookingFacility({ authToken }) {
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-sm text-blue-800">
-                      Selected: <span className="font-medium">{date} {selectedSlot}</span>
+                      Selected: <span className="font-medium">{date} {selectedSlots.length > 0 ? `${selectedSlots.length} slot(s)` : 'None'}</span>
                     </div>
-                    {selectedSlot && (
+                    {selectedSlots.length > 0 && (
                       <div className="text-lg font-bold text-blue-800">
                         Total: {Math.round(totalCost * 100) / 100} Rs.
                       </div>
@@ -920,7 +1109,7 @@ function BookingFacility({ authToken }) {
                       const userType = decoded.userType;
                       const isInternalUser = userType === 'Internal';
                       
-                      const basicValidation = !selectedScheduleId || !facilityId || isLoading || selectedBifurcations.length === 0;
+                      const basicValidation = selectedScheduleIds.length === 0 || !facilityId || isLoading || selectedBifurcations.length === 0;
                       
                       if (isInternalUser) {
                         return basicValidation;

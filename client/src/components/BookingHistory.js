@@ -300,6 +300,7 @@ function BookingCard({
 
   // Get time slot if available
   const timeSlot = booking.slot || 'N/A';
+  const hasMultipleSlots = booking.slots && booking.slots.length > 1;
 
   const statusClasses = {
     Approved: {
@@ -413,6 +414,31 @@ function BookingCard({
             </div>
           )}
         </div>
+
+        {/* Time Slots Section - Show detailed slots if multiple */}
+        {hasMultipleSlots && booking.slots && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Time Slots:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {booking.slots.map((slot, idx) => (
+                <div
+                  key={idx}
+                  className="bg-blue-50 rounded-lg p-3 border border-blue-200 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-blue-900">{slot.timeSlot}</p>
+                    </div>
+                    <Clock className="w-4 h-4 text-blue-500" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              Total: {booking.slots.length} consecutive slots
+            </div>
+          </div>
+        )}
 
         {/* Bifurcations Section */}
         {booking.bifurcations && booking.bifurcations.length > 0 && (

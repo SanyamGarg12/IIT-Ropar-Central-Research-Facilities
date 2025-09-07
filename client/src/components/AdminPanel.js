@@ -24,6 +24,7 @@ const groupedAdminLinks = [
       { to: "/admin/adminManageSpecialNotes", text: "Manage Facility Special Notes", icon: <FaStickyNote /> },
       { to: "/admin/adminManageBooking", text: "Manage Bookings", icon: <FaCalendarCheck /> },
       { to: "/admin/manage-slots", text: "Manage Facility Slots", icon: <FaCalendarCheck /> },
+      { to: "/admin/facility-limits", text: "Manage Booking Limits", icon: <FaWallet /> },
       { to: "/admin/qr-code", text: "Manage QR Code", icon: <FaQrcode /> },
     ],
   },

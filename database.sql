@@ -1811,7 +1811,42 @@ INSERT INTO Facilities (
             'cmnf@iitrpr.ac.in',
             NULL -- Added NULL for the special_note column
         );
+ALTER TABLE Facilities ADD COLUMN max_hours_per_booking INT DEFAULT 8;
 
+CREATE TABLE IF NOT EXISTS facility_booking_limits (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    user_type ENUM('Internal', 'Government R&D Lab or External Academics', 'Private Industry or Private R&D Lab', 'SuperUser') NOT NULL,
+    max_hours_per_booking INT NOT NULL DEFAULT 8,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_facility_user_type (facility_id, user_type)
+);
+INSERT IGNORE INTO facility_booking_limits (facility_id, user_type, max_hours_per_booking)
+SELECT 
+    f.id,
+    'Internal',
+    8
+FROM Facilities f
+UNION ALL
+SELECT 
+    f.id,
+    'Government R&D Lab or External Academics',
+    6
+FROM Facilities f
+UNION ALL
+SELECT 
+    f.id,
+    'Private Industry or Private R&D Lab',
+    4
+FROM Facilities f
+UNION ALL
+SELECT 
+    f.id,
+    'SuperUser',
+    10
+FROM Facilities f;
 -- Create the facility_bifurcations table
 CREATE TABLE facility_bifurcations (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1974,6 +2009,16 @@ CREATE TABLE BookingHistory (
     FOREIGN KEY (schedule_id) REFERENCES FacilitySchedule(schedule_id) ON DELETE CASCADE,
     UNIQUE (facility_id, schedule_id, booking_date, user_id)
 );
+ALTER TABLE BookingHistory DROP FOREIGN KEY bookinghistory_ibfk_3;
+-- Change schedule_id to VARCHAR to store comma-separated IDs
+ALTER TABLE BookingHistory MODIFY COLUMN schedule_id VARCHAR(255) NOT NULL;
+-- Add created_at column for auto-cancellation tracking
+ALTER TABLE BookingHistory ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Update existing data to comma-separated format
+UPDATE BookingHistory 
+SET schedule_id = CAST(schedule_id AS CHAR) 
+WHERE schedule_id IS NOT NULL;
 
 CREATE TABLE BookingBifurcations (
     id INT AUTO_INCREMENT PRIMARY KEY,
