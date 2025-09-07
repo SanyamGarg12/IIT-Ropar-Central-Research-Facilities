@@ -11,6 +11,7 @@ const Header = () => {
     { to: "/people", text: "People" },
     { to: "/facilities", text: "Facilities" },
     { to: "/booking", text: "Booking" },
+    { to: "/planner", text: "Planner" },
     { to: "/forms", text: "Forms" },
     { to: "/publications", text: "Publications" },
     { to: "/contact-us", text: "Contact Us" },

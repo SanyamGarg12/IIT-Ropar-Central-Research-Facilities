@@ -47,6 +47,7 @@ import SupervisorManageBooking from "./components/SupervisorManageBooking";
 import SupervisorManageSuperusers from "./components/SupervisorManageSuperusers";
 import SupervisorPendingSuperusers from "./components/SupervisorPendingSuperusers";
 import AdminManageFacilityLimits from "./components/AdminManageFacilityLimits";
+import FacilityPlanner from "./components/FacilityPlanner";
 
 const App = () => {
   const [authToken, setAuthToken] = useState(localStorage.getItem("authToken"));
@@ -142,6 +143,7 @@ const App = () => {
                       <Route path="/forms" element={<Forms />} />
                       <Route path="/publications" element={<Publications />} />
                       <Route path="/contact-us" element={<ContactUs />} />
+                      <Route path="/planner" element={<FacilityPlanner />} />
                       <Route path="/facility/:id" element={<FacilityDetail />} />
                       <Route path="/register" element={<Register onRegister={handleLogin} />} />
                       <Route path="/login" element={<Login onLogin={handleLogin} />} />

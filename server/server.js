@@ -3148,6 +3148,84 @@ setInterval(autoCancelOldPendingBookings, 30 * 60 * 1000);
 // Run once on startup to clean up any existing old bookings
 autoCancelOldPendingBookings();
 
+// Facility Planner API endpoint
+app.get('/api/facility-planner', (req, res) => {
+  const { facility_id, date } = req.query;
+  
+  if (!facility_id || !date) {
+    return res.status(400).json({ message: 'Facility ID and date are required' });
+  }
+
+  // Get the weekday for the given date
+  const dateObj = new Date(date);
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const weekday = weekdays[dateObj.getDay()];
+
+  // First, get all time slots for the facility on the given weekday
+  const slotsQuery = `
+    SELECT 
+      fs.schedule_id,
+      fs.start_time,
+      fs.end_time,
+      fs.facility_id,
+      fs.user_type,
+      fs.weekday
+    FROM FacilitySchedule fs
+    WHERE fs.facility_id = ? 
+    AND fs.weekday = ?
+    AND (fs.status IS NULL OR fs.status != 'Deprecated')
+    ORDER BY fs.start_time ASC
+  `;
+
+  db.query(slotsQuery, [facility_id, weekday], (slotsErr, slotsResults) => {
+    if (slotsErr) {
+      console.error('Error fetching time slots:', slotsErr);
+      return res.status(500).json({ message: 'Failed to fetch time slots' });
+    }
+
+    // Get all approved bookings for this facility and date
+    const bookingsQuery = `
+      SELECT 
+        bh.booking_id,
+        bh.schedule_id,
+        bh.user_id,
+        bh.cost,
+        bh.status,
+        bh.booking_date,
+        u.full_name as user_name,
+        u.user_type,
+        f.name as facility_name
+      FROM BookingHistory bh
+      JOIN Users u ON bh.user_id = u.user_id
+      JOIN Facilities f ON bh.facility_id = f.id
+      WHERE bh.facility_id = ? 
+      AND bh.status = 'Approved'
+      AND DATE(bh.booking_date) = ?
+    `;
+
+    db.query(bookingsQuery, [facility_id, date], (bookingsErr, bookingsResults) => {
+      if (bookingsErr) {
+        console.error('Error fetching bookings:', bookingsErr);
+        return res.status(500).json({ message: 'Failed to fetch bookings' });
+      }
+
+      // Process bookings to handle multiple schedule_ids
+      const processedBookings = bookingsResults.map(booking => ({
+        ...booking,
+        schedule_ids: booking.schedule_id // This contains comma-separated schedule IDs
+      }));
+
+      res.json({
+        timeSlots: slotsResults,
+        bookings: processedBookings,
+        facility_id: facility_id,
+        date: date,
+        weekday: weekday
+      });
+    });
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
