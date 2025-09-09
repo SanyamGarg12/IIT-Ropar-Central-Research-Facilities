@@ -22,10 +22,12 @@ const ManageSupervisors = () => {
     wallet_balance: '',
     password: ''
   });
-  const [walletEdits, setWalletEdits] = useState({});
   const [activeTab, setActiveTab] = useState('supervisors'); // 'supervisors' or 'superusers'
   const [superusers, setSuperusers] = useState([]);
   const [superusersLoading, setSuperusersLoading] = useState(false);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [selectedSupervisor, setSelectedSupervisor] = useState(null);
+  const [topUpAmount, setTopUpAmount] = useState('');
 
   // Create rate limiter for form submissions
   const rateLimiter = createRateLimiter(2000, 60 * 1000); // 1 submission per 2 seconds
@@ -47,14 +49,6 @@ const ManageSupervisors = () => {
       if (response.ok) {
         const data = await response.json();
         setSupervisors(data);
-        // Seed editable wallet values
-        const initial = {};
-        data.forEach((s) => {
-          initial[s.id] = (typeof s.wallet_balance === 'number' || typeof s.wallet_balance === 'string')
-            ? String(parseFloat(s.wallet_balance))
-            : '0';
-        });
-        setWalletEdits(initial);
       } else {
         setError('Failed to fetch supervisors');
       }
@@ -189,38 +183,79 @@ const ManageSupervisors = () => {
     }
   };
 
-  const handleWalletChange = (id, value) => {
-    // Accept only digits and at most one dot
-    const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-    setWalletEdits((prev) => ({ ...prev, [id]: sanitized }));
+  const handleTopUp = (supervisorId) => {
+    const supervisor = supervisors.find(s => s.id === supervisorId);
+    setSelectedSupervisor(supervisor);
+    setTopUpAmount('');
+    setShowTopUpModal(true);
   };
 
-  const saveWalletBalance = async (id) => {
-    const value = walletEdits[id];
-    const amount = parseFloat(value);
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError('Please enter a valid non-negative wallet amount.');
+  const handleTopUpSubmit = async () => {
+    if (!selectedSupervisor) return;
+    
+    const amount = parseFloat(topUpAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Please enter a valid positive amount.');
       return;
     }
+
     try {
-      const response = await secureFetch(`${API_BASED_URL}api/supervisors/${id}/wallet`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_balance: amount })
+      const adminEmail = localStorage.getItem('userEmail') || 'Unknown Admin';
+      const userToken = localStorage.getItem('userToken');
+      
+      const response = await fetch(`${API_BASED_URL}api/supervisors/${selectedSupervisor.id}/topup`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': userToken
+        },
+        body: JSON.stringify({ 
+          amount: amount,
+          admin_email: adminEmail
+        })
       });
+
       if (response.ok) {
         const result = await response.json();
-        setSuccess(result.message || 'Wallet balance updated');
-        // Refresh list to reflect canonical value
+        
+        // Ensure newBalance is a number
+        const newBalance = parseFloat(result.newBalance);
+        if (isNaN(newBalance)) {
+          console.error('Invalid newBalance received:', result.newBalance);
+          setError('Top-up successful but failed to get updated balance. Please refresh the page.');
+        } else {
+          setSuccess(`Top-up successful! Added ₹${amount.toFixed(2)} to ${selectedSupervisor.name}'s wallet. New balance: ₹${newBalance.toFixed(2)}`);
+        }
+        
+        setShowTopUpModal(false);
+        setSelectedSupervisor(null);
+        setTopUpAmount('');
         await fetchSupervisors();
-        setTimeout(() => setSuccess(''), 3000);
+        setTimeout(() => setSuccess(''), 5000);
+      } else if (response.status === 401) {
+        setError('Session expired. Please log in again.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (response.status === 403) {
+        setError('Access denied. Only admins can perform top-ups.');
       } else {
-        const err = await response.json();
-        setError(err.error || 'Failed to update wallet balance');
+        try {
+          const err = await response.json();
+          setError(err.error || 'Failed to process top-up');
+        } catch (parseError) {
+          setError(`Server error: ${response.status} ${response.statusText}`);
+        }
       }
     } catch (e) {
-      setError('An error occurred while updating wallet balance');
+      setError(`Network error: ${e.message}`);
     }
+  };
+
+  const handleTopUpCancel = () => {
+    setShowTopUpModal(false);
+    setSelectedSupervisor(null);
+    setTopUpAmount('');
   };
 
   const handleRevokeSuperuser = async (userId) => {
@@ -307,17 +342,6 @@ const ManageSupervisors = () => {
               >
                 <FaUserTie className="inline mr-2" />
                 Supervisors
-              </button>
-              <button
-                onClick={() => handleTabChange('superusers')}
-                className={`py-2 px-2 border-b-2 font-medium text-sm ${
-                  activeTab === 'superusers'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <FaUserShield className="inline mr-2" />
-                Superusers
               </button>
             </div>
           </div>
@@ -482,20 +506,13 @@ const ManageSupervisors = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             <div className="flex items-center space-x-2">
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                className="w-28 px-2 py-1 border border-gray-300 rounded"
-                                value={walletEdits[supervisor.id] ?? (supervisor.wallet_balance ?? 0)}
-                                onChange={(e) => handleWalletChange(supervisor.id, e.target.value)}
-                              />
+                              <span className="font-medium">₹{Number(supervisor.wallet_balance || 0).toFixed(2)}</span>
                               <button
-                                className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                                onClick={() => saveWalletBalance(supervisor.id)}
-                                title="Save wallet balance"
+                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                onClick={() => handleTopUp(supervisor.id)}
+                                title="Top-up wallet"
                               >
-                                Save
+                                Top-up
                               </button>
                             </div>
                           </td>
@@ -604,6 +621,50 @@ const ManageSupervisors = () => {
           )}
         </div>
       </div>
+
+      {/* Top-up Modal */}
+      {showTopUpModal && selectedSupervisor && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Top-up Wallet for {selectedSupervisor.name}
+              </h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Balance: ₹{Number(selectedSupervisor.wallet_balance || 0).toFixed(2)}
+                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Top-up Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(e.target.value)}
+                  placeholder="Enter amount to add"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleTopUpCancel}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTopUpSubmit}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Top-up
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

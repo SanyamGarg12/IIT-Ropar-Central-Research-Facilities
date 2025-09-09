@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie, FaTags, FaLink, FaEnvelope, FaListUl, FaWallet, FaUserShield } from 'react-icons/fa';
+import { FaUsers, FaUserCheck, FaUserPlus, FaUserMinus, FaKey, FaBuilding, FaLayerGroup, FaStickyNote, FaCalendarCheck, FaQrcode, FaWpforms, FaBook, FaInfoCircle, FaHome, FaUserEdit, FaUserTie, FaTags, FaLink, FaEnvelope, FaListUl, FaWallet, FaUserShield, FaHistory } from 'react-icons/fa';
 import { API_BASED_URL } from '../config.js';
 
 const groupedAdminLinks = [
@@ -214,6 +214,7 @@ const SupervisorLinks = () => {
     { to: "/supervisor-verify", text: "Verify Users", icon: <FaListUl /> },
     { to: "/supervisor/pending-superusers", text: "Pending Superuser Requests", icon: <FaUserShield /> },
     { to: "/supervisor/manage-superusers", text: "Manage Current Superusers", icon: <FaUserShield /> },
+    { to: "/supervisor/transaction-history", text: "Transaction History", icon: <FaHistory /> },
     { to: "/supervisor/profile", text: "My Profile & Wallet", icon: <FaUserTie /> },
     { to: "/supervisor/change-password", text: "Change Password", icon: <FaKey /> },
   ];

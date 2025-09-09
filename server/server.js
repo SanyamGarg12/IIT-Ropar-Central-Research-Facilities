@@ -88,6 +88,24 @@ db.getConnection((err) => {
   }
 });
 
+// Helper function to record supervisor transactions
+function recordSupervisorTransaction(supervisorId, transactionType, amount, balanceAfter, description, bookingId = null, facilityName = null, studentName = null, adminEmail = null, callback) {
+  const query = `
+    INSERT INTO SupervisorTransactions 
+    (supervisor_id, transaction_type, amount, balance_after, description, booking_id, facility_name, student_name, admin_email) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  db.query(query, [supervisorId, transactionType, amount, balanceAfter, description, bookingId, facilityName, studentName, adminEmail], (err, result) => {
+    if (err) {
+      console.error('Error recording supervisor transaction:', err);
+      if (callback) callback(err, null);
+    } else {
+      if (callback) callback(null, result.insertId);
+    }
+  });
+}
+
 // Middleware to parse JSON request bodies
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -3563,124 +3581,274 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
           return res.status(400).json({ error: 'Insufficient funds in wallet. Please add funds before approving.' });
         }
         
-        // Update booking status and deduct from wallet
-        const updateQueries = [
-          'UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?',
-          'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?'
-        ];
-        
-        let completed = 0;
-        let hasError = false;
-        
-        updateQueries.forEach((query, index) => {
-          const params = index === 0 ? [booking_id] : [Number(booking.cost), booking.supervisor_id];
-          db.query(query, params, (updateErr) => {
+        // Start transaction for booking approval
+        db.beginTransaction((err) => {
+          if (err) {
+            console.error('Error starting transaction:', err);
+            return res.status(500).json({ error: 'Failed to start transaction' });
+          }
+
+          // Update booking status
+          db.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [booking_id], (updateErr) => {
             if (updateErr) {
-              console.error('Error updating booking/wallet:', updateErr);
-              hasError = true;
-            }
-            completed++;
-            
-            if (completed === updateQueries.length) {
-              if (hasError) {
+              db.rollback(() => {
+                console.error('Error updating booking status:', updateErr);
                 return res.status(500).json({ error: 'Failed to approve booking' });
-              }
-              
-              // Send email to user about approval
-              const transporter = nodemailer.createTransport({
-                service: 'gmail',
-                auth: {
-                  user: process.env.EMAIL_USER,
-                  pass: process.env.EMAIL_PASS
-                }
               });
-              
-              const mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: booking.user_email,
-                subject: 'Your Facility Booking Has Been Approved',
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #10b981;">Booking Approved!</h2>
-                    <p>Dear ${booking.user_name},</p>
-                    <p>Your facility booking request has been approved by your supervisor (${booking.supervisor_name}).</p>
-                    <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
-                      <h3 style="margin-top: 0; color: #10b981;">Booking Details:</h3>
-                      <p><strong>Booking ID:</strong> ${booking_id}</p>
-                      <p><strong>Cost:</strong> ₹${booking.cost}</p>
-                      <p><strong>Status:</strong> Approved</p>
-                    </div>
-                    <p>The cost has been deducted from your supervisor's wallet balance.</p>
-                    <p>Please contact the facility operator for any additional instructions.</p>
-                  </div>
-                `
-              };
-              
-              transporter.sendMail(mailOptions, (emailErr) => {
-                if (emailErr) {
-                  console.error('Failed to send approval email:', emailErr);
-                }
-              });
-              
-              const newWalletBalance = Number(booking.wallet_balance) - Number(booking.cost);
-              console.log('Wallet deduction calculation:', {
-                old_balance: booking.wallet_balance,
-                cost: booking.cost,
-                new_balance: newWalletBalance
-              });
-              
-              res.json({ 
-                message: 'Booking approved successfully',
-                new_wallet_balance: newWalletBalance
-              });
+              return;
             }
+
+            // Update supervisor wallet
+            const newWalletBalance = Number(booking.wallet_balance) - Number(booking.cost);
+            db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, booking.supervisor_id], (walletErr) => {
+              if (walletErr) {
+                db.rollback(() => {
+                  console.error('Error updating wallet balance:', walletErr);
+                  return res.status(500).json({ error: 'Failed to update wallet balance' });
+                });
+                return;
+              }
+
+              // Record transaction
+              const description = `Booking #${booking_id} approved for ${booking.user_name} - ${booking.facility_name}`;
+              recordSupervisorTransaction(
+                booking.supervisor_id,
+                'BOOKING_APPROVAL',
+                -Number(booking.cost), // Negative amount for deduction
+                newWalletBalance,
+                description,
+                booking_id,
+                booking.facility_name,
+                booking.user_name,
+                null,
+                (transactionErr, transactionId) => {
+                  if (transactionErr) {
+                    db.rollback(() => {
+                      console.error('Error recording transaction:', transactionErr);
+                      return res.status(500).json({ error: 'Failed to record transaction' });
+                    });
+                    return;
+                  }
+
+                  // Commit transaction
+                  db.commit((commitErr) => {
+                    if (commitErr) {
+                      db.rollback(() => {
+                        console.error('Error committing transaction:', commitErr);
+                        return res.status(500).json({ error: 'Failed to complete approval' });
+                      });
+                      return;
+                    }
+
+                    // Send email to user about approval
+                    const transporter = nodemailer.createTransport({
+                      service: 'gmail',
+                      auth: {
+                        user: process.env.EMAIL_USER,
+                        pass: process.env.EMAIL_PASS
+                      }
+                    });
+                    
+                    const mailOptions = {
+                      from: process.env.EMAIL_USER,
+                      to: booking.user_email,
+                      subject: 'Your Facility Booking Has Been Approved',
+                      html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                          <h2 style="color: #10b981;">Booking Approved!</h2>
+                          <p>Dear ${booking.user_name},</p>
+                          <p>Your facility booking request has been approved by your supervisor (${booking.supervisor_name}).</p>
+                          <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                            <h3 style="margin-top: 0; color: #10b981;">Booking Details:</h3>
+                            <p><strong>Booking ID:</strong> ${booking_id}</p>
+                            <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                            <p><strong>Status:</strong> Approved</p>
+                          </div>
+                          <p>The cost has been deducted from your supervisor's wallet balance.</p>
+                          <p>Please contact the facility operator for any additional instructions.</p>
+                        </div>
+                      `
+                    };
+                    
+                    transporter.sendMail(mailOptions, (emailErr) => {
+                      if (emailErr) {
+                        console.error('Failed to send approval email:', emailErr);
+                      }
+                    });
+                    
+                    console.log('Wallet deduction calculation:', {
+                      old_balance: booking.wallet_balance,
+                      cost: booking.cost,
+                      new_balance: newWalletBalance
+                    });
+                    
+                    res.json({ 
+                      message: 'Booking approved successfully',
+                      new_wallet_balance: newWalletBalance,
+                      transaction_id: transactionId
+                    });
+                  });
+                }
+              );
+            });
           });
         });
       } else {
-        // Reject booking
-        db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [booking_id], (updateErr) => {
-          if (updateErr) {
-            console.error('Error rejecting booking:', updateErr);
-            return res.status(500).json({ error: 'Failed to reject booking' });
-          }
-          
-          // Send email to user about rejection
-          const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-              user: process.env.EMAIL_USER,
-              pass: process.env.EMAIL_PASS
+        // Reject booking - handle refund if booking was previously approved
+        if (booking.status === 'Approved') {
+          // Start transaction for rejection with refund
+          db.beginTransaction((err) => {
+            if (err) {
+              console.error('Error starting transaction:', err);
+              return res.status(500).json({ error: 'Failed to start transaction' });
             }
+
+            // Update booking status
+            db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [booking_id], (updateErr) => {
+              if (updateErr) {
+                db.rollback(() => {
+                  console.error('Error updating booking status:', updateErr);
+                  return res.status(500).json({ error: 'Failed to reject booking' });
+                });
+                return;
+              }
+
+              // Refund to supervisor wallet
+              const newWalletBalance = Number(booking.wallet_balance) + Number(booking.cost);
+              db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, booking.supervisor_id], (walletErr) => {
+                if (walletErr) {
+                  db.rollback(() => {
+                    console.error('Error updating wallet balance:', walletErr);
+                    return res.status(500).json({ error: 'Failed to update wallet balance' });
+                  });
+                  return;
+                }
+
+                // Record refund transaction
+                const description = `Booking #${booking_id} rejected - refund for ${booking.user_name} - ${booking.facility_name}`;
+                recordSupervisorTransaction(
+                  booking.supervisor_id,
+                  'BOOKING_REFUND',
+                  Number(booking.cost), // Positive amount for refund
+                  newWalletBalance,
+                  description,
+                  booking_id,
+                  booking.facility_name,
+                  booking.user_name,
+                  null,
+                  (transactionErr, transactionId) => {
+                    if (transactionErr) {
+                      db.rollback(() => {
+                        console.error('Error recording transaction:', transactionErr);
+                        return res.status(500).json({ error: 'Failed to record transaction' });
+                      });
+                      return;
+                    }
+
+                    // Commit transaction
+                    db.commit((commitErr) => {
+                      if (commitErr) {
+                        db.rollback(() => {
+                          console.error('Error committing transaction:', commitErr);
+                          return res.status(500).json({ error: 'Failed to complete rejection' });
+                        });
+                        return;
+                      }
+
+                      // Send email to user about rejection
+                      const transporter = nodemailer.createTransport({
+                        service: 'gmail',
+                        auth: {
+                          user: process.env.EMAIL_USER,
+                          pass: process.env.EMAIL_PASS
+                        }
+                      });
+                      
+                      const mailOptions = {
+                        from: process.env.EMAIL_USER,
+                        to: booking.user_email,
+                        subject: 'Your Facility Booking Has Been Rejected',
+                        html: `
+                          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #ef4444;">Booking Rejected</h2>
+                            <p>Dear ${booking.user_name},</p>
+                            <p>Your facility booking request has been rejected by your supervisor (${booking.supervisor_name}).</p>
+                            <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                              <h3 style="margin-top: 0; color: #ef4444;">Booking Details:</h3>
+                              <p><strong>Booking ID:</strong> ${booking_id}</p>
+                              <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                              <p><strong>Status:</strong> Rejected</p>
+                            </div>
+                            <p>The amount has been refunded to your supervisor's wallet balance.</p>
+                            <p>Please contact your supervisor for more information or submit a new booking request.</p>
+                          </div>
+                        `
+                      };
+                      
+                      transporter.sendMail(mailOptions, (emailErr) => {
+                        if (emailErr) {
+                          console.error('Failed to send rejection email:', emailErr);
+                        }
+                      });
+                      
+                      res.json({ 
+                        message: 'Booking rejected successfully and amount refunded',
+                        new_wallet_balance: newWalletBalance,
+                        refunded_amount: Number(booking.cost),
+                        transaction_id: transactionId
+                      });
+                    });
+                  }
+                );
+              });
+            });
           });
-          
-          const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: booking.user_email,
-            subject: 'Your Facility Booking Has Been Rejected',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #ef4444;">Booking Rejected</h2>
-                <p>Dear ${booking.user_name},</p>
-                <p>Your facility booking request has been rejected by your supervisor (${booking.supervisor_name}).</p>
-                <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
-                  <h3 style="margin-top: 0; color: #ef4444;">Booking Details:</h3>
-                  <p><strong>Booking ID:</strong> ${booking_id}</p>
-                  <p><strong>Cost:</strong> ₹${booking.cost}</p>
-                  <p><strong>Status:</strong> Rejected</p>
+        } else {
+          // Reject non-approved booking - no refund needed
+          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [booking_id], (updateErr) => {
+            if (updateErr) {
+              console.error('Error rejecting booking:', updateErr);
+              return res.status(500).json({ error: 'Failed to reject booking' });
+            }
+            
+            // Send email to user about rejection
+            const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+              }
+            });
+            
+            const mailOptions = {
+              from: process.env.EMAIL_USER,
+              to: booking.user_email,
+              subject: 'Your Facility Booking Has Been Rejected',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #ef4444;">Booking Rejected</h2>
+                  <p>Dear ${booking.user_name},</p>
+                  <p>Your facility booking request has been rejected by your supervisor (${booking.supervisor_name}).</p>
+                  <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                    <h3 style="margin-top: 0; color: #ef4444;">Booking Details:</h3>
+                    <p><strong>Booking ID:</strong> ${booking_id}</p>
+                    <p><strong>Cost:</strong> ₹${booking.cost}</p>
+                    <p><strong>Status:</strong> Rejected</p>
+                  </div>
+                  <p>Please contact your supervisor for more information or submit a new booking request.</p>
                 </div>
-                <p>Please contact your supervisor for more information or submit a new booking request.</p>
-              </div>
-            `
-          };
-          
-          transporter.sendMail(mailOptions, (emailErr) => {
-            if (emailErr) {
-              console.error('Failed to send rejection email:', emailErr);
-            }
+              `
+            };
+            
+            transporter.sendMail(mailOptions, (emailErr) => {
+              if (emailErr) {
+                console.error('Failed to send rejection email:', emailErr);
+              }
+            });
+            
+            res.json({ message: 'Booking rejected successfully' });
           });
-          
-          res.json({ message: 'Booking rejected successfully' });
-        });
+        }
       }
     });
   } catch (error) {
@@ -4196,7 +4364,18 @@ app.post('/api/booking', authenticateToken, (req, res) => {
           if (supervisor.wallet_balance >= calculatedCost) {
             // Sufficient funds - auto-approve and deduct from wallet
             updateBookingStatus(booking_id, 'Approved');
-            deductFromSupervisorWallet(supervisor.id, calculatedCost);
+            
+            // Get facility name for transaction record
+            const facilityQuery = 'SELECT name FROM Facilities WHERE id = ?';
+            db.query(facilityQuery, [facility_id], (facilityErr, facilityResults) => {
+              if (facilityErr || !facilityResults.length) {
+                console.error('Error getting facility name:', facilityErr);
+                // Still proceed with deduction but without facility name
+                deductFromSupervisorWallet(supervisor.id, calculatedCost, booking_id, 'Unknown Facility', supervisor.user_name);
+              } else {
+                deductFromSupervisorWallet(supervisor.id, calculatedCost, booking_id, facilityResults[0].name, supervisor.user_name);
+              }
+            });
             
             // Send notification email to supervisor about auto-approval
             sendSuperuserAutoApprovalEmail(supervisor, calculatedCost, date, validationResult);
@@ -4297,15 +4476,49 @@ app.post('/api/booking', authenticateToken, (req, res) => {
         });
       }
       
-      // Helper function to deduct amount from supervisor wallet
-      function deductFromSupervisorWallet(supervisorId, amount) {
-        const deductQuery = 'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?';
-        db.query(deductQuery, [amount, supervisorId], (deductErr) => {
-          if (deductErr) {
-            console.error('Error deducting from supervisor wallet:', deductErr);
-          } else {
-            console.log(`₹${amount} deducted from supervisor ${supervisorId} wallet`);
+      // Helper function to deduct amount from supervisor wallet with transaction tracking
+      function deductFromSupervisorWallet(supervisorId, amount, bookingId, facilityName, studentName) {
+        // Get current wallet balance
+        const getBalanceQuery = 'SELECT wallet_balance FROM Supervisor WHERE id = ?';
+        db.query(getBalanceQuery, [supervisorId], (balanceErr, balanceResults) => {
+          if (balanceErr || !balanceResults.length) {
+            console.error('Error getting supervisor wallet balance:', balanceErr);
+            return;
           }
+
+          const currentBalance = Number(balanceResults[0].wallet_balance);
+          const newBalance = currentBalance - amount;
+
+          // Update wallet balance
+          const deductQuery = 'UPDATE Supervisor SET wallet_balance = ? WHERE id = ?';
+          db.query(deductQuery, [newBalance, supervisorId], (deductErr) => {
+            if (deductErr) {
+              console.error('Error deducting from supervisor wallet:', deductErr);
+            } else {
+              console.log(`₹${amount} deducted from supervisor ${supervisorId} wallet`);
+              
+              // Record transaction
+              const description = `Superuser booking #${bookingId} auto-approved for ${studentName} - ${facilityName}`;
+              recordSupervisorTransaction(
+                supervisorId,
+                'SUPERUSER_BOOKING',
+                -amount, // Negative amount for deduction
+                newBalance,
+                description,
+                bookingId,
+                facilityName,
+                studentName,
+                null,
+                (transactionErr, transactionId) => {
+                  if (transactionErr) {
+                    console.error('Error recording superuser transaction:', transactionErr);
+                  } else {
+                    console.log(`Transaction recorded with ID: ${transactionId}`);
+                  }
+                }
+              );
+            }
+          });
         });
       }
       
@@ -5068,6 +5281,273 @@ app.patch('/api/supervisors/:id/wallet', (req, res) => {
   });
 });
 
+// API to top-up supervisor wallet (with transaction history)
+app.post('/api/supervisors/:id/topup', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { amount, admin_email } = req.body;
+  
+  // Validate input
+  const parsedAmount = parseFloat(amount);
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({ error: 'Invalid top-up amount' });
+  }
+  
+  // Validate admin access by checking management_cred table
+  if (!req.user || !req.user.email) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const adminCheckQuery = "SELECT Position FROM management_cred WHERE email = ?";
+  db.query(adminCheckQuery, [req.user.email], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Server error' });
+    }
+    
+    if (results.length === 0 || results[0].Position !== 'Admin') {
+      return res.status(403).json({ error: 'Only admins can perform top-ups' });
+    }
+    
+    // Continue with top-up logic
+    const topUpQuery = "UPDATE Supervisor SET wallet_balance = wallet_balance + ? WHERE id = ?";
+    db.query(topUpQuery, [parsedAmount, id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update wallet balance' });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Supervisor not found' });
+      }
+      
+      // Get updated balance for transaction record
+      const balanceQuery = "SELECT wallet_balance FROM Supervisor WHERE id = ?";
+      db.query(balanceQuery, [id], (err, balanceResult) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to get updated balance' });
+        }
+        
+        const newBalance = parseFloat(balanceResult[0].wallet_balance);
+        
+        // Record transaction
+        const transactionQuery = `
+          INSERT INTO SupervisorTransactions 
+          (supervisor_id, transaction_type, amount, balance_after, description, admin_email) 
+          VALUES (?, 'TOP_UP', ?, ?, ?, ?)
+        `;
+        const description = `Top-up by Admin (${admin_email})`;
+        
+        db.query(transactionQuery, [id, parsedAmount, newBalance, description, admin_email], (err, transactionResult) => {
+          if (err) {
+            console.error('Error recording transaction:', err);
+            // Still send success response since wallet was updated
+          }
+          
+          res.json({ 
+            message: 'Top-up successful', 
+            newBalance: newBalance,
+            transactionId: transactionResult ? transactionResult.insertId : null
+          });
+        });
+      });
+    });
+  });
+});
+
+// API to get supervisor transaction history
+app.get('/api/supervisors/:id/transactions', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { page = 1, limit = 50 } = req.query;
+
+  // Validate access - supervisor can only see their own transactions, admin can see any
+  if (!req.user || !req.user.email) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  // Check if user is admin or supervisor
+  const adminCheckQuery = "SELECT Position FROM management_cred WHERE email = ?";
+  const supervisorCheckQuery = "SELECT id FROM Supervisor WHERE email = ?";
+  
+  // Check admin access first
+  db.query(adminCheckQuery, [req.user.email], (err, adminResults) => {
+    if (err) {
+      return res.status(500).json({ error: 'Server error' });
+    }
+    
+    const isAdmin = adminResults.length > 0 && adminResults[0].Position === 'Admin';
+    
+    if (isAdmin) {
+      // Admin can access any supervisor's transactions
+      console.log('Admin access granted for transaction history');
+      proceedWithTransactionHistory();
+    } else {
+      // Check if user is a supervisor
+      db.query(supervisorCheckQuery, [req.user.email], (err, supervisorResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+        
+        const isSupervisor = supervisorResults.length > 0;
+        const supervisorId = isSupervisor ? supervisorResults[0].id : null;
+        const canAccess = isSupervisor && supervisorId == parseInt(id);
+        
+        console.log('Transaction history access check:', {
+          email: req.user.email,
+          jwtSupervisorId: req.user.supervisorId,
+          dbSupervisorId: supervisorId,
+          requestedId: id,
+          parsedRequestedId: parseInt(id),
+          isAdmin,
+          isSupervisor,
+          canAccess
+        });
+        
+        if (!canAccess) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        proceedWithTransactionHistory();
+      });
+    }
+    
+    function proceedWithTransactionHistory() {
+      // Continue with transaction history logic
+      const offset = (page - 1) * limit;
+    
+      const query = `
+        SELECT 
+          st.transaction_id,
+          st.transaction_type,
+          st.amount,
+          st.balance_after,
+          st.description,
+          st.facility_name,
+          st.student_name,
+          st.admin_email,
+          st.created_at,
+          s.name as supervisor_name
+        FROM SupervisorTransactions st
+        JOIN Supervisor s ON st.supervisor_id = s.id
+        WHERE st.supervisor_id = ?
+        ORDER BY st.created_at DESC
+        LIMIT ? OFFSET ?
+      `;
+      
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM SupervisorTransactions
+        WHERE supervisor_id = ?
+      `;
+      
+      // Get total count
+      db.query(countQuery, [id], (err, countResult) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to get transaction count' });
+        }
+        
+        const total = countResult[0].total;
+        
+        // Get transactions
+        db.query(query, [id, parseInt(limit), offset], (err, results) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to get transactions' });
+          }
+          
+          res.json({
+            transactions: results,
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total: total,
+              pages: Math.ceil(total / limit)
+            }
+          });
+        });
+      });
+    }
+  });
+});
+
+// Supervisor transaction history endpoint (for supervisors to see their own transactions)
+app.get('/api/supervisor/transactions', authenticateToken, (req, res) => {
+  const { page = 1, limit = 50, type } = req.query;
+  
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+  
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    
+    const supervisorId = r1[0].id;
+    const offset = (page - 1) * limit;
+    
+    // Build WHERE clause with optional type filter
+    let whereClause = 'st.supervisor_id = ?';
+    let queryParams = [supervisorId];
+    let countParams = [supervisorId];
+    
+    if (type && type !== 'all') {
+      whereClause += ' AND st.transaction_type = ?';
+      queryParams.push(type);
+      countParams.push(type);
+    }
+    
+    const query = `
+      SELECT 
+        st.transaction_id,
+        st.transaction_type,
+        st.amount,
+        st.balance_after,
+        st.description,
+        st.facility_name,
+        st.student_name,
+        st.admin_email,
+        st.created_at,
+        s.name as supervisor_name
+      FROM SupervisorTransactions st
+      JOIN Supervisor s ON st.supervisor_id = s.id
+      WHERE ${whereClause}
+      ORDER BY st.created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM SupervisorTransactions st
+      WHERE ${whereClause}
+    `;
+    
+    // Add pagination parameters
+    queryParams.push(parseInt(limit), offset);
+    
+    // Get total count
+    db.query(countQuery, countParams, (err, countResult) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to get transaction count' });
+      }
+      
+      const total = countResult[0].total;
+      
+      // Get transactions
+      db.query(query, queryParams, (err, results) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to get transactions' });
+        }
+        
+        res.json({
+          transactions: results,
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: total,
+            pages: Math.ceil(total / limit)
+          }
+        });
+      });
+    });
+  });
+});
+
 // Footer Management API Endpoints
 
 // Get footer content
@@ -5753,35 +6233,241 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
           });
         }
         
-        // Approve and deduct from wallet
-        const q1 = 'UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?';
-        const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?';
-        db.query(q1, [bookingId], (u1) => {
-          if (u1) return res.status(500).json({ message: 'Failed to update booking' });
-          db.query(q2, [Number(bk.cost), supId], (u2) => {
-            if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
-            return res.json({ 
-              success: true, 
-              message: 'Booking approved and amount deducted', 
-              new_wallet_balance: Number(bk.wallet_balance) - Number(bk.cost) 
+        // Approve and deduct from wallet with transaction tracking
+        db.beginTransaction((err) => {
+          if (err) {
+            console.error('Error starting transaction:', err);
+            return res.status(500).json({ message: 'Failed to start transaction' });
+          }
+
+          // Update booking status
+          db.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [bookingId], (u1) => {
+            if (u1) {
+              db.rollback(() => {
+                return res.status(500).json({ message: 'Failed to update booking' });
+              });
+              return;
+            }
+
+            // Update wallet balance
+            const newWalletBalance = Number(bk.wallet_balance) - Number(bk.cost);
+            db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+              if (u2) {
+                db.rollback(() => {
+                  return res.status(500).json({ message: 'Failed to update wallet' });
+                });
+                return;
+              }
+
+              // Get booking details for transaction record
+              const bookingDetailsQuery = `
+                SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+                FROM BookingHistory bh
+                JOIN Facilities f ON f.id = bh.facility_id
+                JOIN Users u ON u.user_id = bh.user_id
+                WHERE bh.booking_id = ?
+              `;
+              db.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+                if (detailsErr || !detailsResults.length) {
+                  console.error('Error getting booking details:', detailsErr);
+                  // Still proceed with transaction record
+                  const description = `Booking #${bookingId} approved`;
+                  recordSupervisorTransaction(
+                    supId,
+                    'BOOKING_APPROVAL',
+                    -Number(bk.cost),
+                    newWalletBalance,
+                    description,
+                    bookingId,
+                    'Unknown Facility',
+                    'Unknown Student',
+                    null,
+                    (transactionErr, transactionId) => {
+                      if (transactionErr) {
+                        db.rollback(() => {
+                          return res.status(500).json({ message: 'Failed to record transaction' });
+                        });
+                        return;
+                      }
+
+                      db.commit((commitErr) => {
+                        if (commitErr) {
+                          db.rollback(() => {
+                            return res.status(500).json({ message: 'Failed to complete approval' });
+                          });
+                          return;
+                        }
+
+                        return res.json({ 
+                          success: true, 
+                          message: 'Booking approved and amount deducted', 
+                          new_wallet_balance: newWalletBalance,
+                          transaction_id: transactionId
+                        });
+                      });
+                    }
+                  );
+                } else {
+                  const details = detailsResults[0];
+                  const description = `Booking #${bookingId} approved for ${details.student_name} - ${details.facility_name}`;
+                  recordSupervisorTransaction(
+                    supId,
+                    'BOOKING_APPROVAL',
+                    -Number(bk.cost),
+                    newWalletBalance,
+                    description,
+                    bookingId,
+                    details.facility_name,
+                    details.student_name,
+                    null,
+                    (transactionErr, transactionId) => {
+                      if (transactionErr) {
+                        db.rollback(() => {
+                          return res.status(500).json({ message: 'Failed to record transaction' });
+                        });
+                        return;
+                      }
+
+                      db.commit((commitErr) => {
+                        if (commitErr) {
+                          db.rollback(() => {
+                            return res.status(500).json({ message: 'Failed to complete approval' });
+                          });
+                          return;
+                        }
+
+                        return res.json({ 
+                          success: true, 
+                          message: 'Booking approved and amount deducted', 
+                          new_wallet_balance: newWalletBalance,
+                          transaction_id: transactionId
+                        });
+                      });
+                    }
+                  );
+                }
+              });
             });
           });
         });
       } else if (action === 'reject') {
         // If rejecting an approved booking, refund the money
         if (bk.status === 'Approved') {
-          const q1 = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
-          const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance + ? WHERE id = ?';
-          
-          db.query(q1, [bookingId], (u1) => {
-            if (u1) return res.status(500).json({ message: 'Failed to update booking' });
-            db.query(q2, [Number(bk.cost), supId], (u2) => {
-              if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
-              return res.json({ 
-                success: true, 
-                message: 'Booking rejected and amount refunded', 
-                new_wallet_balance: Number(bk.wallet_balance) + Number(bk.cost),
-                refunded_amount: Number(bk.cost)
+          db.beginTransaction((err) => {
+            if (err) {
+              console.error('Error starting transaction:', err);
+              return res.status(500).json({ message: 'Failed to start transaction' });
+            }
+
+            // Update booking status
+            db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+              if (u1) {
+                db.rollback(() => {
+                  return res.status(500).json({ message: 'Failed to update booking' });
+                });
+                return;
+              }
+
+              // Update wallet balance
+              const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
+              db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+                if (u2) {
+                  db.rollback(() => {
+                    return res.status(500).json({ message: 'Failed to update wallet' });
+                  });
+                  return;
+                }
+
+                // Get booking details for transaction record
+                const bookingDetailsQuery = `
+                  SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+                  FROM BookingHistory bh
+                  JOIN Facilities f ON f.id = bh.facility_id
+                  JOIN Users u ON u.user_id = bh.user_id
+                  WHERE bh.booking_id = ?
+                `;
+                db.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+                  if (detailsErr || !detailsResults.length) {
+                    console.error('Error getting booking details:', detailsErr);
+                    // Still proceed with transaction record
+                    const description = `Booking #${bookingId} rejected - refund`;
+                    recordSupervisorTransaction(
+                      supId,
+                      'BOOKING_REFUND',
+                      Number(bk.cost),
+                      newWalletBalance,
+                      description,
+                      bookingId,
+                      'Unknown Facility',
+                      'Unknown Student',
+                      null,
+                      (transactionErr, transactionId) => {
+                        if (transactionErr) {
+                          db.rollback(() => {
+                            return res.status(500).json({ message: 'Failed to record transaction' });
+                          });
+                          return;
+                        }
+
+                        db.commit((commitErr) => {
+                          if (commitErr) {
+                            db.rollback(() => {
+                              return res.status(500).json({ message: 'Failed to complete rejection' });
+                            });
+                            return;
+                          }
+
+                          return res.json({ 
+                            success: true, 
+                            message: 'Booking rejected and amount refunded', 
+                            new_wallet_balance: newWalletBalance,
+                            refunded_amount: Number(bk.cost),
+                            transaction_id: transactionId
+                          });
+                        });
+                      }
+                    );
+                  } else {
+                    const details = detailsResults[0];
+                    const description = `Booking #${bookingId} rejected - refund for ${details.student_name} - ${details.facility_name}`;
+                    recordSupervisorTransaction(
+                      supId,
+                      'BOOKING_REFUND',
+                      Number(bk.cost),
+                      newWalletBalance,
+                      description,
+                      bookingId,
+                      details.facility_name,
+                      details.student_name,
+                      null,
+                      (transactionErr, transactionId) => {
+                        if (transactionErr) {
+                          db.rollback(() => {
+                            return res.status(500).json({ message: 'Failed to record transaction' });
+                          });
+                          return;
+                        }
+
+                        db.commit((commitErr) => {
+                          if (commitErr) {
+                            db.rollback(() => {
+                              return res.status(500).json({ message: 'Failed to complete rejection' });
+                            });
+                            return;
+                          }
+
+                          return res.json({ 
+                            success: true, 
+                            message: 'Booking rejected and amount refunded', 
+                            new_wallet_balance: newWalletBalance,
+                            refunded_amount: Number(bk.cost),
+                            transaction_id: transactionId
+                          });
+                        });
+                      }
+                    );
+                  }
+                });
               });
             });
           });
@@ -5795,18 +6481,121 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
       } else if (action === 'cancel') {
         // Cancel approved booking - refund the amount to supervisor wallet
         if (bk.status === 'Approved') {
-          const q1 = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
-          const q2 = 'UPDATE Supervisor SET wallet_balance = wallet_balance + ? WHERE id = ?';
-          
-          db.query(q1, [bookingId], (u1) => {
-            if (u1) return res.status(500).json({ message: 'Failed to update booking' });
-            db.query(q2, [Number(bk.cost), supId], (u2) => {
-              if (u2) return res.status(500).json({ message: 'Failed to update wallet' });
-              return res.json({ 
-                success: true, 
-                message: 'Booking cancelled and amount refunded', 
-                new_wallet_balance: Number(bk.wallet_balance) + Number(bk.cost),
-                refunded_amount: Number(bk.cost)
+          db.beginTransaction((err) => {
+            if (err) {
+              console.error('Error starting transaction:', err);
+              return res.status(500).json({ message: 'Failed to start transaction' });
+            }
+
+            // Update booking status
+            db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+              if (u1) {
+                db.rollback(() => {
+                  return res.status(500).json({ message: 'Failed to update booking' });
+                });
+                return;
+              }
+
+              // Update wallet balance
+              const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
+              db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+                if (u2) {
+                  db.rollback(() => {
+                    return res.status(500).json({ message: 'Failed to update wallet' });
+                  });
+                  return;
+                }
+
+                // Get booking details for transaction record
+                const bookingDetailsQuery = `
+                  SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+                  FROM BookingHistory bh
+                  JOIN Facilities f ON f.id = bh.facility_id
+                  JOIN Users u ON u.user_id = bh.user_id
+                  WHERE bh.booking_id = ?
+                `;
+                db.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+                  if (detailsErr || !detailsResults.length) {
+                    console.error('Error getting booking details:', detailsErr);
+                    // Still proceed with transaction record
+                    const description = `Booking #${bookingId} cancelled - refund`;
+                    recordSupervisorTransaction(
+                      supId,
+                      'BOOKING_REFUND',
+                      Number(bk.cost),
+                      newWalletBalance,
+                      description,
+                      bookingId,
+                      'Unknown Facility',
+                      'Unknown Student',
+                      null,
+                      (transactionErr, transactionId) => {
+                        if (transactionErr) {
+                          db.rollback(() => {
+                            return res.status(500).json({ message: 'Failed to record transaction' });
+                          });
+                          return;
+                        }
+
+                        db.commit((commitErr) => {
+                          if (commitErr) {
+                            db.rollback(() => {
+                              return res.status(500).json({ message: 'Failed to complete cancellation' });
+                            });
+                            return;
+                          }
+
+                          return res.json({ 
+                            success: true, 
+                            message: 'Booking cancelled and amount refunded', 
+                            new_wallet_balance: newWalletBalance,
+                            refunded_amount: Number(bk.cost),
+                            transaction_id: transactionId
+                          });
+                        });
+                      }
+                    );
+                  } else {
+                    const details = detailsResults[0];
+                    const description = `Booking #${bookingId} cancelled - refund for ${details.student_name} - ${details.facility_name}`;
+                    recordSupervisorTransaction(
+                      supId,
+                      'BOOKING_REFUND',
+                      Number(bk.cost),
+                      newWalletBalance,
+                      description,
+                      bookingId,
+                      details.facility_name,
+                      details.student_name,
+                      null,
+                      (transactionErr, transactionId) => {
+                        if (transactionErr) {
+                          db.rollback(() => {
+                            return res.status(500).json({ message: 'Failed to record transaction' });
+                          });
+                          return;
+                        }
+
+                        db.commit((commitErr) => {
+                          if (commitErr) {
+                            db.rollback(() => {
+                              return res.status(500).json({ message: 'Failed to complete cancellation' });
+                            });
+                            return;
+                          }
+
+                          return res.json({ 
+                            success: true, 
+                            message: 'Booking cancelled and amount refunded', 
+                            new_wallet_balance: newWalletBalance,
+                            refunded_amount: Number(bk.cost),
+                            transaction_id: transactionId
+                          });
+                        });
+                      }
+                    );
+                  }
+                });
               });
             });
           });

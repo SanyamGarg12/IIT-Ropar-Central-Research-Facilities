@@ -46,6 +46,7 @@ import ManageContact from './components/ManageContact';
 import SupervisorManageBooking from "./components/SupervisorManageBooking";
 import SupervisorManageSuperusers from "./components/SupervisorManageSuperusers";
 import SupervisorPendingSuperusers from "./components/SupervisorPendingSuperusers";
+import SupervisorTransactionHistory from "./components/SupervisorTransactionHistory";
 import AdminManageFacilityLimits from "./components/AdminManageFacilityLimits";
 import FacilityPlanner from "./components/FacilityPlanner";
 
@@ -154,7 +155,8 @@ const App = () => {
                       <Route path="/supervisor/change-password" element={<SupervisorChangePassword />} />
                       <Route path="/supervisor/bookings" element={<SupervisorManageBooking />} />
                       <Route path="/supervisor/manage-superusers" element={<SupervisorManageSuperusers />} />
-        <Route path="/supervisor/pending-superusers" element={<SupervisorPendingSuperusers />} />
+                      <Route path="/supervisor/pending-superusers" element={<SupervisorPendingSuperusers />} />
+                      <Route path="/supervisor/transaction-history" element={<SupervisorTransactionHistory />} />
                       <Route
                         path="/view-facility-slots"
                         element={
