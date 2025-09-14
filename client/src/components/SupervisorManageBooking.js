@@ -73,7 +73,9 @@ const SupervisorManageBooking = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Booking #</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">User</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Facility</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Booking Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Created At</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Selected Slots</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Cost</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Status</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Actions</th>
@@ -86,6 +88,28 @@ const SupervisorManageBooking = () => {
                   <td className="px-4 py-2">{b.full_name} ({b.email})</td>
                   <td className="px-4 py-2">{b.facility_name}</td>
                   <td className="px-4 py-2">{new Date(b.booking_date).toLocaleDateString()}</td>
+                  <td className="px-4 py-2">
+                    <div className="text-sm">
+                      {b.created_at ? (
+                        <span className="text-gray-600">
+                          {new Date(b.created_at).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">N/A</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="text-sm">
+                      {b.selected_slots ? (
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                          {b.selected_slots}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">No slots info</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-2">₹{b.cost}</td>
                   <td className="px-4 py-2">{b.status}</td>
                   <td className="px-4 py-2 space-x-2">

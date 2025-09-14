@@ -6203,13 +6203,20 @@ app.get('/api/supervisor/bookings', authenticateToken, (req, res) => {
 
     const q = `
       SELECT bh.booking_id, bh.facility_id, bh.schedule_id, f.name AS facility_name, bh.booking_date, bh.cost, bh.status,
-             u.user_id, u.full_name, u.email
+             u.user_id, u.full_name, u.email, bh.created_at,
+             GROUP_CONCAT(
+               CONCAT(fs.start_time, '-', fs.end_time, ' (', fs.user_type, ')')
+               ORDER BY fs.start_time
+               SEPARATOR ', '
+             ) AS selected_slots
       FROM BookingHistory bh
       JOIN Users u ON u.user_id = bh.user_id
       JOIN InternalUsers iu ON iu.user_id = u.user_id
       JOIN Facilities f ON f.id = bh.facility_id
+      LEFT JOIN FacilitySchedule fs ON FIND_IN_SET(fs.schedule_id, REPLACE(bh.schedule_id, ',', ','))
       WHERE ${where}
-      ORDER BY bh.booking_date DESC, bh.booking_id DESC
+      GROUP BY bh.booking_id, bh.facility_id, bh.schedule_id, f.name, bh.booking_date, bh.cost, bh.status, u.user_id, u.full_name, u.email, bh.created_at
+      ORDER BY bh.created_at DESC, bh.booking_id DESC
       LIMIT 500
     `;
     db.query(q, params, (e2, rows) => {
