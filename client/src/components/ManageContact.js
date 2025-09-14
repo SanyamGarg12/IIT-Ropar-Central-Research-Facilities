@@ -810,65 +810,6 @@ const ManageContact = () => {
             </div>
           </div>
         </div>
-
-        {/* Footer Section */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-gray-700 flex items-center">
-              <FaUser className="mr-3 text-teal-500" /> Footer Information
-            </h2>
-            <button
-              onClick={() => updateContactContent(contactContent, 'Footer Information')}
-              disabled={savingSection === 'Footer Information'}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-1 py-0.5 rounded text-xs font-medium flex items-center gap-1 disabled:opacity-50 transition-all duration-200"
-              style={{ minWidth: '50px', maxWidth: '70px' }}
-            >
-              {savingSection === 'Footer Information' ? (
-                <>
-                  <div className="animate-spin rounded-full h-2 w-2 border-b-2 border-white"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <FaSave size={10} /> Save
-                </>
-              )}
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Managed By</label>
-              <input
-                type="text"
-                placeholder="e.g., Sanyam Garg"
-                value={contactContent.footer?.managedBy || ''}
-                onChange={(e) => handleInputChange('footer', 'managedBy', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                placeholder="e.g., sanyam22448@iiitd.ac.in"
-                value={contactContent.footer?.email || ''}
-                onChange={(e) => handleInputChange('footer', 'email', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">GitHub URL</label>
-              <input
-                type="url"
-                placeholder="e.g., https://github.com/SanyamGarg12"
-                value={contactContent.footer?.github || ''}
-                onChange={(e) => handleInputChange('footer', 'github', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-          </div>
-                 </div>
        </div>
        
        
