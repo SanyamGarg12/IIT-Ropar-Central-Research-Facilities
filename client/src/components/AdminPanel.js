@@ -103,35 +103,54 @@ const AdminDashboard = () => {
         <div className="p-10">
           <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-10 tracking-tight">Admin Dashboard</h1>
           {!isLoggedIn ? (
-            <form onSubmit={handleLogin} className="space-y-4 max-w-sm mx-auto">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            <div>
+              <form onSubmit={handleLogin} className="space-y-4 max-w-sm mx-auto">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105"
+                >
+                  Login
+                </button>
+                {error && <p className="text-red-500 text-center mt-2">{error}</p>}
+              </form>
+              
+              {/* Technical Support Section for Non-logged in Users */}
+              <div className="mt-8 flex flex-col items-center justify-center">
+                <div className="w-full max-w-xl bg-blue-50 border border-blue-200 rounded-xl p-6 flex items-center gap-4 shadow-sm">
+                  <span className="text-2xl text-blue-500"><FaInfoCircle /></span>
+                  <div>
+                    <div className="font-semibold text-blue-800 mb-1">Need Technical Support?</div>
+                    <div className="text-blue-700 text-sm">
+                      For any technical support or website-related issues, please contact:
+                      <br />
+                      <strong>Sanyam Garg</strong> - <a href="mailto:sanyam22448@iiitd.ac.in" className="underline hover:text-blue-900">sanyam22448@iiitd.ac.in</a>
+                      <br />
+                      <span className="text-xs text-blue-600 mt-1 block">Website Developer & Technical Support</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105"
-              >
-                Login
-              </button>
-              {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-            </form>
+            </div>
           ) : (
             <div>
               <p className="text-2xl font-semibold text-center text-gray-800 mb-10">
