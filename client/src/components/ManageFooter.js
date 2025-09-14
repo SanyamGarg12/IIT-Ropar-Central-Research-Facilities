@@ -204,6 +204,7 @@ const ManageFooter = () => {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const getContactIcon = (type) => {
     switch (type) {
       case 'phone': return <FaPhone />;
