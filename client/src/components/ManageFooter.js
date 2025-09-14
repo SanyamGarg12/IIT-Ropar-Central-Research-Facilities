@@ -250,115 +250,187 @@ const ManageFooter = () => {
             </div>
           )}
 
-                     {/* Quick Links Section */}
-           <div className="mb-8">
-             <div className="flex justify-between items-center mb-4">
-               <h2 className="text-xl font-semibold text-gray-700">Quick Links</h2>
-               <button
-                 onClick={handleQuickLinkAdd}
-                 className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-               >
-                 <FaPlus /> Add Link
-               </button>
-             </div>
-             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-               <p className="text-sm text-blue-700">
-                 <strong>Tip:</strong> Use the up/down arrows to reorder links. The order shown here will be the order displayed in the footer.
-               </p>
-             </div>
-                         <div className="space-y-3">
-               {footerContent.quickLinks.map((link, index) => (
-                 <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-                   {/* Drag Handle */}
-                   <div className="flex flex-col gap-1">
-                     <button
-                       onClick={() => moveQuickLinkUp(index)}
-                       disabled={index === 0}
-                       className={`p-1 rounded ${index === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'}`}
-                       title="Move Up"
-                     >
-                       <FaArrowUp size={12} />
-                     </button>
-                     <button
-                       onClick={() => moveQuickLinkDown(index)}
-                       disabled={index === footerContent.quickLinks.length - 1}
-                       className={`p-1 rounded ${index === footerContent.quickLinks.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'}`}
-                       title="Move Down"
-                     >
-                       <FaArrowDown size={12} />
-                     </button>
-                   </div>
-                   
-                   {/* Drag Grip Icon */}
-                   <div className="text-gray-400 cursor-move">
-                     <FaGripVertical size={16} />
-                   </div>
-                   
-                   {/* Link Content */}
-                   <div className="flex-1 grid grid-cols-2 gap-4">
-                     <input
-                       type="text"
-                       placeholder="Link Name"
-                       value={link.name}
-                       onChange={(e) => handleInputChange('quickLinks', index, 'name', e.target.value)}
-                       disabled={editingSection !== 'quickLinks' || editingIndex !== index}
-                       className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     />
-                     <input
-                       type="text"
-                       placeholder="Link Path (e.g., /about)"
-                       value={link.path}
-                       onChange={(e) => handleInputChange('quickLinks', index, 'path', e.target.value)}
-                       disabled={editingSection !== 'quickLinks' || editingIndex !== index}
-                       className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     />
-                   </div>
-                   
-                   {/* Action Buttons */}
-                   <div className="flex gap-2">
-                     {editingSection === 'quickLinks' && editingIndex === index ? (
-                       <>
-                         <button
-                           onClick={() => handleQuickLinkSave(index)}
-                           className="bg-green-500 hover:bg-green-600 text-white p-2 rounded"
-                           title="Save"
-                         >
-                           <FaSave />
-                         </button>
-                         <button
-                           onClick={() => {
-                             setEditingSection(null);
-                             setEditingIndex(null);
-                             loadFooterContent();
-                           }}
-                           className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded"
-                           title="Cancel"
-                         >
-                           <FaTimes />
-                         </button>
-                       </>
-                     ) : (
-                       <>
-                         <button
-                           onClick={() => handleQuickLinkEdit(index)}
-                           className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded"
-                           title="Edit"
-                         >
-                           <FaEdit />
-                         </button>
-                         <button
-                           onClick={() => handleQuickLinkDelete(index)}
-                           className="bg-red-500 hover:bg-red-600 text-white p-2 rounded"
-                           title="Delete"
-                         >
-                           <FaTrash />
-                         </button>
-                       </>
-                     )}
-                   </div>
-                 </div>
-               ))}
-             </div>
+          {/* Quick Links Section */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Quick Links</h2>
+                <p className="text-gray-600">Manage navigation links that appear in the website footer</p>
+              </div>
+              <button
+                onClick={handleQuickLinkAdd}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              >
+                <FaPlus /> Add New Link
+              </button>
+            </div>
+            
+            {/* Info Card */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="text-blue-500 mt-1">
+                  <FaLink size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-800 mb-2">Quick Links Guidelines</h3>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• <strong>Full URLs:</strong> You can use complete URLs (e.g., https://example.com) or relative paths (e.g., /about)</li>
+                    <li>• <strong>Ordering:</strong> Use the up/down arrows to reorder links as they will appear in the footer</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Links List */}
+            <div className="space-y-4">
+              {footerContent.quickLinks.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <FaLink className="mx-auto text-gray-400 mb-4" size={48} />
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">No Quick Links Added</h3>
+                  <p className="text-gray-500 mb-4">Get started by adding your first quick link</p>
+                  <button
+                    onClick={handleQuickLinkAdd}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 mx-auto"
+                  >
+                    <FaPlus /> Add First Link
+                  </button>
+                </div>
+              ) : (
+                footerContent.quickLinks.map((link, index) => (
+                  <div key={index} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <div className="p-6">
+                      <div className="flex items-center gap-4">
+                        {/* Reorder Controls */}
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => moveQuickLinkUp(index)}
+                            disabled={index === 0}
+                            className={`p-2 rounded-lg transition-colors ${
+                              index === 0 
+                                ? 'text-gray-300 cursor-not-allowed bg-gray-100' 
+                                : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50 bg-white border border-gray-200'
+                            }`}
+                            title="Move Up"
+                          >
+                            <FaArrowUp size={14} />
+                          </button>
+                          <button
+                            onClick={() => moveQuickLinkDown(index)}
+                            disabled={index === footerContent.quickLinks.length - 1}
+                            className={`p-2 rounded-lg transition-colors ${
+                              index === footerContent.quickLinks.length - 1 
+                                ? 'text-gray-300 cursor-not-allowed bg-gray-100' 
+                                : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50 bg-white border border-gray-200'
+                            }`}
+                            title="Move Down"
+                          >
+                            <FaArrowDown size={14} />
+                          </button>
+                        </div>
+                        
+                        {/* Drag Handle */}
+                        <div className="text-gray-400 cursor-move p-2 hover:text-gray-600 transition-colors">
+                          <FaGripVertical size={18} />
+                        </div>
+                        
+                        {/* Link Content */}
+                        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Link Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g., About Us, Contact, Privacy Policy"
+                              value={link.name}
+                              onChange={(e) => handleInputChange('quickLinks', index, 'name', e.target.value)}
+                              disabled={editingSection !== 'quickLinks' || editingIndex !== index}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-50 disabled:text-gray-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Link URL</label>
+                            <input
+                              type="url"
+                              placeholder="e.g., /about, https://example.com, mailto:contact@example.com"
+                              value={link.path}
+                              onChange={(e) => handleInputChange('quickLinks', index, 'path', e.target.value)}
+                              disabled={editingSection !== 'quickLinks' || editingIndex !== index}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-50 disabled:text-gray-500"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Use full URLs for external links (https://...) or relative paths for internal pages (/page)
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          {editingSection === 'quickLinks' && editingIndex === index ? (
+                            <>
+                              <button
+                                onClick={() => handleQuickLinkSave(index)}
+                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-sm hover:shadow-md"
+                                title="Save Changes"
+                              >
+                                <FaSave size={14} /> Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingSection(null);
+                                  setEditingIndex(null);
+                                  loadFooterContent();
+                                }}
+                                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-sm hover:shadow-md"
+                                title="Cancel"
+                              >
+                                <FaTimes size={14} /> Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleQuickLinkEdit(index)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-sm hover:shadow-md"
+                                title="Edit Link"
+                              >
+                                <FaEdit size={14} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleQuickLinkDelete(index)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-sm hover:shadow-md"
+                                title="Delete Link"
+                              >
+                                <FaTrash size={14} /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Preview */}
+                      {link.name && link.path && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <span className="font-medium">Preview:</span>
+                            <a 
+                              href={link.path.startsWith('http') ? link.path : `#${link.path}`}
+                              target={link.path.startsWith('http') ? '_blank' : '_self'}
+                              rel={link.path.startsWith('http') ? 'noopener noreferrer' : ''}
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              {link.name}
+                            </a>
+                            <span className="text-gray-400">→</span>
+                            <span className="font-mono text-xs bg-white px-2 py-1 rounded border">
+                              {link.path}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {/* Contact Info Section */}

@@ -2,7 +2,7 @@
   "quickLinks": [
     {
       "name": "Bookings",
-      "path": "/login"
+      "path": "http://localhost:3000/booking"
     },
     {
       "name": "About",
@@ -14,11 +14,15 @@
     },
     {
       "name": "Contact Us",
-      "path": "/contact-us"
+      "path": "http://localhost:3000/contact-us"
     },
     {
       "name": "Explore Facilities",
       "path": "/facilities"
+    },
+    {
+      "name": "IIT Ropar Website",
+      "path": "https://www.iitrpr.ac.in/"
     }
   ],
   "contactInfo": [
