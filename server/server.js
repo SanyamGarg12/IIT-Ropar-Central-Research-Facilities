@@ -89,19 +89,35 @@ db.getConnection((err) => {
 });
 
 // Helper function to record supervisor transactions
-function recordSupervisorTransaction(supervisorId, transactionType, amount, balanceAfter, description, bookingId = null, facilityName = null, studentName = null, adminEmail = null, callback) {
+function recordSupervisorTransaction(supervisorId, transactionType, amount, balanceAfter, description, bookingId = null, facilityName = null, studentName = null, adminEmail = null, connection = null, callback) {
   const query = `
     INSERT INTO SupervisorTransactions 
     (supervisor_id, transaction_type, amount, balance_after, description, booking_id, facility_name, student_name, admin_email) 
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   
-  db.query(query, [supervisorId, transactionType, amount, balanceAfter, description, bookingId, facilityName, studentName, adminEmail], (err, result) => {
+  // Use connection if provided and valid, otherwise use db
+  const queryFunction = (connection && connection.query) ? connection.query.bind(connection) : db.query.bind(db);
+  
+  // Add timeout to prevent lock issues
+  const timeout = setTimeout(() => {
+    console.error('Transaction recording timeout');
+    if (callback && typeof callback === 'function') {
+      callback(new Error('Transaction timeout'), null);
+    }
+  }, 10000); // 10 second timeout
+  
+  queryFunction(query, [supervisorId, transactionType, amount, balanceAfter, description, bookingId, facilityName, studentName, adminEmail], (err, result) => {
+    clearTimeout(timeout);
     if (err) {
       console.error('Error recording supervisor transaction:', err);
-      if (callback) callback(err, null);
+      if (callback && typeof callback === 'function') {
+        callback(err, null);
+      }
     } else {
-      if (callback) callback(null, result.insertId);
+      if (callback && typeof callback === 'function') {
+        callback(null, result.insertId);
+      }
     }
   });
 }
@@ -3609,16 +3625,24 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
         }
         
         // Start transaction for booking approval
-        db.beginTransaction((err) => {
+        db.getConnection((err, connection) => {
           if (err) {
-            console.error('Error starting transaction:', err);
-            return res.status(500).json({ error: 'Failed to start transaction' });
+            console.error('Error getting database connection:', err);
+            return res.status(500).json({ error: 'Failed to get database connection' });
           }
+          
+          connection.beginTransaction((err) => {
+            if (err) {
+              connection.release();
+              console.error('Error starting transaction:', err);
+              return res.status(500).json({ error: 'Failed to start transaction' });
+            }
 
           // Update booking status
-          db.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [booking_id], (updateErr) => {
+          connection.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [booking_id], (updateErr) => {
             if (updateErr) {
-              db.rollback(() => {
+              connection.rollback(() => {
+                connection.release();
                 console.error('Error updating booking status:', updateErr);
                 return res.status(500).json({ error: 'Failed to approve booking' });
               });
@@ -3627,9 +3651,10 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
 
             // Update supervisor wallet
             const newWalletBalance = Number(booking.wallet_balance) - Number(booking.cost);
-            db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, booking.supervisor_id], (walletErr) => {
+            connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, booking.supervisor_id], (walletErr) => {
               if (walletErr) {
-                db.rollback(() => {
+                connection.rollback(() => {
+                  connection.release();
                   console.error('Error updating wallet balance:', walletErr);
                   return res.status(500).json({ error: 'Failed to update wallet balance' });
                 });
@@ -3648,9 +3673,11 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
                 booking.facility_name,
                 booking.user_name,
                 null,
+                connection,
                 (transactionErr, transactionId) => {
                   if (transactionErr) {
-                    db.rollback(() => {
+                    connection.rollback(() => {
+                      connection.release();
                       console.error('Error recording transaction:', transactionErr);
                       return res.status(500).json({ error: 'Failed to record transaction' });
                     });
@@ -3658,15 +3685,17 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
                   }
 
                   // Commit transaction
-                  db.commit((commitErr) => {
+                  connection.commit((commitErr) => {
                     if (commitErr) {
-                      db.rollback(() => {
+                      connection.rollback(() => {
+                        connection.release();
                         console.error('Error committing transaction:', commitErr);
                         return res.status(500).json({ error: 'Failed to complete approval' });
                       });
                       return;
                     }
 
+                    connection.release();
                     // Send email to user about approval
                     const transporter = nodemailer.createTransport({
                       service: 'gmail',
@@ -3719,21 +3748,29 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
               );
             });
           });
+          });
         });
-      } else {
-        // Reject booking - handle refund if booking was previously approved
+      }
         if (booking.status === 'Approved') {
           // Start transaction for rejection with refund
-          db.beginTransaction((err) => {
+          db.getConnection((err, connection) => {
             if (err) {
-              console.error('Error starting transaction:', err);
-              return res.status(500).json({ error: 'Failed to start transaction' });
+              console.error('Error getting database connection:', err);
+              return res.status(500).json({ error: 'Failed to get database connection' });
             }
+            
+            connection.beginTransaction((err) => {
+              if (err) {
+                connection.release();
+                console.error('Error starting transaction:', err);
+                return res.status(500).json({ error: 'Failed to start transaction' });
+              }
 
             // Update booking status
-            db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [booking_id], (updateErr) => {
+            connection.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [booking_id], (updateErr) => {
               if (updateErr) {
-                db.rollback(() => {
+                connection.rollback(() => {
+                  connection.release();
                   console.error('Error updating booking status:', updateErr);
                   return res.status(500).json({ error: 'Failed to reject booking' });
                 });
@@ -3742,9 +3779,10 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
 
               // Refund to supervisor wallet
               const newWalletBalance = Number(booking.wallet_balance) + Number(booking.cost);
-              db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, booking.supervisor_id], (walletErr) => {
+              connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, booking.supervisor_id], (walletErr) => {
                 if (walletErr) {
-                  db.rollback(() => {
+                  connection.rollback(() => {
+                    connection.release();
                     console.error('Error updating wallet balance:', walletErr);
                     return res.status(500).json({ error: 'Failed to update wallet balance' });
                   });
@@ -3763,9 +3801,11 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
                   booking.facility_name,
                   booking.user_name,
                   null,
+                  connection,
                   (transactionErr, transactionId) => {
                     if (transactionErr) {
-                      db.rollback(() => {
+                      connection.rollback(() => {
+                        connection.release();
                         console.error('Error recording transaction:', transactionErr);
                         return res.status(500).json({ error: 'Failed to record transaction' });
                       });
@@ -3773,15 +3813,17 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
                     }
 
                     // Commit transaction
-                    db.commit((commitErr) => {
+                    connection.commit((commitErr) => {
                       if (commitErr) {
-                        db.rollback(() => {
+                        connection.rollback(() => {
+                          connection.release();
                           console.error('Error committing transaction:', commitErr);
                           return res.status(500).json({ error: 'Failed to complete rejection' });
                         });
                         return;
                       }
 
+                      connection.release();
                       // Send email to user about rejection
                       const transporter = nodemailer.createTransport({
                         service: 'gmail',
@@ -3828,6 +3870,7 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
                   }
                 );
               });
+            });
             });
           });
         } else {
@@ -3876,7 +3919,7 @@ app.post('/api/supervisor-booking-approval', (req, res) => {
             res.json({ message: 'Booking rejected successfully' });
           });
         }
-      }
+      
     });
   } catch (error) {
     console.error('Token decode error:', error);
@@ -4134,9 +4177,9 @@ function validateMultipleSlots(facility_id, schedule_ids, user_type, date, callb
         return callback({ valid: false, message: 'Some selected slots are not available or invalid' });
       }
       
-      // Check if all slots are for the same facility and user type
+      // Check if all slots are for the same facility and user type (case-insensitive)
       const facilityIds = [...new Set(slots.map(s => s.facility_id))];
-      const userTypes = [...new Set(slots.map(s => s.user_type))];
+      const userTypes = [...new Set(slots.map(s => String(s.user_type).toLowerCase()))];
       
       if (facilityIds.length > 1 || facilityIds[0] !== numericFacilityId) {
         console.log('Facility validation failed:', {
@@ -4148,8 +4191,10 @@ function validateMultipleSlots(facility_id, schedule_ids, user_type, date, callb
         });
         return callback({ valid: false, message: 'All slots must be from the same facility' });
       }
-      
-      if (userTypes.length > 1 || userTypes[0] !== user_type) {
+      const requestedType = String(user_type).toLowerCase();
+      console.log('Slot user types (normalized):', userTypes);
+      console.log('Requested user type (normalized):', requestedType);
+      if (userTypes.length > 1 || userTypes[0] !== requestedType) {
         return callback({ valid: false, message: 'All slots must be for the same user type' });
       }
       
@@ -4292,8 +4337,28 @@ app.post('/api/booking', authenticateToken, (req, res) => {
     }
   }
   
-  // Validate multiple slots
-  validateMultipleSlots(facility_id, validScheduleIds, user_type, date, (validationResult) => {
+  // Determine effective user type (internal superuser should be treated as 'Superuser' for their facility)
+  function determineEffectiveUserType(cb) {
+    if (isInternalUser) {
+      const q = `SELECT isSuperUser, super_facility FROM InternalUsers WHERE user_id = ?`;
+      db.query(q, [user_id], (checkErr, rows) => {
+        if (checkErr || !rows || !rows.length) {
+          return cb(user_type);
+        }
+        const row = rows[0];
+        if (row.isSuperUser === 'Y' && String(row.super_facility) == String(facility_id)) {
+          return cb('Superuser');
+        }
+        return cb(user_type);
+      });
+    } else {
+      return cb(user_type);
+    }
+  }
+
+  // Validate multiple slots using effective user type
+  determineEffectiveUserType((effectiveUserType) => {
+  validateMultipleSlots(facility_id, validScheduleIds, effectiveUserType, date, (validationResult) => {
     if (!validationResult.valid) {
       return res.status(400).json({ message: validationResult.message });
     }
@@ -4674,6 +4739,7 @@ app.post('/api/booking', authenticateToken, (req, res) => {
         slot_count: validScheduleIds.length
       });
     }
+  });
   });
   });
 });
@@ -6212,7 +6278,6 @@ app.get('/api/supervisor/bookings', authenticateToken, (req, res) => {
     });
   });
 });
-
 // Supervisor: update booking status (approve/reject/cancel) for own users
 app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) => {
   const email = req.user && req.user.email;
@@ -6261,145 +6326,35 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
         }
         
         // Approve and deduct from wallet with transaction tracking
-        db.beginTransaction((err) => {
+        db.getConnection((err, connection) => {
           if (err) {
-            console.error('Error starting transaction:', err);
-            return res.status(500).json({ message: 'Failed to start transaction' });
+            console.error('Error getting database connection:', err);
+            return res.status(500).json({ message: 'Failed to get database connection' });
           }
-
-          // Update booking status
-          db.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [bookingId], (u1) => {
-            if (u1) {
-              db.rollback(() => {
-                return res.status(500).json({ message: 'Failed to update booking' });
-              });
-              return;
-            }
-
-            // Update wallet balance
-            const newWalletBalance = Number(bk.wallet_balance) - Number(bk.cost);
-            db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
-              if (u2) {
-                db.rollback(() => {
-                  return res.status(500).json({ message: 'Failed to update wallet' });
-                });
-                return;
-              }
-
-              // Get booking details for transaction record
-              const bookingDetailsQuery = `
-                SELECT bh.cost, f.name as facility_name, u.full_name as student_name
-                FROM BookingHistory bh
-                JOIN Facilities f ON f.id = bh.facility_id
-                JOIN Users u ON u.user_id = bh.user_id
-                WHERE bh.booking_id = ?
-              `;
-              db.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
-                if (detailsErr || !detailsResults.length) {
-                  console.error('Error getting booking details:', detailsErr);
-                  // Still proceed with transaction record
-                  const description = `Booking #${bookingId} approved`;
-                  recordSupervisorTransaction(
-                    supId,
-                    'BOOKING_APPROVAL',
-                    -Number(bk.cost),
-                    newWalletBalance,
-                    description,
-                    bookingId,
-                    'Unknown Facility',
-                    'Unknown Student',
-                    null,
-                    (transactionErr, transactionId) => {
-                      if (transactionErr) {
-                        db.rollback(() => {
-                          return res.status(500).json({ message: 'Failed to record transaction' });
-                        });
-                        return;
-                      }
-
-                      db.commit((commitErr) => {
-                        if (commitErr) {
-                          db.rollback(() => {
-                            return res.status(500).json({ message: 'Failed to complete approval' });
-                          });
-                          return;
-                        }
-
-                        return res.json({ 
-                          success: true, 
-                          message: 'Booking approved and amount deducted', 
-                          new_wallet_balance: newWalletBalance,
-                          transaction_id: transactionId
-                        });
-                      });
-                    }
-                  );
-                } else {
-                  const details = detailsResults[0];
-                  const description = `Booking #${bookingId} approved for ${details.student_name} - ${details.facility_name}`;
-                  recordSupervisorTransaction(
-                    supId,
-                    'BOOKING_APPROVAL',
-                    -Number(bk.cost),
-                    newWalletBalance,
-                    description,
-                    bookingId,
-                    details.facility_name,
-                    details.student_name,
-                    null,
-                    (transactionErr, transactionId) => {
-                      if (transactionErr) {
-                        db.rollback(() => {
-                          return res.status(500).json({ message: 'Failed to record transaction' });
-                        });
-                        return;
-                      }
-
-                      db.commit((commitErr) => {
-                        if (commitErr) {
-                          db.rollback(() => {
-                            return res.status(500).json({ message: 'Failed to complete approval' });
-                          });
-                          return;
-                        }
-
-                        return res.json({ 
-                          success: true, 
-                          message: 'Booking approved and amount deducted', 
-                          new_wallet_balance: newWalletBalance,
-                          transaction_id: transactionId
-                        });
-                      });
-                    }
-                  );
-                }
-              });
-            });
-          });
-        });
-      } else if (action === 'reject') {
-        // If rejecting an approved booking, refund the money
-        if (bk.status === 'Approved') {
-          db.beginTransaction((err) => {
+          
+          connection.beginTransaction((err) => {
             if (err) {
+              connection.release();
               console.error('Error starting transaction:', err);
               return res.status(500).json({ message: 'Failed to start transaction' });
             }
 
             // Update booking status
-            db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+            connection.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [bookingId], (u1) => {
               if (u1) {
-                db.rollback(() => {
+                connection.rollback(() => {
+                  connection.release();
                   return res.status(500).json({ message: 'Failed to update booking' });
                 });
                 return;
               }
 
               // Update wallet balance
-              const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
-              db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+              const newWalletBalance = Number(bk.wallet_balance) - Number(bk.cost);
+              connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
                 if (u2) {
-                  db.rollback(() => {
+                  connection.rollback(() => {
+                    connection.release();
                     return res.status(500).json({ message: 'Failed to update wallet' });
                   });
                   return;
@@ -6413,42 +6368,45 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
                   JOIN Users u ON u.user_id = bh.user_id
                   WHERE bh.booking_id = ?
                 `;
-                db.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+                connection.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
                   if (detailsErr || !detailsResults.length) {
                     console.error('Error getting booking details:', detailsErr);
                     // Still proceed with transaction record
-                    const description = `Booking #${bookingId} rejected - refund`;
+                    const description = `Booking #${bookingId} approved`;
                     recordSupervisorTransaction(
                       supId,
-                      'BOOKING_REFUND',
-                      Number(bk.cost),
+                      'BOOKING_APPROVAL',
+                      -Number(bk.cost),
                       newWalletBalance,
                       description,
                       bookingId,
                       'Unknown Facility',
-                      'Unknown Student',
-                      null,
-                      (transactionErr, transactionId) => {
+                        'Unknown Student',
+                        null,
+                        connection,
+                        (transactionErr, transactionId) => {
                         if (transactionErr) {
-                          db.rollback(() => {
+                          connection.rollback(() => {
+                            connection.release();
                             return res.status(500).json({ message: 'Failed to record transaction' });
                           });
                           return;
                         }
 
-                        db.commit((commitErr) => {
+                        connection.commit((commitErr) => {
                           if (commitErr) {
-                            db.rollback(() => {
-                              return res.status(500).json({ message: 'Failed to complete rejection' });
+                            connection.rollback(() => {
+                              connection.release();
+                              return res.status(500).json({ message: 'Failed to complete approval' });
                             });
                             return;
                           }
 
+                          connection.release();
                           return res.json({ 
                             success: true, 
-                            message: 'Booking rejected and amount refunded', 
+                            message: 'Booking approved and amount deducted', 
                             new_wallet_balance: newWalletBalance,
-                            refunded_amount: Number(bk.cost),
                             transaction_id: transactionId
                           });
                         });
@@ -6456,38 +6414,41 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
                     );
                   } else {
                     const details = detailsResults[0];
-                    const description = `Booking #${bookingId} rejected - refund for ${details.student_name} - ${details.facility_name}`;
+                    const description = `Booking #${bookingId} approved for ${details.student_name} - ${details.facility_name}`;
                     recordSupervisorTransaction(
                       supId,
-                      'BOOKING_REFUND',
-                      Number(bk.cost),
+                      'BOOKING_APPROVAL',
+                      -Number(bk.cost),
                       newWalletBalance,
                       description,
                       bookingId,
                       details.facility_name,
                       details.student_name,
                       null,
+                      connection,
                       (transactionErr, transactionId) => {
                         if (transactionErr) {
-                          db.rollback(() => {
+                          connection.rollback(() => {
+                            connection.release();
                             return res.status(500).json({ message: 'Failed to record transaction' });
                           });
                           return;
                         }
 
-                        db.commit((commitErr) => {
+                        connection.commit((commitErr) => {
                           if (commitErr) {
-                            db.rollback(() => {
-                              return res.status(500).json({ message: 'Failed to complete rejection' });
+                            connection.rollback(() => {
+                              connection.release();
+                              return res.status(500).json({ message: 'Failed to complete approval' });
                             });
                             return;
                           }
-
+                          
+                          connection.release();
                           return res.json({ 
                             success: true, 
-                            message: 'Booking rejected and amount refunded', 
+                            message: 'Booking approved and amount deducted', 
                             new_wallet_balance: newWalletBalance,
-                            refunded_amount: Number(bk.cost),
                             transaction_id: transactionId
                           });
                         });
@@ -6498,138 +6459,322 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
               });
             });
           });
+        });
+      } else if (action === 'reject') {
+        console.log('Reject action triggered for booking:', bookingId, 'Status:', bk.status);
+        // If rejecting an approved booking, refund the money
+        if (bk.status === 'Approved') {
+          console.log('Rejecting approved booking - will refund money');
+          db.getConnection((err, connection) => {
+            if (err) {
+              console.error('Error getting database connection:', err);
+              return res.status(500).json({ message: 'Failed to get database connection' });
+            }
+            console.log('Got database connection for approved booking rejection');
+            
+            connection.beginTransaction((err) => {
+              if (err) {
+                connection.release();
+                console.error('Error starting transaction:', err);
+                return res.status(500).json({ message: 'Failed to start transaction' });
+              }
+              console.log('Started transaction for approved booking rejection');
+
+              // Update booking status
+              console.log('Updating booking status to Cancelled for booking:', bookingId);
+              connection.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+                if (u1) {
+                  console.error('Error updating booking status:', u1);
+                  connection.rollback(() => {
+                    connection.release();
+                    return res.status(500).json({ message: 'Failed to update booking' });
+                  });
+                  return;
+                }
+                console.log('Successfully updated booking status to Cancelled');
+
+                // Update wallet balance
+                const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
+                console.log('Updating wallet balance:', { supId, oldBalance: bk.wallet_balance, cost: bk.cost, newBalance: newWalletBalance });
+                connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+                  if (u2) {
+                    console.error('Error updating wallet balance:', u2);
+                    connection.rollback(() => {
+                      connection.release();
+                      return res.status(500).json({ message: 'Failed to update wallet' });
+                    });
+                    return;
+                  }
+                  console.log('Successfully updated wallet balance');
+
+                  // Get booking details for transaction record
+                  const bookingDetailsQuery = `
+                    SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+                    FROM BookingHistory bh
+                    JOIN Facilities f ON f.id = bh.facility_id
+                    JOIN Users u ON u.user_id = bh.user_id
+                    WHERE bh.booking_id = ?
+                  `;
+                  connection.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+                    if (detailsErr || !detailsResults.length) {
+                      console.error('Error getting booking details:', detailsErr);
+                      // Still proceed with transaction record
+                      const description = `Booking #${bookingId} rejected - refund`;
+                      console.log('Recording transaction for approved booking rejection (no details):', {
+                        supId, cost: Number(bk.cost), newWalletBalance, bookingId
+                      });
+                      recordSupervisorTransaction(
+                        supId,
+                        'BOOKING_REFUND',
+                        Number(bk.cost),
+                        newWalletBalance,
+                        description,
+                        bookingId,
+                        'Unknown Facility',
+                        'Unknown Student',
+                        null,
+                        connection,
+                        (transactionErr, transactionId) => {
+                          if (transactionErr) {
+                            connection.rollback(() => {
+                              connection.release();
+                              return res.status(500).json({ message: 'Failed to record transaction' });
+                            });
+                            return;
+                          }
+
+                          connection.commit((commitErr) => {
+                            if (commitErr) {
+                              connection.rollback(() => {
+                                connection.release();
+                                return res.status(500).json({ message: 'Failed to complete rejection' });
+                              });
+                              return;
+                            }
+
+                            connection.release();
+                            return res.json({ 
+                              success: true, 
+                              message: 'Booking rejected and amount refunded', 
+                              new_wallet_balance: newWalletBalance,
+                              refunded_amount: Number(bk.cost),
+                              transaction_id: transactionId
+                            });
+                          });
+                        }
+                      );
+                    } else {
+                      const details = detailsResults[0];
+                      const description = `Booking #${bookingId} rejected - refund for ${details.student_name} - ${details.facility_name}`;
+                      console.log('Recording transaction for approved booking rejection (with details):', {
+                        supId, cost: Number(bk.cost), newWalletBalance, bookingId, facility: details.facility_name, student: details.student_name
+                      });
+                      recordSupervisorTransaction(
+                        supId,
+                        'BOOKING_REFUND',
+                        Number(bk.cost),
+                        newWalletBalance,
+                        description,
+                        bookingId,
+                        details.facility_name,
+                        details.student_name,
+                        null,
+                        connection,
+                        (transactionErr, transactionId) => {
+                          if (transactionErr) {
+                            connection.rollback(() => {
+                              connection.release();
+                              return res.status(500).json({ message: 'Failed to record transaction' });
+                            });
+                            return;
+                          }
+
+                          connection.commit((commitErr) => {
+                            if (commitErr) {
+                              connection.rollback(() => {
+                                connection.release();
+                                return res.status(500).json({ message: 'Failed to complete rejection' });
+                              });
+                              return;
+                            }
+
+                            connection.release();
+                            return res.json({ 
+                              success: true, 
+                              message: 'Booking rejected and amount refunded', 
+                              new_wallet_balance: newWalletBalance,
+                              refunded_amount: Number(bk.cost),
+                              transaction_id: transactionId
+                            });
+                          });
+                        }
+                      );
+                    }
+                  });
+                });
+              });
+            });
+          });
         } else {
-          // Reject non-approved booking - no refund needed
-          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
-            if (u) return res.status(500).json({ message: 'Failed to update booking' });
+          // Reject non-approved booking (Pending status) - no refund needed, just update status
+          console.log('Rejecting non-approved booking (status:', bk.status, ') - no refund needed');
+          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (updateErr, result) => {
+            if (updateErr) {
+              console.error('Error updating booking status:', updateErr);
+              return res.status(500).json({ message: 'Failed to update booking', error: updateErr.message });
+            }
+            console.log('Pending booking rejected successfully:', bookingId);
             return res.json({ success: true, message: 'Booking rejected' });
           });
         }
       } else if (action === 'cancel') {
         // Cancel approved booking - refund the amount to supervisor wallet
         if (bk.status === 'Approved') {
-          db.beginTransaction((err) => {
+          db.getConnection((err, connection) => {
             if (err) {
-              console.error('Error starting transaction:', err);
-              return res.status(500).json({ message: 'Failed to start transaction' });
+              console.error('Error getting database connection:', err);
+              return res.status(500).json({ message: 'Failed to get database connection' });
             }
-
-            // Update booking status
-            db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
-              if (u1) {
-                db.rollback(() => {
-                  return res.status(500).json({ message: 'Failed to update booking' });
-                });
-                return;
+            
+            connection.beginTransaction((err) => {
+              if (err) {
+                connection.release();
+                console.error('Error starting transaction:', err);
+                return res.status(500).json({ message: 'Failed to start transaction' });
               }
 
-              // Update wallet balance
-              const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
-              db.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
-                if (u2) {
-                  db.rollback(() => {
-                    return res.status(500).json({ message: 'Failed to update wallet' });
+              // Update booking status
+              connection.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+                if (u1) {
+                  connection.rollback(() => {
+                    connection.release();
+                    return res.status(500).json({ message: 'Failed to update booking' });
                   });
                   return;
                 }
 
-                // Get booking details for transaction record
-                const bookingDetailsQuery = `
-                  SELECT bh.cost, f.name as facility_name, u.full_name as student_name
-                  FROM BookingHistory bh
-                  JOIN Facilities f ON f.id = bh.facility_id
-                  JOIN Users u ON u.user_id = bh.user_id
-                  WHERE bh.booking_id = ?
-                `;
-                db.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
-                  if (detailsErr || !detailsResults.length) {
-                    console.error('Error getting booking details:', detailsErr);
-                    // Still proceed with transaction record
-                    const description = `Booking #${bookingId} cancelled - refund`;
-                    recordSupervisorTransaction(
-                      supId,
-                      'BOOKING_REFUND',
-                      Number(bk.cost),
-                      newWalletBalance,
-                      description,
-                      bookingId,
-                      'Unknown Facility',
-                      'Unknown Student',
-                      null,
-                      (transactionErr, transactionId) => {
-                        if (transactionErr) {
-                          db.rollback(() => {
-                            return res.status(500).json({ message: 'Failed to record transaction' });
-                          });
-                          return;
-                        }
-
-                        db.commit((commitErr) => {
-                          if (commitErr) {
-                            db.rollback(() => {
-                              return res.status(500).json({ message: 'Failed to complete cancellation' });
-                            });
-                            return;
-                          }
-
-                          return res.json({ 
-                            success: true, 
-                            message: 'Booking cancelled and amount refunded', 
-                            new_wallet_balance: newWalletBalance,
-                            refunded_amount: Number(bk.cost),
-                            transaction_id: transactionId
-                          });
-                        });
-                      }
-                    );
-                  } else {
-                    const details = detailsResults[0];
-                    const description = `Booking #${bookingId} cancelled - refund for ${details.student_name} - ${details.facility_name}`;
-                    recordSupervisorTransaction(
-                      supId,
-                      'BOOKING_REFUND',
-                      Number(bk.cost),
-                      newWalletBalance,
-                      description,
-                      bookingId,
-                      details.facility_name,
-                      details.student_name,
-                      null,
-                      (transactionErr, transactionId) => {
-                        if (transactionErr) {
-                          db.rollback(() => {
-                            return res.status(500).json({ message: 'Failed to record transaction' });
-                          });
-                          return;
-                        }
-
-                        db.commit((commitErr) => {
-                          if (commitErr) {
-                            db.rollback(() => {
-                              return res.status(500).json({ message: 'Failed to complete cancellation' });
-                            });
-                            return;
-                          }
-
-                          return res.json({ 
-                            success: true, 
-                            message: 'Booking cancelled and amount refunded', 
-                            new_wallet_balance: newWalletBalance,
-                            refunded_amount: Number(bk.cost),
-                            transaction_id: transactionId
-                          });
-                        });
-                      }
-                    );
+                // Update wallet balance
+                const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
+                connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+                  if (u2) {
+                    connection.rollback(() => {
+                      connection.release();
+                      return res.status(500).json({ message: 'Failed to update wallet' });
+                    });
+                    return;
                   }
+
+                  // Get booking details for transaction record
+                  const bookingDetailsQuery = `
+                    SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+                    FROM BookingHistory bh
+                    JOIN Facilities f ON f.id = bh.facility_id
+                    JOIN Users u ON u.user_id = bh.user_id
+                    WHERE bh.booking_id = ?
+                  `;
+                  connection.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+                    if (detailsErr || !detailsResults.length) {
+                      console.error('Error getting booking details:', detailsErr);
+                      // Still proceed with transaction record
+                      const description = `Booking #${bookingId} cancelled - refund`;
+                      recordSupervisorTransaction(
+                        supId,
+                        'BOOKING_REFUND',
+                        Number(bk.cost),
+                        newWalletBalance,
+                        description,
+                        bookingId,
+                        'Unknown Facility',
+                        'Unknown Student',
+                        null,
+                        connection,
+                        (transactionErr, transactionId) => {
+                          if (transactionErr) {
+                            connection.rollback(() => {
+                              connection.release();
+                              return res.status(500).json({ message: 'Failed to record transaction' });
+                            });
+                            return;
+                          }
+
+                          connection.commit((commitErr) => {
+                            if (commitErr) {
+                              connection.rollback(() => {
+                                connection.release();
+                                return res.status(500).json({ message: 'Failed to complete cancellation' });
+                              });
+                              return;
+                            }
+
+                            connection.release();
+                            return res.json({ 
+                              success: true, 
+                              message: 'Booking cancelled and amount refunded', 
+                              new_wallet_balance: newWalletBalance,
+                              refunded_amount: Number(bk.cost),
+                              transaction_id: transactionId
+                            });
+                          });
+                        }
+                      );
+                    } else {
+                      const details = detailsResults[0];
+                      const description = `Booking #${bookingId} cancelled - refund for ${details.student_name} - ${details.facility_name}`;
+                      recordSupervisorTransaction(
+                        supId,
+                        'BOOKING_REFUND',
+                        Number(bk.cost),
+                        newWalletBalance,
+                        description,
+                        bookingId,
+                        details.facility_name,
+                        details.student_name,
+                        null,
+                        connection,
+                        (transactionErr, transactionId) => {
+                          if (transactionErr) {
+                            connection.rollback(() => {
+                              connection.release();
+                              return res.status(500).json({ message: 'Failed to record transaction' });
+                            });
+                            return;
+                          }
+
+                          connection.commit((commitErr) => {
+                            if (commitErr) {
+                              connection.rollback(() => {
+                                connection.release();
+                                return res.status(500).json({ message: 'Failed to complete cancellation' });
+                              });
+                              return;
+                            }
+                            
+                            connection.release();
+                            return res.json({ 
+                              success: true, 
+                              message: 'Booking cancelled and amount refunded', 
+                              new_wallet_balance: newWalletBalance,
+                              refunded_amount: Number(bk.cost),
+                              transaction_id: transactionId
+                            });
+                          });
+                        }
+                      );
+                    }
+                  });
                 });
               });
             });
           });
         } else {
-          // Cancel non-approved booking - no refund needed
-          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
-            if (u) return res.status(500).json({ message: 'Failed to update booking' });
+          // Cancel non-approved booking (Pending status) - no refund needed, just update status
+          console.log('Cancelling pending booking:', bookingId);
+          db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (updateErr, result) => {
+            if (updateErr) {
+              console.error('Error updating booking status:', updateErr);
+              return res.status(500).json({ message: 'Failed to update booking', error: updateErr.message });
+            }
+            console.log('Pending booking cancelled successfully:', bookingId);
             return res.json({ success: true, message: 'Booking cancelled' });
           });
         }
@@ -6637,6 +6782,467 @@ app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) =>
     });
   });
 });
+// // Supervisor: update booking status (approve/reject/cancel) for own users
+// app.post('/api/supervisor/bookings/:id/status', authenticateToken, (req, res) => {
+//   const email = req.user && req.user.email;
+//   if (!email) return res.status(401).json({ message: 'Unauthorized' });
+//   const bookingId = req.params.id;
+//   const { action } = req.body || {};
+//   if (!['approve', 'reject', 'cancel'].includes(action)) {
+//     return res.status(400).json({ message: 'Invalid action' });
+//   }
+
+//   const qSup = 'SELECT id, wallet_balance FROM Supervisor WHERE email = ?';
+//   db.query(qSup, [email], (e1, r1) => {
+//     if (e1) return res.status(500).json({ message: 'Server error' });
+//     if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+//     const supId = r1[0].id;
+
+//     const qBk = `
+//       SELECT bh.booking_id, bh.status, bh.cost, s.id AS supervisor_id, s.wallet_balance
+//       FROM BookingHistory bh
+//       JOIN Users u ON u.user_id = bh.user_id
+//       JOIN InternalUsers iu ON iu.user_id = u.user_id
+//       JOIN Supervisor s ON s.id = iu.supervisor_id
+//       WHERE bh.booking_id = ? AND s.id = ?
+//     `;
+//     db.query(qBk, [bookingId, supId], (e2, rows) => {
+//       if (e2) return res.status(500).json({ message: 'Server error' });
+//       if (!rows || rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
+//       const bk = rows[0];
+
+//       // Supervisors can change booking status regardless of current status
+//       // No restrictions - allow flexible status management
+
+//       if (action === 'approve') {
+//         if (Number(bk.wallet_balance) < Number(bk.cost)) {
+//           return res.status(400).json({ message: 'Insufficient wallet balance' });
+//         }
+        
+//         // Only deduct money if the booking is not already approved
+//         if (bk.status === 'Approved') {
+//           // Already approved, just update status (no wallet deduction needed)
+//           return res.json({ 
+//             success: true, 
+//             message: 'Booking is already approved', 
+//             new_wallet_balance: Number(bk.wallet_balance) 
+//           });
+//         }
+        
+//         // Approve and deduct from wallet with transaction tracking
+//         db.getConnection((err, connection) => {
+//           if (err) {
+//             console.error('Error getting database connection:', err);
+//             return res.status(500).json({ message: 'Failed to get database connection' });
+//           }
+          
+//           connection.beginTransaction((err) => {
+//             if (err) {
+//               connection.release();
+//               console.error('Error starting transaction:', err);
+//               return res.status(500).json({ message: 'Failed to start transaction' });
+//             }
+
+//           // Update booking status
+//           connection.query('UPDATE BookingHistory SET status = "Approved" WHERE booking_id = ?', [bookingId], (u1) => {
+//             if (u1) {
+//               connection.rollback(() => {
+//                 connection.release();
+//                 return res.status(500).json({ message: 'Failed to update booking' });
+//               });
+//               return;
+//             }
+
+//             // Update wallet balance
+//             const newWalletBalance = Number(bk.wallet_balance) - Number(bk.cost);
+//             connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+//               if (u2) {
+//                 connection.rollback(() => {
+//                   connection.release();
+//                   return res.status(500).json({ message: 'Failed to update wallet' });
+//                 });
+//                 return;
+//               }
+
+//               // Get booking details for transaction record
+//               const bookingDetailsQuery = `
+//                 SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+//                 FROM BookingHistory bh
+//                 JOIN Facilities f ON f.id = bh.facility_id
+//                 JOIN Users u ON u.user_id = bh.user_id
+//                 WHERE bh.booking_id = ?
+//               `;
+//               connection.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+//                 if (detailsErr || !detailsResults.length) {
+//                   console.error('Error getting booking details:', detailsErr);
+//                   // Still proceed with transaction record
+//                   const description = `Booking #${bookingId} approved`;
+//                   recordSupervisorTransaction(
+//                     supId,
+//                     'BOOKING_APPROVAL',
+//                     -Number(bk.cost),
+//                     newWalletBalance,
+//                     description,
+//                     bookingId,
+//                     'Unknown Facility',
+//                     'Unknown Student',
+//                     null,
+//                     (transactionErr, transactionId) => {
+//                       if (transactionErr) {
+//                         connection.rollback(() => {
+//                           connection.release();
+//                           return res.status(500).json({ message: 'Failed to record transaction' });
+//                         });
+//                         return;
+//                       }
+
+//                       connection.commit((commitErr) => {
+//                         if (commitErr) {
+//                           connection.rollback(() => {
+//                             connection.release();
+//                             return res.status(500).json({ message: 'Failed to complete approval' });
+//                           });
+//                           return;
+//                         }
+
+//                         connection.release();
+//                         return res.json({ 
+//                           success: true, 
+//                           message: 'Booking approved and amount deducted', 
+//                           new_wallet_balance: newWalletBalance,
+//                           transaction_id: transactionId
+//                         });
+//                       });
+//                     }
+//                   );
+//                 } else {
+//                   const details = detailsResults[0];
+//                   const description = `Booking #${bookingId} approved for ${details.student_name} - ${details.facility_name}`;
+//                   recordSupervisorTransaction(
+//                     supId,
+//                     'BOOKING_APPROVAL',
+//                     -Number(bk.cost),
+//                     newWalletBalance,
+//                     description,
+//                     bookingId,
+//                     details.facility_name,
+//                     details.student_name,
+//                     null,
+//                     (transactionErr, transactionId) => {
+//                       if (transactionErr) {
+//                         db.rollback(() => {
+//                           return res.status(500).json({ message: 'Failed to record transaction' });
+//                         });
+//                         return;
+//                       }
+
+//                       db.commit((commitErr) => {
+//                         if (commitErr) {
+//                           db.rollback(() => {
+//                             return res.status(500).json({ message: 'Failed to complete approval' });
+//                           });
+//                           return;
+//                         }
+
+//                         return res.json({ 
+//                           success: true, 
+//                           message: 'Booking approved and amount deducted', 
+//                           new_wallet_balance: newWalletBalance,
+//                           transaction_id: transactionId
+//                         });
+//                       });
+//                     }
+//                   );
+//                 }
+//               });
+//             });
+//           });
+//         });
+//       } else if (action === 'reject') {
+//         // If rejecting an approved booking, refund the money
+//         if (bk.status === 'Approved') {
+//           db.getConnection((err, connection) => {
+//             if (err) {
+//               console.error('Error getting database connection:', err);
+//               return res.status(500).json({ message: 'Failed to get database connection' });
+//             }
+            
+//             connection.beginTransaction((err) => {
+//               if (err) {
+//                 connection.release();
+//                 console.error('Error starting transaction:', err);
+//                 return res.status(500).json({ message: 'Failed to start transaction' });
+//               }
+
+//             // Update booking status
+//             connection.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+//               if (u1) {
+//                 connection.rollback(() => {
+//                   connection.release();
+//                   return res.status(500).json({ message: 'Failed to update booking' });
+//                 });
+//                 return;
+//               }
+
+//               // Update wallet balance
+//               const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
+//               connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+//                 if (u2) {
+//                   connection.rollback(() => {
+//                     connection.release();
+//                     return res.status(500).json({ message: 'Failed to update wallet' });
+//                   });
+//                   return;
+//                 }
+
+//                 // Get booking details for transaction record
+//                 const bookingDetailsQuery = `
+//                   SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+//                   FROM BookingHistory bh
+//                   JOIN Facilities f ON f.id = bh.facility_id
+//                   JOIN Users u ON u.user_id = bh.user_id
+//                   WHERE bh.booking_id = ?
+//                 `;
+//                 connection.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+//                   if (detailsErr || !detailsResults.length) {
+//                     console.error('Error getting booking details:', detailsErr);
+//                     // Still proceed with transaction record
+//                     const description = `Booking #${bookingId} rejected - refund`;
+//                     recordSupervisorTransaction(
+//                       supId,
+//                       'BOOKING_REFUND',
+//                       Number(bk.cost),
+//                       newWalletBalance,
+//                       description,
+//                       bookingId,
+//                       'Unknown Facility',
+//                       'Unknown Student',
+//                       null,
+//                       (transactionErr, transactionId) => {
+//                         if (transactionErr) {
+//                           connection.rollback(() => {
+//                             connection.release();
+//                             return res.status(500).json({ message: 'Failed to record transaction' });
+//                           });
+//                           return;
+//                         }
+
+//                         connection.commit((commitErr) => {
+//                           if (commitErr) {
+//                             connection.rollback(() => {
+//                               connection.release();
+//                               return res.status(500).json({ message: 'Failed to complete rejection' });
+//                             });
+//                             return;
+//                           }
+
+//                           connection.release();
+//                           return res.json({ 
+//                             success: true, 
+//                             message: 'Booking rejected and amount refunded', 
+//                             new_wallet_balance: newWalletBalance,
+//                             refunded_amount: Number(bk.cost),
+//                             transaction_id: transactionId
+//                           });
+//                         });
+//                       }
+//                     );
+//                   } else {
+//                     const details = detailsResults[0];
+//                     const description = `Booking #${bookingId} rejected - refund for ${details.student_name} - ${details.facility_name}`;
+//                     recordSupervisorTransaction(
+//                       supId,
+//                       'BOOKING_REFUND',
+//                       Number(bk.cost),
+//                       newWalletBalance,
+//                       description,
+//                       bookingId,
+//                       details.facility_name,
+//                       details.student_name,
+//                       null,
+//                       (transactionErr, transactionId) => {
+//                         if (transactionErr) {
+//                           db.rollback(() => {
+//                             return res.status(500).json({ message: 'Failed to record transaction' });
+//                           });
+//                           return;
+//                         }
+
+//                         db.commit((commitErr) => {
+//                           if (commitErr) {
+//                             db.rollback(() => {
+//                               return res.status(500).json({ message: 'Failed to complete rejection' });
+//                             });
+//                             return;
+//                           }
+
+//                           return res.json({ 
+//                             success: true, 
+//                             message: 'Booking rejected and amount refunded', 
+//                             new_wallet_balance: newWalletBalance,
+//                             refunded_amount: Number(bk.cost),
+//                             transaction_id: transactionId
+//                           });
+//                         });
+//                       }
+//                     );
+//                   }
+//                 });
+//               });
+//             });
+//           });
+//         }
+//         } else {
+//           // Reject non-approved booking - no refund needed
+//           db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
+//             if (u) return res.status(500).json({ message: 'Failed to update booking' });
+//             return res.json({ success: true, message: 'Booking rejected' });
+//           });
+//         }
+//       } else if (action === 'cancel') {
+//         // Cancel approved booking - refund the amount to supervisor wallet
+//         if (bk.status === 'Approved') {
+//           db.getConnection((err, connection) => {
+//             if (err) {
+//               console.error('Error getting database connection:', err);
+//               return res.status(500).json({ message: 'Failed to get database connection' });
+//             }
+            
+//             connection.beginTransaction((err) => {
+//               if (err) {
+//                 connection.release();
+//                 console.error('Error starting transaction:', err);
+//                 return res.status(500).json({ message: 'Failed to start transaction' });
+//               }
+
+//             // Update booking status
+//             connection.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u1) => {
+//               if (u1) {
+//                 connection.rollback(() => {
+//                   connection.release();
+//                   return res.status(500).json({ message: 'Failed to update booking' });
+//                 });
+//                 return;
+//               }
+
+//               // Update wallet balance
+//               const newWalletBalance = Number(bk.wallet_balance) + Number(bk.cost);
+//               connection.query('UPDATE Supervisor SET wallet_balance = ? WHERE id = ?', [newWalletBalance, supId], (u2) => {
+//                 if (u2) {
+//                   connection.rollback(() => {
+//                     connection.release();
+//                     return res.status(500).json({ message: 'Failed to update wallet' });
+//                   });
+//                   return;
+//                 }
+
+//                 // Get booking details for transaction record
+//                 const bookingDetailsQuery = `
+//                   SELECT bh.cost, f.name as facility_name, u.full_name as student_name
+//                   FROM BookingHistory bh
+//                   JOIN Facilities f ON f.id = bh.facility_id
+//                   JOIN Users u ON u.user_id = bh.user_id
+//                   WHERE bh.booking_id = ?
+//                 `;
+//                 connection.query(bookingDetailsQuery, [bookingId], (detailsErr, detailsResults) => {
+//                   if (detailsErr || !detailsResults.length) {
+//                     console.error('Error getting booking details:', detailsErr);
+//                     // Still proceed with transaction record
+//                     const description = `Booking #${bookingId} cancelled - refund`;
+//                     recordSupervisorTransaction(
+//                       supId,
+//                       'BOOKING_REFUND',
+//                       Number(bk.cost),
+//                       newWalletBalance,
+//                       description,
+//                       bookingId,
+//                       'Unknown Facility',
+//                       'Unknown Student',
+//                       null,
+//                       (transactionErr, transactionId) => {
+//                         if (transactionErr) {
+//                           connection.rollback(() => {
+//                             connection.release();
+//                             return res.status(500).json({ message: 'Failed to record transaction' });
+//                           });
+//                           return;
+//                         }
+
+//                         connection.commit((commitErr) => {
+//                           if (commitErr) {
+//                             connection.rollback(() => {
+//                               connection.release();
+//                               return res.status(500).json({ message: 'Failed to complete cancellation' });
+//                             });
+//                             return;
+//                           }
+
+//                           connection.release();
+//                           return res.json({ 
+//                             success: true, 
+//                             message: 'Booking cancelled and amount refunded', 
+//                             new_wallet_balance: newWalletBalance,
+//                             refunded_amount: Number(bk.cost),
+//                             transaction_id: transactionId
+//                           });
+//                         });
+//                       }
+//                     );
+//                   } else {
+//                     const details = detailsResults[0];
+//                     const description = `Booking #${bookingId} cancelled - refund for ${details.student_name} - ${details.facility_name}`;
+//                     recordSupervisorTransaction(
+//                       supId,
+//                       'BOOKING_REFUND',
+//                       Number(bk.cost),
+//                       newWalletBalance,
+//                       description,
+//                       bookingId,
+//                       details.facility_name,
+//                       details.student_name,
+//                       null,
+//                       (transactionErr, transactionId) => {
+//                         if (transactionErr) {
+//                           db.rollback(() => {
+//                             return res.status(500).json({ message: 'Failed to record transaction' });
+//                           });
+//                           return;
+//                         }
+
+//                         db.commit((commitErr) => {
+//                           if (commitErr) {
+//                             db.rollback(() => {
+//                               return res.status(500).json({ message: 'Failed to complete cancellation' });
+//                             });
+//                             return;
+//                           }
+
+//                           return res.json({ 
+//                             success: true, 
+//                             message: 'Booking cancelled and amount refunded', 
+//                             new_wallet_balance: newWalletBalance,
+//                             refunded_amount: Number(bk.cost),
+//                             transaction_id: transactionId
+//                           });
+//                         });
+//                       }
+//                     );
+//                   }
+//                 });
+//               });
+//             });
+//           });
+//         } else {
+//           // Cancel non-approved booking - no refund needed
+//           db.query('UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?', [bookingId], (u) => {
+//             if (u) return res.status(500).json({ message: 'Failed to update booking' });
+//             return res.json({ success: true, message: 'Booking cancelled' });
+//           });
+//         }
+//       }
+//     });
+//   });
+// });
 
 // Internal user: request to become superuser for a facility
 app.post('/api/superuser/request', authenticateToken, (req, res) => {

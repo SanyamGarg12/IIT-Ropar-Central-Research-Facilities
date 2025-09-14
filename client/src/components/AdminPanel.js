@@ -77,9 +77,9 @@ const AdminDashboard = () => {
         localStorage.setItem('userEmail', data.email);
         setIsLoggedIn(true);
         setUserPosition(data.position);
-        // Redirect supervisors to their panel entry to avoid admin-only routes
+        // Redirect supervisors to their dashboard first
         if (data.position === 'Supervisor') {
-          navigate('/supervisor-verify');
+          navigate('/admin/');
         }
       } else {
         setError("Invalid email or password");
