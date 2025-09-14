@@ -1222,7 +1222,7 @@ app.post('/api/admin/login', (req, res) => {
     if (password !== user.Pass) {
         return res.status(401).json({ message: 'Invalid credentials.' });
       }
-      const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '8h' });
       return res.json({ token, position: user.Position, email: user.email });
     }
 
@@ -1242,7 +1242,7 @@ app.post('/api/admin/login', (req, res) => {
         if (!ok) {
           return res.status(401).json({ message: 'Invalid credentials.' });
         }
-        const token = jwt.sign({ email: sup.email, supervisorId: sup.id }, JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ email: sup.email, supervisorId: sup.id }, JWT_SECRET, { expiresIn: '8h' });
         return res.json({ token, position: 'Supervisor', email: sup.email });
       } catch (e) {
         return res.status(500).json({ message: 'Server error.' });
@@ -4059,7 +4059,7 @@ app.get('/api/facility/:id/bifurcations', (req, res) => {
       bifurcation_name,
       pricing_type,
       price_internal,
-      price_internal_consultancy,
+      price_superuser,
       price_external,
       price_industry
     FROM 
@@ -4813,56 +4813,78 @@ app.put('/api/admin/facilities/limits/:facilityId', authenticateToken, (req, res
       return res.status(500).json({ message: 'Database connection error' });
     }
 
-    connection.beginTransaction(async (err) => {
+    connection.beginTransaction((err) => {
       if (err) {
         connection.release();
         console.error('Error beginning transaction:', err);
         return res.status(500).json({ message: 'Transaction error' });
       }
 
-      try {
-        // Delete existing limits for this facility
-        await new Promise((resolve, reject) => {
-          connection.query('DELETE FROM facility_booking_limits WHERE facility_id = ?', [facilityId], (err) => {
-            if (err) reject(err);
-            else resolve();
+      // Delete existing limits for this facility
+      connection.query('DELETE FROM facility_booking_limits WHERE facility_id = ?', [facilityId], (err) => {
+        if (err) {
+          connection.rollback(() => {
+            connection.release();
+            console.error('Error deleting existing limits:', err);
+            return res.status(500).json({ message: 'Failed to update limits' });
           });
-        });
-
-        // Insert new limits
-        for (const limit of limits) {
-          await new Promise((resolve, reject) => {
-            connection.query(`
-              INSERT INTO facility_booking_limits (facility_id, user_type, max_hours_per_booking)
-              VALUES (?, ?, ?)
-            `, [facilityId, limit.user_type, limit.max_hours_per_booking], (err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-          });
+          return;
         }
 
-        // Commit transaction
-        connection.commit((err) => {
-          if (err) {
-            connection.rollback(() => {
-              connection.release();
-              console.error('Error committing transaction:', err);
-              return res.status(500).json({ message: 'Failed to update limits' });
-            });
-          } else {
-            connection.release();
-            res.json({ message: 'Facility booking limits updated successfully' });
-          }
-        });
+        // Insert new limits
+        let completedInserts = 0;
+        const totalInserts = limits.length;
 
-      } catch (error) {
-        connection.rollback(() => {
-          connection.release();
-          console.error('Error in transaction:', error);
-          res.status(500).json({ message: 'Failed to update limits' });
+        if (totalInserts === 0) {
+          // No limits to insert, just commit
+          connection.commit((err) => {
+            if (err) {
+              connection.rollback(() => {
+                connection.release();
+                console.error('Error committing transaction:', err);
+                return res.status(500).json({ message: 'Failed to update limits' });
+              });
+            } else {
+              connection.release();
+              res.json({ message: 'Facility booking limits updated successfully' });
+            }
+          });
+          return;
+        }
+
+        limits.forEach((limit) => {
+          connection.query(`
+            INSERT INTO facility_booking_limits (facility_id, user_type, max_hours_per_booking)
+            VALUES (?, ?, ?)
+          `, [facilityId, limit.user_type, limit.max_hours_per_booking], (err) => {
+            if (err) {
+              connection.rollback(() => {
+                connection.release();
+                console.error('Error inserting limit:', err);
+                return res.status(500).json({ message: 'Failed to update limits' });
+              });
+              return;
+            }
+
+            completedInserts++;
+            if (completedInserts === totalInserts) {
+              // All inserts completed, commit transaction
+              connection.commit((err) => {
+                if (err) {
+                  connection.rollback(() => {
+                    connection.release();
+                    console.error('Error committing transaction:', err);
+                    return res.status(500).json({ message: 'Failed to update limits' });
+                  });
+                } else {
+                  connection.release();
+                  res.json({ message: 'Facility booking limits updated successfully' });
+                }
+              });
+            }
+          });
         });
-      }
+      });
     });
   });
 });
@@ -4913,19 +4935,19 @@ app.post('/api/facility/:facilityId/bifurcations', authenticateToken, (req, res)
     bifurcation_name,
     pricing_type,
     price_internal,
-    price_internal_consultancy,
+    price_superuser,
     price_external,
     price_industry
   } = req.body;
 
   // Validate required fields
-  if (!bifurcation_name || !pricing_type || !price_internal || !price_internal_consultancy || !price_external || !price_industry) {
+  if (!bifurcation_name || !pricing_type || !price_internal || !price_superuser || !price_external || !price_industry) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
   const query = `
     INSERT INTO facility_bifurcations 
-    (facility_id, bifurcation_name, pricing_type, price_internal, price_internal_consultancy, price_external, price_industry)
+    (facility_id, bifurcation_name, pricing_type, price_internal, price_superuser, price_external, price_industry)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
@@ -4936,7 +4958,7 @@ app.post('/api/facility/:facilityId/bifurcations', authenticateToken, (req, res)
       bifurcation_name,
       pricing_type,
       price_internal,
-      price_internal_consultancy,
+      price_superuser,
       price_external,
       price_industry
     ],
@@ -4961,13 +4983,13 @@ app.put('/api/facility/bifurcations/:bifurcationId', authenticateToken, (req, re
     bifurcation_name,
     pricing_type,
     price_internal,
-    price_internal_consultancy,
+    price_superuser,
     price_external,
     price_industry
   } = req.body;
 
   // Validate required fields
-  if (!bifurcation_name || !pricing_type || !price_internal || !price_internal_consultancy || !price_external || !price_industry) {
+  if (!bifurcation_name || !pricing_type || !price_internal || !price_superuser || !price_external || !price_industry) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
@@ -4977,7 +4999,7 @@ app.put('/api/facility/bifurcations/:bifurcationId', authenticateToken, (req, re
       bifurcation_name = ?,
       pricing_type = ?,
       price_internal = ?,
-      price_internal_consultancy = ?,
+      price_superuser = ?,
       price_external = ?,
       price_industry = ?
     WHERE id = ?
@@ -4989,7 +5011,7 @@ app.put('/api/facility/bifurcations/:bifurcationId', authenticateToken, (req, re
       bifurcation_name,
       pricing_type,
       price_internal,
-      price_internal_consultancy,
+      price_superuser,
       price_external,
       price_industry,
       req.params.bifurcationId

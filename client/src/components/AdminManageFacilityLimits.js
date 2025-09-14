@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASED_URL } from '../config.js';
+import { secureAdminFetch, getAdminToken } from '../utils/security';
 import '../App.css';
 
 const AdminManageFacilityLimits = () => {
   const [facilities, setFacilities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingFacility, setSavingFacility] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -16,19 +19,22 @@ const AdminManageFacilityLimits = () => {
   ];
 
   useEffect(() => {
+    // Check if user is logged in and has valid token
+    const token = getAdminToken();
+    const position = localStorage.getItem('userPosition');
+    
+    if (!token || !position || position !== 'Admin') {
+      window.location.href = '/admin';
+      return;
+    }
+    
     fetchFacilities();
   }, []);
 
   const fetchFacilities = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/facilities/limits', {
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await secureAdminFetch(`${API_BASED_URL}api/admin/facilities/limits`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch facilities');
@@ -39,6 +45,9 @@ const AdminManageFacilityLimits = () => {
       setError('');
     } catch (err) {
       console.error('Error fetching facilities:', err);
+      if (err.message === 'Admin session expired') {
+        return; // secureAdminFetch already handled the redirect
+      }
       setError('Failed to fetch facilities. Please try again.');
     } finally {
       setLoading(false);
@@ -48,13 +57,9 @@ const AdminManageFacilityLimits = () => {
   const updateFacilityLimits = async (facilityId, limits) => {
     try {
       setSaving(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/facilities/limits/${facilityId}`, {
+      setSavingFacility(facilityId);
+      const response = await secureAdminFetch(`${API_BASED_URL}api/admin/facilities/limits/${facilityId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ limits })
       });
 
@@ -63,16 +68,27 @@ const AdminManageFacilityLimits = () => {
       }
 
       setSuccess('Facility limits updated successfully!');
+      setError('');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating limits:', err);
+      if (err.message === 'Admin session expired') {
+        return; // secureAdminFetch already handled the redirect
+      }
       setError('Failed to update limits. Please try again.');
+      setSuccess('');
     } finally {
       setSaving(false);
+      setSavingFacility(null);
     }
   };
 
   const handleLimitChange = (facilityIndex, userType, value) => {
+    // Clear any existing error messages when user starts typing
+    if (error) {
+      setError('');
+    }
+    
     const updatedFacilities = [...facilities];
     const facility = updatedFacilities[facilityIndex];
     
@@ -99,6 +115,12 @@ const AdminManageFacilityLimits = () => {
   const handleSaveLimits = (facilityId, facilityIndex) => {
     const facility = facilities[facilityIndex];
     const validLimits = facility.limits.filter(limit => limit.max_hours_per_booking > 0);
+    
+    if (validLimits.length === 0) {
+      setError('Please set at least one booking limit before saving.');
+      return;
+    }
+    
     updateFacilityLimits(facilityId, validLimits);
   };
 
@@ -115,6 +137,12 @@ const AdminManageFacilityLimits = () => {
       <div className="admin-header">
         <h2>Manage Facility Booking Limits</h2>
         <p>Set maximum booking hours per user type for each facility</p>
+        <div className="header-info">
+          <p className="info-text">
+            <strong>Note:</strong> These limits control how many hours each user type can book in a single booking session.
+            Users will not be able to book more than the specified hours for their user type.
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -133,8 +161,15 @@ const AdminManageFacilityLimits = () => {
         {facilities.map((facility, facilityIndex) => (
           <div key={facility.id} className="facility-limits-card">
             <div className="facility-header">
-              <h3>{facility.name}</h3>
-              <span className="facility-category">{facility.category_name}</span>
+              <div className="facility-info">
+                <h3>{facility.name}</h3>
+                <span className="facility-category">{facility.category_name}</span>
+              </div>
+              <div className="facility-summary">
+                <span className="summary-text">
+                  {facility.limits.filter(l => l.max_hours_per_booking > 0).length} limits set
+                </span>
+              </div>
             </div>
 
             <div className="limits-grid">
@@ -153,7 +188,7 @@ const AdminManageFacilityLimits = () => {
                       value={getLimitForUserType(facility, userType)}
                       onChange={(e) => handleLimitChange(facilityIndex, userType, e.target.value)}
                       className="limit-input"
-                      placeholder="Hours"
+                      placeholder="0"
                     />
                     <span className="limit-unit">hours</span>
                   </div>
@@ -167,7 +202,7 @@ const AdminManageFacilityLimits = () => {
                 disabled={saving}
                 className="btn-primary save-limits-btn"
               >
-                {saving ? 'Saving...' : 'Save Limits'}
+                {savingFacility === facility.id ? 'Saving...' : 'Save Limits'}
               </button>
             </div>
           </div>
@@ -198,6 +233,12 @@ const AdminManageFacilityLimits = () => {
           border-bottom: 2px solid #f3f4f6;
         }
 
+        .facility-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
         .facility-header h3 {
           margin: 0;
           color: #1f2937;
@@ -210,6 +251,21 @@ const AdminManageFacilityLimits = () => {
           color: #3730a3;
           padding: 4px 12px;
           border-radius: 20px;
+          font-size: 0.875rem;
+          font-weight: 500;
+          align-self: flex-start;
+        }
+
+        .facility-summary {
+          display: flex;
+          align-items: center;
+        }
+
+        .summary-text {
+          background: #f3f4f6;
+          color: #6b7280;
+          padding: 6px 12px;
+          border-radius: 16px;
           font-size: 0.875rem;
           font-weight: 500;
         }
@@ -319,6 +375,21 @@ const AdminManageFacilityLimits = () => {
           border: 1px solid #bbf7d0;
         }
 
+        .header-info {
+          margin-top: 16px;
+          padding: 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+        }
+
+        .info-text {
+          margin: 0;
+          color: #475569;
+          font-size: 0.875rem;
+          line-height: 1.5;
+        }
+
         @media (max-width: 768px) {
           .limits-grid {
             grid-template-columns: 1fr;
@@ -327,7 +398,15 @@ const AdminManageFacilityLimits = () => {
           .facility-header {
             flex-direction: column;
             align-items: flex-start;
-            gap: 8px;
+            gap: 12px;
+          }
+
+          .facility-info {
+            width: 100%;
+          }
+
+          .facility-summary {
+            align-self: flex-end;
           }
         }
       `}</style>

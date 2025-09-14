@@ -31,7 +31,7 @@ function AdminManageBifurcations() {
     bifurcation_name: '',
     pricing_type: 'slot',
     price_internal: '',
-    price_internal_consultancy: '',
+    price_superuser: '',
     price_external: '',
     price_industry: ''
   });
@@ -99,7 +99,7 @@ function AdminManageBifurcations() {
       bifurcation_name: '',
       pricing_type: 'slot',
       price_internal: '',
-      price_internal_consultancy: '',
+      price_superuser: '',
       price_external: '',
       price_industry: ''
     });
@@ -152,7 +152,7 @@ function AdminManageBifurcations() {
         bifurcation_name: '',
         pricing_type: 'slot',
         price_internal: '',
-        price_internal_consultancy: '',
+        price_superuser: '',
         price_external: '',
         price_industry: ''
       });
@@ -195,7 +195,7 @@ function AdminManageBifurcations() {
       bifurcation_name: bifurcation.bifurcation_name,
       pricing_type: bifurcation.pricing_type,
       price_internal: bifurcation.price_internal,
-      price_internal_consultancy: bifurcation.price_internal_consultancy,
+      price_superuser: bifurcation.price_superuser,
       price_external: bifurcation.price_external,
       price_industry: bifurcation.price_industry
     });
@@ -286,12 +286,12 @@ function AdminManageBifurcations() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Internal Consultancy Price
+                    SuperUser Price
                   </label>
                   <input
                     type="number"
-                    name="price_internal_consultancy"
-                    value={formData.price_internal_consultancy}
+                    name="price_superuser"
+                    value={formData.price_superuser}
                     onChange={handleInputChange}
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     required
@@ -364,7 +364,7 @@ function AdminManageBifurcations() {
                           </p>
                           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                             <p className="text-gray-700">Internal: ₹{bifurcation.price_internal}</p>
-                            <p className="text-gray-700">Internal Consultancy: ₹{bifurcation.price_internal_consultancy}</p>
+                            <p className="text-gray-700">SuperUser: ₹{bifurcation.price_superuser}</p>
                             <p className="text-gray-700">External: ₹{bifurcation.price_external}</p>
                             <p className="text-gray-700">Industry: ₹{bifurcation.price_industry}</p>
                           </div>

@@ -75,6 +75,50 @@ export const removeAuthToken = () => {
   localStorage.removeItem('authToken');
 };
 
+// Admin token management
+export const getAdminToken = () => {
+  return localStorage.getItem('userToken');
+};
+
+export const setAdminToken = (token) => {
+  localStorage.setItem('userToken', token);
+};
+
+export const removeAdminToken = () => {
+  localStorage.removeItem('userToken');
+  localStorage.removeItem('userPosition');
+  localStorage.removeItem('userEmail');
+};
+
+// Admin API request wrapper with security headers
+export const secureAdminFetch = async (url, options = {}) => {
+  const token = getAdminToken();
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  };
+
+  if (token) {
+    defaultHeaders['Authorization'] = token;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...options.headers
+    }
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    removeAdminToken();
+    window.location.href = '/admin';
+    throw new Error('Admin session expired');
+  }
+
+  return response;
+};
+
 // API request wrapper with security headers
 export const secureFetch = async (url, options = {}) => {
   const token = getAuthToken();

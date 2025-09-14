@@ -1854,7 +1854,7 @@ CREATE TABLE facility_bifurcations (
     bifurcation_name VARCHAR(255) NOT NULL,
     pricing_type ENUM('slot', 'hour', 'half-hour') NOT NULL,
     price_internal DECIMAL(10,2),
-    price_internal_consultancy DECIMAL(10,2),
+    price_superuser DECIMAL(10,2),
     price_external DECIMAL(10,2),
     price_industry DECIMAL(10,2),
     FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE

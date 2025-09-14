@@ -80,11 +80,26 @@ function BookingFacility({ authToken }) {
       const decoded = jwtDecode(authToken);
       const userType = decoded.userType.toLowerCase();
       
+      // Check if internal user is a superuser for this facility
+      if (userType === 'internal' && superuserStatus && superuserStatus.status === 'active') {
+        // Check if the superuser status is for the current facility
+        if (superuserStatus.superFacility == facilityId) {
+          console.log('SuperUser pricing applied:', {
+            facilityId,
+            superFacility: superuserStatus.superFacility,
+            bifurcationName: bifurcation.bifurcation_name,
+            superuserPrice: bifurcation.price_superuser,
+            internalPrice: bifurcation.price_internal
+          });
+          return bifurcation.price_superuser || bifurcation.price_internal;
+        }
+      }
+      
       switch (userType) {
         case 'internal':
           return bifurcation.price_internal;
-        case 'internal consultancy':
-          return bifurcation.price_internal_consultancy;
+        case 'superuser':
+          return bifurcation.price_superuser || bifurcation.price_internal;
         case 'government r&d lab or external academics':
           return bifurcation.price_external;
         case 'private industry or private r&d lab':
@@ -96,7 +111,7 @@ function BookingFacility({ authToken }) {
       console.error('Error decoding token:', error);
       return bifurcation.price_external;
     }
-  }, [authToken]);
+  }, [authToken, superuserStatus, facilityId]);
 
   const calculateTotalCost = useCallback(() => {
     if (selectedSlots.length === 0) return 0;
@@ -392,7 +407,7 @@ function BookingFacility({ authToken }) {
         console.error('Error decoding token:', error);
       }
     }
-  }, [authToken]);
+  }, [authToken, facilityId]);
 
   const fetchSuperuserStatus = async () => {
     try {
