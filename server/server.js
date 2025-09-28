@@ -1972,6 +1972,7 @@ app.get('/api/booking-history', authenticateToken, (req, res) => {
     bh.gst_number,
     bh.utr_number,
     bh.transaction_date,
+    bh.created_at,
     f.name as facility_name,
     GROUP_CONCAT(
       DISTINCT JSON_OBJECT(
@@ -4875,13 +4876,6 @@ app.post('/api/booking', authenticateToken, (req, res) => {
         });
       }
       
-      // Helper function to calculate total hours for a booking
-      function calculateBookingHours(scheduleIdString, facilityId) {
-        // This function should calculate total hours based on schedule IDs
-        // For now, we'll use a simple calculation - you may need to adjust based on your schedule structure
-        const scheduleIds = scheduleIdString.split(',').map(id => parseInt(id.trim()));
-        return scheduleIds.length; // Assuming each schedule ID represents 1 hour
-      }
       
       // Helper function to deduct hours from superuser allocation
       function deductSuperuserHours(allocationId, hoursToDeduct, bookingId, userId, facilityId) {
@@ -8249,6 +8243,8 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
   const userId = req.user && req.user.userId;
   const userType = req.user && req.user.userType;
   
+  console.log('Cancellation request:', { bookingId, userId, userType });
+  
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
   // Get a connection from the pool for transaction
@@ -8271,13 +8267,15 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
           bh.booking_id,
           bh.user_id,
           bh.facility_id,
+          bh.schedule_id,
           bh.booking_date,
           bh.cost,
           bh.status,
-          bh.user_type,
+          bh.created_at,
           f.name as facility_name,
           u.full_name as user_name,
-          u.email as user_email
+          u.email as user_email,
+          u.user_type
         FROM BookingHistory bh
         JOIN Facilities f ON bh.facility_id = f.id
         JOIN Users u ON bh.user_id = u.user_id
@@ -8286,6 +8284,7 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
 
       connection.query(getBookingQuery, [bookingId, userId], (err, bookingResults) => {
         if (err) {
+          console.error('Error fetching booking details:', err);
           return connection.rollback(() => {
             connection.release();
             res.status(500).json({ message: 'Server error' });
@@ -8293,6 +8292,7 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
         }
 
         if (!bookingResults.length) {
+          console.log('Booking not found:', { bookingId, userId });
           return connection.rollback(() => {
             connection.release();
             res.status(404).json({ message: 'Booking not found' });
@@ -8300,6 +8300,7 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
         }
 
         const booking = bookingResults[0];
+        console.log('Booking details:', booking);
 
         // Check if booking is approved
         if (booking.status !== 'Approved') {
@@ -8309,16 +8310,23 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
           });
         }
 
-        // Check 24-hour time limit
-        const bookingDate = new Date(booking.booking_date);
+        // Check 24-hour time limit (from booking request time)
+        const bookingCreatedAt = new Date(booking.created_at || booking.booking_date);
         const now = new Date();
-        const timeDiff = bookingDate.getTime() - now.getTime();
+        const timeDiff = now.getTime() - bookingCreatedAt.getTime();
         const hoursDiff = timeDiff / (1000 * 3600);
 
-        if (hoursDiff <= 0 || hoursDiff > 24) {
+        console.log('Time validation:', {
+          bookingCreatedAt: bookingCreatedAt,
+          now: now,
+          hoursDiff: hoursDiff
+        });
+
+        if (hoursDiff > 24) {
+          console.log('Cancellation rejected - outside 24 hour window');
           return connection.rollback(() => {
             connection.release();
-            res.status(400).json({ message: 'Booking can only be cancelled within 24 hours of the booking date' });
+            res.status(400).json({ message: 'Booking can only be cancelled within 24 hours of the booking request' });
           });
         }
 
@@ -8326,17 +8334,22 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
         const updateBookingQuery = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
         connection.query(updateBookingQuery, [bookingId], (err) => {
           if (err) {
+            console.error('Error updating booking status:', err);
             return connection.rollback(() => {
               connection.release();
               res.status(500).json({ message: 'Failed to cancel booking' });
             });
           }
 
+          console.log('Booking status updated to cancelled');
+
           // Handle refunds based on user type
           if (userType === 'Internal') {
+            console.log('Processing internal user refund');
             // For internal users, check if it's a superuser booking first
             handleSuperuserRefund(connection, booking, (superuserErr) => {
               if (superuserErr) {
+                console.error('Superuser refund error:', superuserErr);
                 return connection.rollback(() => {
                   connection.release();
                   res.status(500).json({ message: 'Failed to process superuser refund' });
@@ -8346,6 +8359,7 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
               // Then handle regular internal user refund
               handleInternalUserRefund(connection, booking, (refundErr) => {
                 if (refundErr) {
+                  console.error('Internal user refund error:', refundErr);
                   return connection.rollback(() => {
                     connection.release();
                     res.status(500).json({ message: 'Failed to process refund' });
@@ -8355,6 +8369,7 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
                 // Commit transaction
                 connection.commit((commitErr) => {
                   if (commitErr) {
+                    console.error('Transaction commit error:', commitErr);
                     connection.rollback(() => {
                       connection.release();
                       res.status(500).json({ message: 'Server error' });
@@ -8365,15 +8380,17 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
                   connection.release();
                   res.json({ 
                     success: true, 
-                    message: 'Booking cancelled successfully. Refunds have been processed (money to supervisor wallet, hours to your allocation).' 
+                    message: 'Booking cancelled successfully. Refunds have been processed (money to supervisor wallet, hours to your allocation). Superuser status has been reactivated if applicable.' 
                   });
                 });
               });
             });
           } else {
+            console.log('Processing external user cancellation');
             // For external users, no refund needed (they paid directly)
             connection.commit((commitErr) => {
               if (commitErr) {
+                console.error('External user commit error:', commitErr);
                 connection.rollback(() => {
                   connection.release();
                   res.status(500).json({ message: 'Server error' });
@@ -8393,6 +8410,20 @@ app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
     });
   });
 });
+
+// Global helper function to calculate total hours for a booking
+function calculateBookingHours(scheduleIdString, facilityId) {
+  // Handle null/undefined scheduleIdString
+  if (!scheduleIdString) {
+    console.log('No schedule ID string provided, defaulting to 1 hour');
+    return 1; // Default to 1 hour if no schedule info
+  }
+  
+  // This function should calculate total hours based on schedule IDs
+  // For now, we'll use a simple calculation - you may need to adjust based on your schedule structure
+  const scheduleIds = scheduleIdString.split(',').map(id => parseInt(id.trim()));
+  return scheduleIds.length; // Assuming each schedule ID represents 1 hour
+}
 
 // Helper function to handle internal user refunds
 function handleInternalUserRefund(connection, booking, callback) {
@@ -8446,7 +8477,21 @@ function handleInternalUserRefund(connection, booking, callback) {
 
 // Helper function to handle superuser refunds (hours)
 function handleSuperuserRefund(connection, booking, callback) {
-  // Check if this was a superuser booking
+  console.log('Processing superuser refund for booking:', booking.booking_id);
+  
+  // Calculate hours to refund
+  const scheduleIdString = booking.schedule_ids || booking.schedule_id;
+  console.log('Schedule ID string:', scheduleIdString);
+  console.log('Booking data:', {
+    schedule_ids: booking.schedule_ids,
+    schedule_id: booking.schedule_id,
+    facility_id: booking.facility_id
+  });
+  
+  const hoursToRefund = calculateBookingHours(scheduleIdString, booking.facility_id);
+  console.log('Hours to refund:', hoursToRefund);
+  
+  // Check if this was a superuser booking (active allocation exists)
   const superuserQuery = `
     SELECT sha.id, sha.hours_remaining, sha.total_hours_allocated
     FROM superuser_hour_allocations sha
@@ -8454,35 +8499,116 @@ function handleSuperuserRefund(connection, booking, callback) {
   `;
 
   connection.query(superuserQuery, [booking.user_id, booking.facility_id], (err, results) => {
-    if (err || !results.length) {
-      // Not a superuser booking, no hours to refund
-      return callback(null);
+    if (err) {
+      console.error('Error checking superuser allocation:', err);
+      return callback(err);
     }
+    
+    if (results.length > 0) {
+      // Active superuser - update existing allocation
+      const allocation = results[0];
+      console.log('Found active superuser allocation:', allocation);
+      
+      const newHoursRemaining = allocation.hours_remaining + hoursToRefund;
+      console.log('New hours remaining:', newHoursRemaining);
 
-    const allocation = results[0];
-    const hoursToRefund = calculateBookingHours(booking.schedule_ids || booking.schedule_id, booking.facility_id);
-    const newHoursRemaining = allocation.hours_remaining + hoursToRefund;
-
-    // Update hours remaining
-    const updateHoursQuery = 'UPDATE superuser_hour_allocations SET hours_remaining = ? WHERE id = ?';
-    connection.query(updateHoursQuery, [newHoursRemaining, allocation.id], (err) => {
-      if (err) {
-        return callback(err);
-      }
-
-      // Record hour usage (negative for refund)
-      const usageQuery = `
-        INSERT INTO superuser_hour_usage (allocation_id, booking_id, hours_used, booking_date, used_at)
-        VALUES (?, ?, ?, NOW(), NOW())
-      `;
-      connection.query(usageQuery, [allocation.id, booking.booking_id, -hoursToRefund, booking.booking_date], (err) => {
+      // Update hours remaining
+      const updateHoursQuery = 'UPDATE superuser_hour_allocations SET hours_remaining = ? WHERE id = ?';
+      connection.query(updateHoursQuery, [newHoursRemaining, allocation.id], (err) => {
         if (err) {
+          console.error('Error updating hours remaining:', err);
           return callback(err);
         }
-        callback(null);
+
+        console.log('Hours remaining updated successfully');
+
+        // Record hour usage (negative for refund)
+        const usageQuery = `
+          INSERT INTO superuser_hour_usage (allocation_id, booking_id, hours_used, booking_date, used_at)
+          VALUES (?, ?, ?, NOW(), NOW())
+        `;
+        connection.query(usageQuery, [allocation.id, booking.booking_id, -hoursToRefund, booking.booking_date], (err) => {
+          if (err) {
+            console.error('Error recording hour usage:', err);
+            return callback(err);
+          }
+          
+          console.log('Hour usage recorded successfully');
+          callback(null);
+        });
       });
-    });
+    } else {
+      // No active allocation - check if user is inactive superuser
+      console.log('No active superuser allocation found - checking if user is inactive superuser');
+      
+      // Check if user is currently inactive but was a superuser
+      const checkUserQuery = `
+        SELECT iu.id, iu.isSuperUser, iu.super_facility, iu.supervisor_id
+        FROM InternalUsers iu
+        WHERE iu.user_id = ? AND iu.supervisor_id IS NOT NULL
+      `;
+
+      connection.query(checkUserQuery, [booking.user_id], (err, userResults) => {
+        if (err) {
+          console.error('Error checking user status:', err);
+          return callback(err);
+        }
+        
+        if (!userResults.length) {
+          console.log('User not found or not an internal user - no superuser refund needed');
+          return callback(null);
+        }
+
+        const user = userResults[0];
+        console.log('User status:', user);
+        
+        // If user is currently inactive (not a superuser), create new allocation
+        if (user.isSuperUser === 'N') {
+          console.log('User is inactive superuser - creating new allocation with refunded hours');
+          
+          // Get supervisor ID
+          const supervisorId = user.supervisor_id;
+          
+          // Create new superuser hour allocation
+          const createAllocationQuery = `
+            INSERT INTO superuser_hour_allocations 
+            (user_id, facility_id, supervisor_id, total_hours_allocated, hours_remaining, base_price_paid, is_active)
+            VALUES (?, ?, ?, ?, ?, 0, TRUE)
+          `;
+          
+          connection.query(createAllocationQuery, [booking.user_id, booking.facility_id, supervisorId, hoursToRefund, hoursToRefund], (err, result) => {
+            if (err) {
+              console.error('Error creating superuser allocation:', err);
+              return callback(err);
+            }
+            
+            console.log('New superuser allocation created:', result.insertId);
+            
+            // Reactivate superuser status
+            const reactivateQuery = `
+              UPDATE InternalUsers 
+              SET isSuperUser = 'Y', super_facility = ? 
+              WHERE user_id = ?
+            `;
+            
+            connection.query(reactivateQuery, [booking.facility_id, booking.user_id], (err) => {
+              if (err) {
+                console.error('Error reactivating superuser status:', err);
+                return callback(err);
+              }
+              
+              console.log(`Superuser ${booking.user_id} reactivated for facility ${booking.facility_id} with ${hoursToRefund} hours`);
+              callback(null);
+            });
+          });
+        } else {
+          console.log('User is already active - no superuser refund needed');
+          callback(null);
+        }
+      });
+    }
   });
 }
+
 
 // End of server configuration

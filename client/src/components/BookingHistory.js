@@ -174,13 +174,23 @@ export default function BookingHistory() {
     }
   }
 
-  // Check if booking can be cancelled (within 24 hours)
+  // Check if booking can be cancelled (within 24 hours of booking request)
   const canCancelBooking = (booking) => {
-    const bookingDate = new Date(booking.booking_date);
+    // Use the booking creation time, not the booking date
+    const bookingCreatedAt = new Date(booking.created_at || booking.booking_date);
     const now = new Date();
-    const timeDiff = bookingDate.getTime() - now.getTime();
+    const timeDiff = now.getTime() - bookingCreatedAt.getTime();
     const hoursDiff = timeDiff / (1000 * 3600);
-    return hoursDiff > 0 && hoursDiff <= 24;
+    
+    console.log('Booking cancellation check:', {
+      bookingId: booking.booking_id,
+      status: booking.status,
+      bookingCreatedAt: bookingCreatedAt,
+      hoursDiff: hoursDiff,
+      canCancel: hoursDiff <= 24
+    });
+    
+    return hoursDiff <= 24;
   };
 
   // Handle booking cancellation
@@ -589,7 +599,26 @@ function BookingCard({
             )}
           </button>
           
+          {/* Debug Info */}
+          <div className="text-xs text-gray-500 mb-2">
+            Status: {booking.status} | 
+            Can Cancel: {canCancelBooking(booking) ? 'Yes' : 'No'} |
+            Hours Since Request: {(() => {
+              const bookingCreatedAt = new Date(booking.created_at || booking.booking_date);
+              const now = new Date();
+              const timeDiff = now.getTime() - bookingCreatedAt.getTime();
+              return (timeDiff / (1000 * 3600)).toFixed(1);
+            })()}h
+          </div>
+
           {/* Cancel Button - Only for approved bookings within 24 hours */}
+          {console.log('Cancel button check:', {
+            bookingId: booking.booking_id,
+            status: booking.status,
+            isApproved: booking.status === 'Approved',
+            canCancel: canCancelBooking(booking),
+            shouldShow: booking.status === 'Approved' && canCancelBooking(booking)
+          })}
           {booking.status === 'Approved' && canCancelBooking(booking) && (
             <button
               onClick={() => handleCancelBooking(booking.booking_id)}
@@ -607,6 +636,16 @@ function BookingCard({
                   Cancel Booking
                 </>
               )}
+            </button>
+          )}
+          
+          {/* Temporary Test Button - Always show for debugging */}
+          {booking.status === 'Approved' && (
+            <button
+              onClick={() => alert(`Booking ${booking.booking_id} - Status: ${booking.status} - Can Cancel: ${canCancelBooking(booking)}`)}
+              className="bg-blue-600 text-white px-3 py-1 rounded text-xs ml-2"
+            >
+              Debug
             </button>
           )}
         </div>
