@@ -259,13 +259,19 @@ app.get('/api/facilities', (req, res) => {
       f.image_url, 
       f.category_id,
       c.name AS category_name, 
-      c.description AS category_description
+      c.description AS category_description,
+      fbp.base_price AS superuser_base_price,
+      fbp.base_hours AS superuser_base_hours
     FROM 
       Facilities f
     INNER JOIN 
       Categories c
     ON 
       f.category_id = c.id
+    LEFT JOIN 
+      facility_base_prices fbp
+    ON 
+      f.id = fbp.facility_id
   `;
 
   db.query(query, (err, results) => {
@@ -298,12 +304,24 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
     usage_details,
     category_id,
     publications,
+    superuser_base_price,
+    superuser_base_hours
   } = req.body;
 
   const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
   if (!name || !category_id) {
     return res.status(400).json({ error: "Missing required fields: name or category_id" });
+  }
+
+  // Validate superuser fields if provided
+  if (superuser_base_price !== undefined && superuser_base_hours !== undefined) {
+    if (superuser_base_price <= 0 || superuser_base_hours <= 0) {
+      return res.status(400).json({ 
+        error: 'Invalid superuser configuration',
+        message: 'Superuser base price and base hours must be greater than 0'
+      });
+    }
   }
 
   const updateQuery = `
@@ -353,6 +371,29 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
       return res.status(500).json({ 
         error: 'Failed to update facility',
         message: err.message
+      });
+    }
+
+    // Update facility base price if provided
+    if (superuser_base_price !== undefined && superuser_base_hours !== undefined) {
+      const updateBasePriceQuery = `
+        INSERT INTO facility_base_prices (facility_id, base_price, base_hours) 
+        VALUES (?, ?, ?) 
+        ON DUPLICATE KEY UPDATE 
+        base_price = VALUES(base_price), 
+        base_hours = VALUES(base_hours),
+        updated_at = CURRENT_TIMESTAMP
+      `;
+      
+      db.query(updateBasePriceQuery, [facilityId, superuser_base_price, superuser_base_hours], (err) => {
+        if (err) {
+          console.error('Error updating facility base price:', err);
+          return res.status(500).json({ 
+            error: 'Failed to update facility base price',
+            message: err.message
+          });
+        }
+        console.log(`Facility base price updated: ₹${superuser_base_price} for ${superuser_base_hours} hours`);
       });
     }
 
@@ -409,6 +450,183 @@ app.put("/api/facilities/:id", upload.single("image"), (req, res) => {
   });
 });
 
+// Get facility base prices for admin panel
+app.get('/api/admin/facilities/base-prices', (req, res) => {
+  const query = `
+    SELECT 
+      f.id,
+      f.name,
+      f.category_id,
+      c.category_name,
+      fbp.base_price,
+      fbp.base_hours,
+      fbp.created_at,
+      fbp.updated_at
+    FROM Facilities f
+    LEFT JOIN facility_base_prices fbp ON f.id = fbp.facility_id
+    LEFT JOIN Categories c ON f.category_id = c.id
+    ORDER BY f.name
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching facility base prices:', err);
+      return res.status(500).json({ 
+        error: 'Failed to fetch facility base prices',
+        message: err.message
+      });
+    }
+
+    res.json(results);
+  });
+});
+
+// Update facility base price
+app.put('/api/admin/facilities/:id/base-price', (req, res) => {
+  const facilityId = req.params.id;
+  const { base_price, base_hours } = req.body;
+
+  if (!base_price || !base_hours || base_price <= 0 || base_hours <= 0) {
+    return res.status(400).json({ 
+      error: 'Invalid base price or hours',
+      message: 'Base price and hours must be greater than 0'
+    });
+  }
+
+  const query = `
+    INSERT INTO facility_base_prices (facility_id, base_price, base_hours) 
+    VALUES (?, ?, ?) 
+    ON DUPLICATE KEY UPDATE 
+    base_price = VALUES(base_price), 
+    base_hours = VALUES(base_hours),
+    updated_at = CURRENT_TIMESTAMP
+  `;
+
+  db.query(query, [facilityId, base_price, base_hours], (err, result) => {
+    if (err) {
+      console.error('Error updating facility base price:', err);
+      return res.status(500).json({ 
+        error: 'Failed to update facility base price',
+        message: err.message
+      });
+    }
+
+    res.json({ 
+      message: 'Facility base price updated successfully',
+      base_price,
+      base_hours
+    });
+  });
+});
+
+// Get superuser hour allocations for a supervisor
+app.get('/api/supervisor/superuser-hours', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+
+  const qSup = 'SELECT id FROM Supervisor WHERE email = ?';
+  db.query(qSup, [email], (e1, r1) => {
+    if (e1) return res.status(500).json({ message: 'Server error' });
+    if (!r1 || r1.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+    const supId = r1[0].id;
+
+    const query = `
+      SELECT 
+        sha.id,
+        sha.user_id,
+        sha.facility_id,
+        sha.total_hours_allocated,
+        sha.hours_remaining,
+        sha.base_price_paid,
+        sha.activated_at,
+        sha.is_active,
+        u.full_name,
+        u.email,
+        f.name as facility_name
+      FROM superuser_hour_allocations sha
+      JOIN Users u ON sha.user_id = u.user_id
+      JOIN Facilities f ON sha.facility_id = f.id
+      WHERE sha.supervisor_id = ?
+      ORDER BY sha.activated_at DESC
+    `;
+    
+    db.query(query, [supId], (err, results) => {
+      if (err) {
+        console.error('Error fetching superuser hours:', err);
+        return res.status(500).json({ message: 'Server error' });
+      }
+      res.json(results);
+    });
+  });
+});
+
+// Get superuser's own hour allocation
+app.get('/api/user/superuser-hours', authenticateToken, (req, res) => {
+  console.log('Superuser hours API called by:', req.user);
+  const userId = req.user && req.user.userId;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  const query = `
+    SELECT 
+      sha.id,
+      sha.facility_id,
+      sha.total_hours_allocated,
+      sha.hours_remaining,
+      sha.activated_at,
+      sha.is_active,
+      f.name as facility_name,
+      f.category_id,
+      c.name as category_name
+    FROM superuser_hour_allocations sha
+    JOIN Facilities f ON sha.facility_id = f.id
+    LEFT JOIN Categories c ON f.category_id = c.id
+    WHERE sha.user_id = ? AND sha.is_active = TRUE
+    ORDER BY sha.activated_at DESC
+  `;
+  
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user superuser hours:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    console.log('Superuser hours query results:', results);
+    res.json(results);
+  });
+});
+
+// Get superuser hour usage history
+app.get('/api/user/superuser-hour-usage/:allocationId', authenticateToken, (req, res) => {
+  const email = req.user && req.user.email;
+  if (!email) return res.status(401).json({ message: 'Unauthorized' });
+
+  const allocationId = req.params.allocationId;
+
+  const query = `
+    SELECT 
+      shu.id,
+      shu.booking_id,
+      shu.hours_used,
+      shu.booking_date,
+      shu.used_at,
+      bh.booking_date as booking_created_date,
+      f.name as facility_name
+    FROM superuser_hour_usage shu
+    JOIN superuser_hour_allocations sha ON shu.allocation_id = sha.id
+    JOIN BookingHistory bh ON shu.booking_id = bh.booking_id
+    JOIN Facilities f ON sha.facility_id = f.id
+    WHERE shu.allocation_id = ?
+    ORDER BY shu.used_at DESC
+  `;
+  
+  db.query(query, [allocationId], (err, results) => {
+    if (err) {
+      console.error('Error fetching superuser hour usage:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+    res.json(results);
+  });
+});
+
 
 app.post('/api/facilities', upload.single("image"), (req, res) => {
   // console.log('Received facility data:', req.body);
@@ -430,6 +648,8 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     usage_details,
     category_id,
     publications,
+    superuser_base_price,
+    superuser_base_hours
   } = req.body;
 
   // Validate required fields
@@ -438,6 +658,21 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     return res.status(400).json({ 
       error: 'Missing required fields',
       message: 'Name and category are required'
+    });
+  }
+
+  // Validate superuser fields
+  if (!superuser_base_price || !superuser_base_hours) {
+    return res.status(400).json({ 
+      error: 'Missing superuser configuration',
+      message: 'Superuser base price and base hours are required'
+    });
+  }
+
+  if (superuser_base_price <= 0 || superuser_base_hours <= 0) {
+    return res.status(400).json({ 
+      error: 'Invalid superuser configuration',
+      message: 'Superuser base price and base hours must be greater than 0'
     });
   }
 
@@ -461,7 +696,7 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
       usage_details, 
       image_url, 
       category_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -494,6 +729,62 @@ app.post('/api/facilities', upload.single("image"), (req, res) => {
     }
 
     const facilityId = result.insertId;
+
+    // Automatically create default booking limits for the new facility
+    const createDefaultLimits = () => {
+      const defaultLimits = [
+        { user_type: 'Internal', max_hours_per_booking: 8 },
+        { user_type: 'Government R&D Lab or External Academics', max_hours_per_booking: 6 },
+        { user_type: 'Private Industry or Private R&D Lab', max_hours_per_booking: 4 },
+        { user_type: 'SuperUser', max_hours_per_booking: 10 }
+      ];
+
+      // Insert all default limits
+      const insertQuery = `
+        INSERT INTO facility_booking_limits (facility_id, user_type, max_hours_per_booking) 
+        VALUES (?, ?, ?)
+      `;
+
+      let completedInserts = 0;
+      const totalInserts = defaultLimits.length;
+
+      defaultLimits.forEach((limit, index) => {
+        db.query(insertQuery, [facilityId, limit.user_type, limit.max_hours_per_booking], (err) => {
+          if (err) {
+            console.error(`Error creating booking limit for ${limit.user_type}:`, err);
+          } else {
+            console.log(`Created booking limit for ${limit.user_type}: ${limit.max_hours_per_booking} hours`);
+          }
+          
+          completedInserts++;
+          if (completedInserts === totalInserts) {
+            console.log(`All default booking limits created for facility ${facilityId}`);
+          }
+        });
+      });
+    };
+
+    // Create default booking limits
+    createDefaultLimits();
+
+    // Create facility base price record for superuser activation
+    const createBasePriceRecord = () => {
+      const basePriceQuery = `
+        INSERT INTO facility_base_prices (facility_id, base_price, base_hours) 
+        VALUES (?, ?, ?)
+      `;
+      
+      db.query(basePriceQuery, [facilityId, superuser_base_price, superuser_base_hours], (err) => {
+        if (err) {
+          console.error('Error creating facility base price record:', err);
+        } else {
+          console.log(`Facility base price record created: ₹${superuser_base_price} for ${superuser_base_hours} hours`);
+        }
+      });
+    };
+
+    // Create base price record
+    createBasePriceRecord();
 
     if (publications) {
       try {
@@ -736,22 +1027,27 @@ app.get('/api/publications', (req, res) => {
 // Helper function to authenticate user
 function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
+  console.log('Auth header received:', authHeader ? 'Present' : 'Missing');
+  
   if (!authHeader) {
+    console.log('No authorization header');
     return res.status(401).send("Access Denied");
   }
 
   const token = authHeader;
+  console.log('Token length:', token ? token.length : 0);
 
   if (!token) {
+    console.log('No token in header');
     return res.status(401).send("Access Denied");
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      // localStorage.clear();
       console.error("Token verification failed:", err);
       return res.status(403).send("Invalid Token");
     }
+    console.log('Token verified successfully for user:', user.email);
     req.user = user;
     next();
   });
@@ -4452,31 +4748,42 @@ app.post('/api/booking', authenticateToken, (req, res) => {
           
           const supervisor = supervisorResults[0];
           
-          // Check if supervisor has sufficient wallet balance
-          if (supervisor.wallet_balance >= calculatedCost) {
-            // Sufficient funds - auto-approve and deduct from wallet
-            updateBookingStatus(booking_id, 'Approved');
+          // Check if superuser has sufficient hours remaining
+          const checkHoursQuery = `
+            SELECT hours_remaining, id as allocation_id 
+            FROM superuser_hour_allocations 
+            WHERE user_id = ? AND facility_id = ? AND is_active = TRUE
+          `;
+          
+          db.query(checkHoursQuery, [user_id, facility_id], (hoursErr, hoursResults) => {
+            if (hoursErr || !hoursResults.length) {
+              console.error('Error checking superuser hours:', hoursErr);
+              // If no allocation found, set status to pending
+              updateBookingStatus(booking_id, 'Pending');
+              return;
+            }
             
-            // Get facility name for transaction record
-            const facilityQuery = 'SELECT name FROM Facilities WHERE id = ?';
-            db.query(facilityQuery, [facility_id], (facilityErr, facilityResults) => {
-              if (facilityErr || !facilityResults.length) {
-                console.error('Error getting facility name:', facilityErr);
-                // Still proceed with deduction but without facility name
-                deductFromSupervisorWallet(supervisor.id, calculatedCost, booking_id, 'Unknown Facility', supervisor.user_name);
-              } else {
-                deductFromSupervisorWallet(supervisor.id, calculatedCost, booking_id, facilityResults[0].name, supervisor.user_name);
-              }
-            });
+            const allocation = hoursResults[0];
+            const hoursNeeded = calculateBookingHours(scheduleIdString, facility_id);
             
-            // Send notification email to supervisor about auto-approval
-            sendSuperuserAutoApprovalEmail(supervisor, calculatedCost, date, validationResult);
-          } else {
-            // Insufficient funds - set status to pending and notify user
-            updateBookingStatus(booking_id, 'Pending');
-            // Send notification to supervisor about insufficient funds
-            sendInsufficientFundsNotification(supervisor, calculatedCost, date, validationResult);
-          }
+            if (allocation.hours_remaining >= hoursNeeded) {
+              // Sufficient hours - auto-approve and deduct hours
+              updateBookingStatus(booking_id, 'Approved');
+              deductSuperuserHours(allocation.allocation_id, hoursNeeded, booking_id, user_id, facility_id);
+              
+              // Send email notification to supervisor with remaining hours
+              const validationInfo = {
+                totalHours: hoursNeeded,
+                slots: validScheduleIds.map(id => ({ id }))
+              };
+              const remainingHours = allocation.hours_remaining - hoursNeeded;
+              sendSuperuserAutoApprovalEmail(supervisor, 0, date, validationInfo, remainingHours);
+            } else {
+              // Insufficient hours - set to pending for manual review
+              updateBookingStatus(booking_id, 'Pending');
+              console.log(`Insufficient hours for superuser. Required: ${hoursNeeded}, Available: ${allocation.hours_remaining}`);
+            }
+          });
         });
       }
       
@@ -4568,6 +4875,77 @@ app.post('/api/booking', authenticateToken, (req, res) => {
         });
       }
       
+      // Helper function to calculate total hours for a booking
+      function calculateBookingHours(scheduleIdString, facilityId) {
+        // This function should calculate total hours based on schedule IDs
+        // For now, we'll use a simple calculation - you may need to adjust based on your schedule structure
+        const scheduleIds = scheduleIdString.split(',').map(id => parseInt(id.trim()));
+        return scheduleIds.length; // Assuming each schedule ID represents 1 hour
+      }
+      
+      // Helper function to deduct hours from superuser allocation
+      function deductSuperuserHours(allocationId, hoursToDeduct, bookingId, userId, facilityId) {
+        // Update hours remaining
+        const updateHoursQuery = `
+          UPDATE superuser_hour_allocations 
+          SET hours_remaining = hours_remaining - ? 
+          WHERE id = ?
+        `;
+        
+        db.query(updateHoursQuery, [hoursToDeduct, allocationId], (updateErr) => {
+          if (updateErr) {
+            console.error('Error deducting superuser hours:', updateErr);
+            return;
+          }
+          
+          // Record hour usage
+          const usageQuery = `
+            INSERT INTO superuser_hour_usage (allocation_id, booking_id, hours_used, booking_date) 
+            VALUES (?, ?, ?, CURDATE())
+          `;
+          
+          db.query(usageQuery, [allocationId, bookingId, hoursToDeduct], (usageErr) => {
+            if (usageErr) {
+              console.error('Error recording hour usage:', usageErr);
+            } else {
+              console.log(`${hoursToDeduct} hours deducted from superuser allocation ${allocationId}`);
+              
+              // Check if hours are now 0 and deactivate if needed
+              checkAndDeactivateSuperuser(allocationId, userId, facilityId);
+            }
+          });
+        });
+      }
+      
+      // Helper function to check and deactivate superuser if hours reach 0
+      function checkAndDeactivateSuperuser(allocationId, userId, facilityId) {
+        const checkHoursQuery = 'SELECT hours_remaining FROM superuser_hour_allocations WHERE id = ?';
+        db.query(checkHoursQuery, [allocationId], (err, results) => {
+          if (err || !results.length) return;
+          
+          if (results[0].hours_remaining <= 0) {
+            // Delete superuser hour allocation record
+            const deleteQuery = `DELETE FROM superuser_hour_allocations WHERE id = ?`;
+            
+            db.query(deleteQuery, [allocationId], (deleteErr) => {
+              if (deleteErr) {
+                console.error('Error deleting superuser allocation:', deleteErr);
+              } else {
+                console.log(`Superuser ${userId} hour allocation deleted for facility ${facilityId} - hours exhausted`);
+                
+                // Also update the InternalUsers table
+                const updateUserQuery = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
+                db.query(updateUserQuery, [userId], (userErr) => {
+                  if (userErr) {
+                    console.error('Error updating user superuser status:', userErr);
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
       // Helper function to deduct amount from supervisor wallet with transaction tracking
       function deductFromSupervisorWallet(supervisorId, amount, bookingId, facilityName, studentName) {
         // Get current wallet balance
@@ -4615,7 +4993,7 @@ app.post('/api/booking', authenticateToken, (req, res) => {
       }
       
       // Helper function to send superuser auto-approval notification
-      function sendSuperuserAutoApprovalEmail(supervisor, cost, date, validationInfo) {
+      function sendSuperuserAutoApprovalEmail(supervisor, cost, date, validationInfo, remainingHours) {
         const transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -4635,13 +5013,14 @@ app.post('/api/booking', authenticateToken, (req, res) => {
               <p>A superuser under your supervision has automatically booked their designated facility.</p>
               <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
                 <h3 style="margin-top: 0; color: #10b981;">Auto-Approval Details:</h3>
-                <p><strong>Amount Deducted:</strong> ₹${cost}</p>
+                <p><strong>Superuser:</strong> ${supervisor.user_name}</p>
                 <p><strong>Date:</strong> ${date}</p>
-                <p><strong>Total Hours:</strong> ${validationInfo.totalHours.toFixed(1)} hours</p>
+                <p><strong>Hours Used:</strong> ${validationInfo.totalHours.toFixed(1)} hours</p>
                 <p><strong>Number of Slots:</strong> ${validationInfo.slots.length}</p>
-                <p><strong>New Wallet Balance:</strong> ₹${supervisor.wallet_balance - cost}</p>
+                <p><strong>Remaining Hours:</strong> ${remainingHours} hours</p>
+                <p><strong>Note:</strong> No money was deducted as this is a superuser hour-based booking.</p>
               </div>
-              <p style="color: #6b7280; font-size: 14px;">This booking was automatically approved as the user is a superuser for this facility. The amount has been deducted from your wallet.</p>
+              <p style="color: #6b7280; font-size: 14px;">This booking was automatically approved as the user is a superuser for this facility. Hours were deducted from their allocation instead of money.</p>
             </div>
           `
         };
@@ -7411,51 +7790,134 @@ app.post('/api/supervisor/approve-superuser/:userId', authenticateToken, (req, r
 
       const request = rows[0];
       
-      // Get a connection from the pool for transaction
-      db.getConnection((e3, connection) => {
-        if (e3) return res.status(500).json({ message: 'Server error' });
+      // Get facility base price and hours
+      const qGetBasePrice = 'SELECT base_price, base_hours FROM facility_base_prices WHERE facility_id = ?';
+      db.query(qGetBasePrice, [request.facility_id], (eBase, baseRows) => {
+        if (eBase) return res.status(500).json({ message: 'Server error' });
+        if (!baseRows || baseRows.length === 0) {
+          return res.status(400).json({ message: 'Facility base price not configured. Please contact admin.' });
+        }
         
-        // Start transaction
-        connection.beginTransaction((e4) => {
-          if (e4) {
-            connection.release();
-            return res.status(500).json({ message: 'Server error' });
+        const basePrice = baseRows[0].base_price;
+        const baseHours = baseRows[0].base_hours;
+        
+        // Check supervisor wallet balance
+        const qCheckWallet = 'SELECT wallet_balance FROM Supervisor WHERE id = ?';
+        db.query(qCheckWallet, [supId], (eWallet, walletRows) => {
+          if (eWallet) return res.status(500).json({ message: 'Server error' });
+          if (!walletRows || walletRows.length === 0) return res.status(404).json({ message: 'Supervisor not found' });
+          
+          const currentBalance = walletRows[0].wallet_balance;
+          if (currentBalance < basePrice) {
+            return res.status(400).json({ 
+              message: `Insufficient wallet balance. Required: ₹${basePrice}, Available: ₹${currentBalance}` 
+            });
           }
           
-          // Update the request status to approved
-          const qUpdateRequest = 'UPDATE superuser_requests SET status = "approved", processed_at = NOW(), processed_by = ? WHERE id = ?';
-          connection.query(qUpdateRequest, [supId, request.id], (e5) => {
-            if (e5) {
-              return connection.rollback(() => {
-                connection.release();
-                res.status(500).json({ message: 'Failed to approve request' });
-              });
-            }
+          // Get a connection from the pool for transaction
+          db.getConnection((e3, connection) => {
+            if (e3) return res.status(500).json({ message: 'Server error' });
             
-            // Update the user to be a superuser and set the facility
-            const qUpdateUser = 'UPDATE InternalUsers SET isSuperUser = "Y", super_facility = ? WHERE user_id = ?';
-            connection.query(qUpdateUser, [request.facility_id, targetUserId], (e6) => {
-              if (e6) {
-                return connection.rollback(() => {
-                  connection.release();
-                  res.status(500).json({ message: 'Failed to approve superuser' });
-                });
+            // Start transaction
+            connection.beginTransaction((e4) => {
+              if (e4) {
+                connection.release();
+                return res.status(500).json({ message: 'Server error' });
               }
               
-              // Commit the transaction
-              connection.commit((e7) => {
-                if (e7) {
-                  connection.rollback(() => {
+              // Update the request status to approved
+              const qUpdateRequest = 'UPDATE superuser_requests SET status = "approved", processed_at = NOW(), processed_by = ? WHERE id = ?';
+              connection.query(qUpdateRequest, [supId, request.id], (e5) => {
+                if (e5) {
+                  return connection.rollback(() => {
                     connection.release();
-                    res.status(500).json({ message: 'Server error' });
+                    res.status(500).json({ message: 'Failed to approve request' });
                   });
-                  return;
                 }
                 
-                connection.release();
-                return res.json({ 
-                  success: true, 
-                  message: `Superuser approved for ${request.full_name} (${request.facility_name})` 
+                // Update the user to be a superuser and set the facility
+                const qUpdateUser = 'UPDATE InternalUsers SET isSuperUser = "Y", super_facility = ? WHERE user_id = ?';
+                connection.query(qUpdateUser, [request.facility_id, targetUserId], (e6) => {
+                  if (e6) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      res.status(500).json({ message: 'Failed to approve superuser' });
+                    });
+                  }
+                  
+                  // Deduct base price from supervisor wallet
+                  const qDeductWallet = 'UPDATE Supervisor SET wallet_balance = wallet_balance - ? WHERE id = ?';
+                  connection.query(qDeductWallet, [basePrice, supId], (e7) => {
+                    if (e7) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        res.status(500).json({ message: 'Failed to deduct wallet amount' });
+                      });
+                    }
+                    
+                    // Record the base price deduction transaction
+                    const newBalance = currentBalance - basePrice;
+                    const transactionDescription = `Superuser activation for ${request.full_name} - ${request.facility_name} (${baseHours} hours allocated)`;
+                    recordSupervisorTransaction(
+                      supId,
+                      'SUPERUSER_ACTIVATION',
+                      -basePrice, // Negative amount for deduction
+                      newBalance,
+                      transactionDescription,
+                      null, // No booking_id for superuser activation
+                      request.facility_name,
+                      request.full_name,
+                      null, // No admin_email
+                      connection,
+                      (transactionErr, transactionId) => {
+                        if (transactionErr) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            res.status(500).json({ message: 'Failed to record transaction' });
+                          });
+                        }
+                        
+                        // Create superuser hour allocation
+                        const qCreateAllocation = `
+                          INSERT INTO superuser_hour_allocations 
+                          (user_id, facility_id, supervisor_id, total_hours_allocated, hours_remaining, base_price_paid) 
+                          VALUES (?, ?, ?, ?, ?, ?)
+                        `;
+                        connection.query(qCreateAllocation, [
+                          targetUserId, 
+                          request.facility_id, 
+                          supId, 
+                          baseHours, 
+                          baseHours, 
+                          basePrice
+                        ], (e8) => {
+                          if (e8) {
+                            return connection.rollback(() => {
+                              connection.release();
+                              res.status(500).json({ message: 'Failed to create hour allocation' });
+                            });
+                          }
+                          
+                          // Commit the transaction
+                          connection.commit((e9) => {
+                            if (e9) {
+                              connection.rollback(() => {
+                                connection.release();
+                                res.status(500).json({ message: 'Server error' });
+                              });
+                              return;
+                            }
+                            
+                            connection.release();
+                            return res.json({ 
+                              success: true, 
+                              message: `Superuser approved for ${request.full_name} (${request.facility_name}). ₹${basePrice} deducted from wallet, ${baseHours} hours allocated.` 
+                            });
+                          });
+                        });
+                      }
+                    );
+                  });
                 });
               });
             });
@@ -7530,20 +7992,68 @@ app.post('/api/supervisor/remove-superuser/:userId', authenticateToken, (req, re
 
       const user = rows[0];
       
-      // Remove superuser status and clear facility assignment so user can request again
-      const qUpdate = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
-      db.query(qUpdate, [targetUserId], (e3) => {
-        if (e3) return res.status(500).json({ message: 'Failed to remove superuser status' });
+      // Get a connection from the pool for transaction
+      db.getConnection((e3, connection) => {
+        if (e3) return res.status(500).json({ message: 'Server error' });
         
-        // Also mark any existing requests as cancelled
-        const qUpdateRequests = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = ? WHERE user_id = ? AND status IN ("pending", "approved")';
-        db.query(qUpdateRequests, [supId, targetUserId], (e4) => {
+        // Start transaction
+        connection.beginTransaction((e4) => {
           if (e4) {
-            console.error('Failed to update superuser requests:', e4);
+            connection.release();
+            return res.status(500).json({ message: 'Server error' });
           }
-          return res.json({ 
-            success: true, 
-            message: `Superuser status removed for ${user.full_name} (${user.facility_name})` 
+          
+          // Remove superuser status and clear facility assignment
+          const qUpdate = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
+          connection.query(qUpdate, [targetUserId], (e5) => {
+            if (e5) {
+              return connection.rollback(() => {
+                connection.release();
+                res.status(500).json({ message: 'Failed to remove superuser status' });
+              });
+            }
+            
+            // Mark any existing requests as cancelled
+            const qUpdateRequests = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = ? WHERE user_id = ? AND status IN ("pending", "approved")';
+            connection.query(qUpdateRequests, [supId, targetUserId], (e6) => {
+              if (e6) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json({ message: 'Failed to update superuser requests' });
+                });
+              }
+              
+              // Delete hour allocation records for this user and supervisor
+              const qDeleteAllocation = `
+                DELETE FROM superuser_hour_allocations 
+                WHERE user_id = ? AND supervisor_id = ?
+              `;
+              connection.query(qDeleteAllocation, [targetUserId, supId], (e7) => {
+                if (e7) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json({ message: 'Failed to delete hour allocation' });
+                  });
+                }
+                
+                // Commit the transaction
+                connection.commit((e8) => {
+                  if (e8) {
+                    connection.rollback(() => {
+                      connection.release();
+                      res.status(500).json({ message: 'Server error' });
+                    });
+                    return;
+                  }
+                  
+                  connection.release();
+                  return res.json({ 
+                    success: true, 
+                    message: `Superuser status removed for ${user.full_name} (${user.facility_name}). Hour allocation deleted.` 
+                  });
+                });
+              });
+            });
           });
         });
       });
@@ -7664,25 +8174,315 @@ app.post('/api/admin/revoke-superuser/:userId', authenticateToken, (req, res) =>
 
       const user = rows[0];
       
-      // Revoke superuser status and clear facility assignment so user can request again
-      const qUpdate = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
-      db.query(qUpdate, [targetUserId], (e3) => {
-        if (e3) return res.status(500).json({ message: 'Failed to revoke superuser status' });
+      // Get a connection from the pool for transaction
+      db.getConnection((e3, connection) => {
+        if (e3) return res.status(500).json({ message: 'Server error' });
         
-        // Also mark any existing requests as cancelled
-        const qUpdateRequests = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = NULL WHERE user_id = ? AND status IN ("pending", "approved")';
-        db.query(qUpdateRequests, [targetUserId], (e4) => {
+        // Start transaction
+        connection.beginTransaction((e4) => {
           if (e4) {
-            console.error('Failed to update superuser requests:', e4);
+            connection.release();
+            return res.status(500).json({ message: 'Server error' });
           }
-          return res.json({ 
-            success: true, 
-            message: `Superuser status revoked for ${user.full_name} (${user.facility_name})` 
+          
+          // Revoke superuser status and clear facility assignment
+          const qUpdate = 'UPDATE InternalUsers SET isSuperUser = "N", super_facility = NULL WHERE user_id = ?';
+          connection.query(qUpdate, [targetUserId], (e5) => {
+            if (e5) {
+              return connection.rollback(() => {
+                connection.release();
+                res.status(500).json({ message: 'Failed to revoke superuser status' });
+              });
+            }
+            
+            // Mark any existing requests as cancelled
+            const qUpdateRequests = 'UPDATE superuser_requests SET status = "cancelled", processed_at = NOW(), processed_by = NULL WHERE user_id = ? AND status IN ("pending", "approved")';
+            connection.query(qUpdateRequests, [targetUserId], (e6) => {
+              if (e6) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json({ message: 'Failed to update superuser requests' });
+                });
+              }
+              
+              // Delete all hour allocation records for this user
+              const qDeleteAllocation = `
+                DELETE FROM superuser_hour_allocations 
+                WHERE user_id = ?
+              `;
+              connection.query(qDeleteAllocation, [targetUserId], (e7) => {
+                if (e7) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json({ message: 'Failed to delete hour allocation' });
+                  });
+                }
+                
+                // Commit the transaction
+                connection.commit((e8) => {
+                  if (e8) {
+                    connection.rollback(() => {
+                      connection.release();
+                      res.status(500).json({ message: 'Server error' });
+                    });
+                    return;
+                  }
+                  
+                  connection.release();
+                  return res.json({ 
+                    success: true, 
+                    message: `Superuser status revoked for ${user.full_name} (${user.facility_name}). Hour allocation deleted.` 
+                  });
+                });
+              });
+            });
           });
         });
       });
     });
   });
 });
+
+// Cancel booking with refunds
+app.post('/api/booking/cancel/:bookingId', authenticateToken, (req, res) => {
+  const bookingId = req.params.bookingId;
+  const userId = req.user && req.user.userId;
+  const userType = req.user && req.user.userType;
+  
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  // Get a connection from the pool for transaction
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Error getting database connection:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+
+    // Start transaction
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        return res.status(500).json({ message: 'Server error' });
+      }
+
+      // First, get the booking details
+      const getBookingQuery = `
+        SELECT 
+          bh.booking_id,
+          bh.user_id,
+          bh.facility_id,
+          bh.booking_date,
+          bh.cost,
+          bh.status,
+          bh.user_type,
+          f.name as facility_name,
+          u.full_name as user_name,
+          u.email as user_email
+        FROM BookingHistory bh
+        JOIN Facilities f ON bh.facility_id = f.id
+        JOIN Users u ON bh.user_id = u.user_id
+        WHERE bh.booking_id = ? AND bh.user_id = ?
+      `;
+
+      connection.query(getBookingQuery, [bookingId, userId], (err, bookingResults) => {
+        if (err) {
+          return connection.rollback(() => {
+            connection.release();
+            res.status(500).json({ message: 'Server error' });
+          });
+        }
+
+        if (!bookingResults.length) {
+          return connection.rollback(() => {
+            connection.release();
+            res.status(404).json({ message: 'Booking not found' });
+          });
+        }
+
+        const booking = bookingResults[0];
+
+        // Check if booking is approved
+        if (booking.status !== 'Approved') {
+          return connection.rollback(() => {
+            connection.release();
+            res.status(400).json({ message: 'Only approved bookings can be cancelled' });
+          });
+        }
+
+        // Check 24-hour time limit
+        const bookingDate = new Date(booking.booking_date);
+        const now = new Date();
+        const timeDiff = bookingDate.getTime() - now.getTime();
+        const hoursDiff = timeDiff / (1000 * 3600);
+
+        if (hoursDiff <= 0 || hoursDiff > 24) {
+          return connection.rollback(() => {
+            connection.release();
+            res.status(400).json({ message: 'Booking can only be cancelled within 24 hours of the booking date' });
+          });
+        }
+
+        // Update booking status to cancelled
+        const updateBookingQuery = 'UPDATE BookingHistory SET status = "Cancelled" WHERE booking_id = ?';
+        connection.query(updateBookingQuery, [bookingId], (err) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: 'Failed to cancel booking' });
+            });
+          }
+
+          // Handle refunds based on user type
+          if (userType === 'Internal') {
+            // For internal users, check if it's a superuser booking first
+            handleSuperuserRefund(connection, booking, (superuserErr) => {
+              if (superuserErr) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json({ message: 'Failed to process superuser refund' });
+                });
+              }
+
+              // Then handle regular internal user refund
+              handleInternalUserRefund(connection, booking, (refundErr) => {
+                if (refundErr) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json({ message: 'Failed to process refund' });
+                  });
+                }
+                
+                // Commit transaction
+                connection.commit((commitErr) => {
+                  if (commitErr) {
+                    connection.rollback(() => {
+                      connection.release();
+                      res.status(500).json({ message: 'Server error' });
+                    });
+                    return;
+                  }
+                  
+                  connection.release();
+                  res.json({ 
+                    success: true, 
+                    message: 'Booking cancelled successfully. Refunds have been processed (money to supervisor wallet, hours to your allocation).' 
+                  });
+                });
+              });
+            });
+          } else {
+            // For external users, no refund needed (they paid directly)
+            connection.commit((commitErr) => {
+              if (commitErr) {
+                connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json({ message: 'Server error' });
+                });
+                return;
+              }
+              
+              connection.release();
+              res.json({ 
+                success: true, 
+                message: 'Booking cancelled successfully.' 
+              });
+            });
+          }
+        });
+      });
+    });
+  });
+});
+
+// Helper function to handle internal user refunds
+function handleInternalUserRefund(connection, booking, callback) {
+  // Get supervisor information
+  const supervisorQuery = `
+    SELECT s.id, s.email, s.name, s.wallet_balance
+    FROM InternalUsers iu
+    JOIN Supervisor s ON iu.supervisor_id = s.id
+    WHERE iu.user_id = ?
+  `;
+
+  connection.query(supervisorQuery, [booking.user_id], (err, supervisorResults) => {
+    if (err || !supervisorResults.length) {
+      return callback(new Error('Supervisor not found'));
+    }
+
+    const supervisor = supervisorResults[0];
+    const refundAmount = parseFloat(booking.cost);
+    const newBalance = parseFloat(supervisor.wallet_balance) + refundAmount;
+
+    // Update supervisor wallet
+    const updateWalletQuery = 'UPDATE Supervisor SET wallet_balance = ? WHERE id = ?';
+    connection.query(updateWalletQuery, [newBalance, supervisor.id], (err) => {
+      if (err) {
+        return callback(err);
+      }
+
+      // Record transaction
+      const transactionDescription = `Booking cancellation refund for ${booking.user_name} - ${booking.facility_name}`;
+      recordSupervisorTransaction(
+        supervisor.id,
+        'BOOKING_REFUND',
+        refundAmount, // Positive amount for refund
+        newBalance,
+        transactionDescription,
+        booking.booking_id,
+        booking.facility_name,
+        booking.user_name,
+        null, // No admin_email
+        connection,
+        (transactionErr, transactionId) => {
+          if (transactionErr) {
+            return callback(transactionErr);
+          }
+          callback(null);
+        }
+      );
+    });
+  });
+}
+
+// Helper function to handle superuser refunds (hours)
+function handleSuperuserRefund(connection, booking, callback) {
+  // Check if this was a superuser booking
+  const superuserQuery = `
+    SELECT sha.id, sha.hours_remaining, sha.total_hours_allocated
+    FROM superuser_hour_allocations sha
+    WHERE sha.user_id = ? AND sha.facility_id = ? AND sha.is_active = TRUE
+  `;
+
+  connection.query(superuserQuery, [booking.user_id, booking.facility_id], (err, results) => {
+    if (err || !results.length) {
+      // Not a superuser booking, no hours to refund
+      return callback(null);
+    }
+
+    const allocation = results[0];
+    const hoursToRefund = calculateBookingHours(booking.schedule_ids || booking.schedule_id, booking.facility_id);
+    const newHoursRemaining = allocation.hours_remaining + hoursToRefund;
+
+    // Update hours remaining
+    const updateHoursQuery = 'UPDATE superuser_hour_allocations SET hours_remaining = ? WHERE id = ?';
+    connection.query(updateHoursQuery, [newHoursRemaining, allocation.id], (err) => {
+      if (err) {
+        return callback(err);
+      }
+
+      // Record hour usage (negative for refund)
+      const usageQuery = `
+        INSERT INTO superuser_hour_usage (allocation_id, booking_id, hours_used, booking_date, used_at)
+        VALUES (?, ?, ?, NOW(), NOW())
+      `;
+      connection.query(usageQuery, [allocation.id, booking.booking_id, -hoursToRefund, booking.booking_date], (err) => {
+        if (err) {
+          return callback(err);
+        }
+        callback(null);
+      });
+    });
+  });
+}
 
 // End of server configuration

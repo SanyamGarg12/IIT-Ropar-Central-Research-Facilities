@@ -25,6 +25,7 @@ const groupedAdminLinks = [
       { to: "/admin/adminManageBooking", text: "Manage Bookings", icon: <FaCalendarCheck /> },
       { to: "/admin/manage-slots", text: "Manage Facility Slots", icon: <FaCalendarCheck /> },
       { to: "/admin/facility-limits", text: "Manage Booking Limits", icon: <FaWallet /> },
+      // { to: "/admin/facility-base-prices", text: "Manage Facility Base Prices", icon: <FaWallet /> },
       { to: "/admin/qr-code", text: "Manage QR Code", icon: <FaQrcode /> },
     ],
   },

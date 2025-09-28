@@ -1888,7 +1888,7 @@ CREATE TABLE Supervisor (
 CREATE TABLE SupervisorTransactions (
     transaction_id INT AUTO_INCREMENT PRIMARY KEY,
     supervisor_id INT NOT NULL,
-    transaction_type ENUM('TOP_UP', 'BOOKING_APPROVAL', 'BOOKING_REFUND', 'SUPERUSER_BOOKING', 'SUPERUSER_REFUND') NOT NULL,
+    transaction_type ENUM('TOP_UP', 'BOOKING_APPROVAL', 'BOOKING_REFUND', 'SUPERUSER_BOOKING', 'SUPERUSER_ACTIVATION', 'SUPERUSER_REFUND') NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     balance_after DECIMAL(10,2) NOT NULL,
     description TEXT,
@@ -2462,3 +2462,52 @@ CREATE TABLE IF NOT EXISTS superuser_requests (
 -- Add index for better performance
 CREATE INDEX idx_superuser_requests_user ON superuser_requests(user_id);
 CREATE INDEX idx_superuser_requests_status ON superuser_requests(status);
+
+-- Create facility base prices table for superuser activation
+CREATE TABLE facility_base_prices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    base_price DECIMAL(10,2) NOT NULL COMMENT 'Price to be deducted from supervisor wallet for superuser activation',
+    base_hours INT NOT NULL COMMENT 'Hours allocated to superuser upon activation',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_facility_base_price (facility_id)
+);
+
+-- Create superuser hour allocations table
+CREATE TABLE superuser_hour_allocations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    facility_id INT NOT NULL,
+    supervisor_id INT NOT NULL,
+    total_hours_allocated INT NOT NULL COMMENT 'Total hours allocated when superuser was activated',
+    hours_remaining INT NOT NULL COMMENT 'Hours remaining for use',
+    base_price_paid DECIMAL(10,2) NOT NULL COMMENT 'Base price paid by supervisor',
+    activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deactivated_at TIMESTAMP NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (facility_id) REFERENCES Facilities(id) ON DELETE CASCADE,
+    FOREIGN KEY (supervisor_id) REFERENCES Supervisor(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_facility_allocation (user_id, facility_id)
+);
+
+-- Create superuser hour usage tracking table
+CREATE TABLE superuser_hour_usage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    allocation_id INT NOT NULL,
+    booking_id INT NOT NULL,
+    hours_used DECIMAL(5,2) NOT NULL COMMENT 'Hours deducted for this booking',
+    booking_date DATE NOT NULL,
+    used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (allocation_id) REFERENCES superuser_hour_allocations(id) ON DELETE CASCADE,
+    FOREIGN KEY (booking_id) REFERENCES BookingHistory(booking_id) ON DELETE CASCADE
+);
+
+-- Add indexes for better performance
+CREATE INDEX idx_superuser_allocations_user ON superuser_hour_allocations(user_id);
+CREATE INDEX idx_superuser_allocations_facility ON superuser_hour_allocations(facility_id);
+CREATE INDEX idx_superuser_allocations_supervisor ON superuser_hour_allocations(supervisor_id);
+CREATE INDEX idx_superuser_allocations_active ON superuser_hour_allocations(is_active);
+CREATE INDEX idx_superuser_usage_allocation ON superuser_hour_usage(allocation_id);

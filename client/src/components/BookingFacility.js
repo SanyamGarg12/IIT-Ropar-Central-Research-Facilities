@@ -57,6 +57,7 @@ function BookingFacility({ authToken }) {
   const [utrNumber, setUtrNumber] = useState("");
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split("T")[0]);
   const [superuserStatus, setSuperuserStatus] = useState(null);
+  const [superuserHours, setSuperuserHours] = useState([]);
   const [showSuperuserModal, setShowSuperuserModal] = useState(false);
 
   const isWithin24Hours = useCallback((selectedDate, startTime) => {
@@ -402,6 +403,7 @@ function BookingFacility({ authToken }) {
         const decoded = jwtDecode(authToken);
         if (decoded.userType === 'Internal') {
           fetchSuperuserStatus();
+          fetchSuperuserHours();
         }
       } catch (error) {
         console.error('Error decoding token:', error);
@@ -423,8 +425,42 @@ function BookingFacility({ authToken }) {
     }
   };
 
+  const fetchSuperuserHours = async () => {
+    try {
+      console.log('Fetching superuser hours...');
+      console.log('Auth token:', authToken ? 'Present' : 'Missing');
+      
+      // Get token from localStorage if authToken prop is not available
+      const token = authToken || localStorage.getItem('authToken');
+      console.log('Using token:', token ? 'Present' : 'Missing');
+      
+      if (!token) {
+        console.error('No authentication token available');
+        return;
+      }
+      
+      const response = await fetch(`${API_BASED_URL}api/user/superuser-hours`, {
+        headers: { Authorization: token }
+      });
+      console.log('Superuser hours response status:', response.status);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Superuser hours data:', data);
+        setSuperuserHours(data);
+      } else {
+        console.error('Failed to fetch superuser hours:', response.status);
+        if (response.status === 401) {
+          console.error('Authentication failed - token may be expired or invalid');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching superuser hours:', error);
+    }
+  };
+
   const handleSuperuserSuccess = () => {
     fetchSuperuserStatus();
+    fetchSuperuserHours();
   };
 
   const handleFetchSlots = () => {
@@ -719,14 +755,52 @@ function BookingFacility({ authToken }) {
                           {superuserStatus ? (
                             <div className="space-y-3">
                               {superuserStatus.status === 'active' ? (
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="text-green-700 font-medium">✓ You are a Superuser</p>
-                                    <p className="text-sm text-blue-600">Facility: {superuserStatus.facilityName}</p>
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-green-700 font-medium">✓ You are a Superuser</p>
+                                      <p className="text-sm text-blue-600">Facility: {superuserStatus.facilityName}</p>
+                                    </div>
+                                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                                      Active Superuser
+                                    </span>
                                   </div>
-                                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                                    Active Superuser
-                                  </span>
+                                  
+                                  {/* Display remaining hours for current facility */}
+                                  {console.log('Debug - superuserHours:', superuserHours, 'facilityId:', facilityId)}
+                                  <div className="bg-white rounded-lg p-4 border border-blue-200">
+                                    <h4 className="text-sm font-semibold text-blue-800 mb-2 flex items-center">
+                                      <Clock className="w-4 h-4 mr-2" />
+                                      Remaining Hours
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {superuserHours.length > 0 ? (
+                                        superuserHours
+                                          .filter(hour => hour.facility_id == facilityId)
+                                          .map((hour, index) => (
+                                            <div key={index} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                                              <div>
+                                                <p className="text-sm font-medium text-gray-800">{hour.facility_name}</p>
+                                                <p className="text-xs text-gray-600">
+                                                  Allocated: {hour.total_hours_allocated} hours
+                                                </p>
+                                              </div>
+                                              <div className="text-right">
+                                                <p className="text-lg font-bold text-blue-600">
+                                                  {hour.hours_remaining}
+                                                </p>
+                                                <p className="text-xs text-gray-500">hours left</p>
+                                              </div>
+                                            </div>
+                                          ))
+                                      ) : (
+                                        <p className="text-sm text-gray-500 italic">Loading hours...</p>
+                                      )}
+                                      {superuserHours.length > 0 && superuserHours.filter(hour => hour.facility_id == facilityId).length === 0 && (
+                                        <p className="text-sm text-gray-500 italic">No hour allocation found for this facility</p>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               ) : superuserStatus.status === 'pending' ? (
                                 <div className="flex items-center justify-between">

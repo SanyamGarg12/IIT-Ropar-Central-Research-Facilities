@@ -77,6 +77,7 @@ const SupervisorTransactionHistory = () => {
         return <FaArrowUp className="text-green-600" />;
       case 'BOOKING_APPROVAL':
       case 'SUPERUSER_BOOKING':
+      case 'SUPERUSER_ACTIVATION':
         return <FaArrowDown className="text-red-600" />;
       case 'BOOKING_REFUND':
       case 'SUPERUSER_REFUND':
@@ -96,6 +97,8 @@ const SupervisorTransactionHistory = () => {
         return 'Booking Refund';
       case 'SUPERUSER_BOOKING':
         return 'Superuser Booking';
+      case 'SUPERUSER_ACTIVATION':
+        return 'Superuser Activation';
       case 'SUPERUSER_REFUND':
         return 'Superuser Refund';
       default:
@@ -196,6 +199,7 @@ const SupervisorTransactionHistory = () => {
             <option value="BOOKING_APPROVAL">Booking Approvals</option>
             <option value="BOOKING_REFUND">Booking Refunds</option>
             <option value="SUPERUSER_BOOKING">Superuser Bookings</option>
+            <option value="SUPERUSER_ACTIVATION">Superuser Activations</option>
             <option value="SUPERUSER_REFUND">Superuser Refunds</option>
           </select>
 

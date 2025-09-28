@@ -45,6 +45,8 @@ const ManageFacilities = () => {
     specifications: "",
     usage_details: "",
     category_id: "",
+    superuser_base_price: "",
+    superuser_base_hours: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -242,6 +244,8 @@ const ManageFacilities = () => {
       specifications: facility.specifications || "",
       usage_details: facility.usage_details || "",
       category_id: facility.category_id || "",
+      superuser_base_price: facility.superuser_base_price || "",
+      superuser_base_hours: facility.superuser_base_hours || "",
     });
     setImagePreview(facility.image_url ? getImageUrl(facility.image_url) : null);
     setSelectedPublications(facility.publications?.map(p => p.id) || []);
@@ -265,6 +269,8 @@ const ManageFacilities = () => {
       specifications: "",
       usage_details: "",
       category_id: "",
+      superuser_base_price: "",
+      superuser_base_hours: "",
     });
     setImageFile(null);
     setImagePreview(null);
@@ -459,6 +465,52 @@ const ManageFacilities = () => {
               </option>
             ))}
           </select>
+          
+          {/* SuperUser Configuration Section */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <h4 className="text-lg font-semibold mb-3 text-blue-800">SuperUser Configuration</h4>
+            <p className="text-sm text-blue-600 mb-4">
+              Configure the base price and hours for superuser activation. When a supervisor approves a superuser request, 
+              this amount will be deducted from their wallet and the specified hours will be allocated to the superuser.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  SuperUser Base Price (₹) *
+                </label>
+                <input
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  type="number"
+                  placeholder="Enter base price for superuser activation"
+                  name="superuser_base_price"
+                  value={formData.superuser_base_price}
+                  onChange={handleInputChange}
+                  min="1"
+                  step="0.01"
+                  required
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-gray-500 mt-1">Amount to be deducted from supervisor wallet</p>
+              </div>
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  SuperUser Base Hours *
+                </label>
+                <input
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  type="number"
+                  placeholder="Enter hours to allocate to superuser"
+                  name="superuser_base_hours"
+                  value={formData.superuser_base_hours}
+                  onChange={handleInputChange}
+                  min="1"
+                  required
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-gray-500 mt-1">Hours allocated to superuser upon activation</p>
+              </div>
+            </div>
+          </div>
           <div className="space-y-2">
             <label className="block text-gray-700 text-sm font-bold mb-2">
               Facility Image
@@ -561,6 +613,13 @@ const ManageFacilities = () => {
                   <div>
                     <span className="text-lg font-medium text-gray-900">{escapeHtml(facility.name || 'Unnamed Facility')}</span>
                     <p className="text-sm text-gray-500">{escapeHtml(facility.category_name || 'No Category')}</p>
+                    {facility.superuser_base_price && facility.superuser_base_hours && (
+                      <div className="mt-1">
+                        <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                          SuperUser: ₹{facility.superuser_base_price} for {facility.superuser_base_hours} hours
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>

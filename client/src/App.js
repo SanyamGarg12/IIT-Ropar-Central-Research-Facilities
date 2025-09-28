@@ -48,6 +48,7 @@ import SupervisorManageSuperusers from "./components/SupervisorManageSuperusers"
 import SupervisorPendingSuperusers from "./components/SupervisorPendingSuperusers";
 import SupervisorTransactionHistory from "./components/SupervisorTransactionHistory";
 import AdminManageFacilityLimits from "./components/AdminManageFacilityLimits";
+import AdminManageFacilityBasePrices from "./components/AdminManageFacilityBasePrices";
 import FacilityPlanner from "./components/FacilityPlanner";
 
 const App = () => {
@@ -290,6 +291,11 @@ const App = () => {
                       <Route path="/facility-limits" element={
                         <AdminProtectedRoute>
                           <AdminManageFacilityLimits />
+                        </AdminProtectedRoute>
+                      } />
+                      <Route path="/facility-base-prices" element={
+                        <AdminProtectedRoute>
+                          <AdminManageFacilityBasePrices />
                         </AdminProtectedRoute>
                       } />
                       <Route path="/supervisors" element={

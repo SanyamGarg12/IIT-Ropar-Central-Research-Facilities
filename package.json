@@ -1,0 +1,25 @@
+{
+  "name": "iit-ropar-crf",
+  "version": "1.0.0",
+  "description": "IIT Ropar Central Research Facilities Management System",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm start",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "serve": "concurrently \"npm run server\" \"cd client && serve -s build\"",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "iit",
+    "ropar",
+    "research",
+    "facilities",
+    "management"
+  ],
+  "author": "IIT Ropar",
+  "license": "MIT"
+}

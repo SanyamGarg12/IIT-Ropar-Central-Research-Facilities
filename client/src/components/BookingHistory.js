@@ -14,6 +14,7 @@ export default function BookingHistory() {
   const [loadingResults, setLoadingResults] = useState({})
   const [downloadingId, setDownloadingId] = useState(null);
   const [downloadingReceiptId, setDownloadingReceiptId] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
 
   const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
   const userId = authToken ? jwtDecode(authToken).userId : null
@@ -173,6 +174,42 @@ export default function BookingHistory() {
     }
   }
 
+  // Check if booking can be cancelled (within 24 hours)
+  const canCancelBooking = (booking) => {
+    const bookingDate = new Date(booking.booking_date);
+    const now = new Date();
+    const timeDiff = bookingDate.getTime() - now.getTime();
+    const hoursDiff = timeDiff / (1000 * 3600);
+    return hoursDiff > 0 && hoursDiff <= 24;
+  };
+
+  // Handle booking cancellation
+  const handleCancelBooking = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setCancellingId(bookingId);
+      const response = await axios.post(`${API_BASED_URL}api/booking/cancel/${bookingId}`, {}, {
+        headers: { Authorization: `${authToken}` },
+      });
+
+      if (response.data.success) {
+        alert('Booking cancelled successfully. Refunds have been processed.');
+        // Refresh the booking history
+        fetchBookingHistory();
+      } else {
+        alert('Failed to cancel booking: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      alert('Error cancelling booking. Please try again.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const toggleExpand = (bookingId) => {
     if (expandedBooking === bookingId) {
       setExpandedBooking(null)
@@ -237,6 +274,9 @@ export default function BookingHistory() {
               isDownloading={downloadingId === booking.booking_id}
               isDownloadingReceipt={downloadingReceiptId === booking.booking_id}
               isInternalUser={isInternalUser}
+              canCancelBooking={canCancelBooking}
+              handleCancelBooking={handleCancelBooking}
+              isCancelling={cancellingId === booking.booking_id}
             />
           ))}
         </div>
@@ -289,7 +329,10 @@ function BookingCard({
   downloadReceipt,
   isDownloading,
   isDownloadingReceipt,
-  isInternalUser
+  isInternalUser,
+  canCancelBooking,
+  handleCancelBooking,
+  isCancelling
 }) {
   // Format date properly
   const formattedDate = new Date(booking.booking_date).toLocaleDateString(undefined, {
@@ -545,6 +588,27 @@ function BookingCard({
               </>
             )}
           </button>
+          
+          {/* Cancel Button - Only for approved bookings within 24 hours */}
+          {booking.status === 'Approved' && canCancelBooking(booking) && (
+            <button
+              onClick={() => handleCancelBooking(booking.booking_id)}
+              disabled={isCancelling}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCancelling ? (
+                <>
+                  <Loader className="w-4 h-4 mr-1 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4 mr-1" />
+                  Cancel Booking
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         <AnimatePresence>
