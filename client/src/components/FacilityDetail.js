@@ -105,7 +105,7 @@ export default function FacilityDetail() {
       animate="animate"
       className="min-h-screen bg-gray-50"
     >
-      <div className="container mx-auto px-4 py-12 max-w-5xl">
+      <div className="container mx-auto px-6 lg:px-10 py-12 max-w-7xl">
         <motion.header className="mb-12 text-center" {...fadeInUp}>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">{facility.name}</h1>
           <p className="text-xl text-gray-600">{facility.category_name}</p>
@@ -192,7 +192,7 @@ export default function FacilityDetail() {
           </Card>
         </motion.div>
 
-        <motion.div className="grid md:grid-cols-2 gap-8 mb-12" {...fadeInUp}>
+        <motion.div className="space-y-8 mb-12" {...fadeInUp}>
           <Card>
             <CardHeader>
               <CardTitle>Description</CardTitle>

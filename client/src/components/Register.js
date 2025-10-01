@@ -126,9 +126,10 @@ const Register = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    // Allow spaces while typing; sanitize later on submit
     setFormData(prev => ({
       ...prev,
-      [name]: sanitizeInput(value)
+      [name]: value
     }));
 
     if (name === 'email') {
@@ -360,8 +361,15 @@ const Register = () => {
     try {
       setIsLoading(true);
 
+      // Sanitize just before sending to preserve UX while typing
       const registrationData = {
-        ...formData
+        ...formData,
+        fullName: sanitizeInput(formData.fullName),
+        email: sanitizeInput(formData.email).toLowerCase(),
+        organizationName: sanitizeInput(formData.organizationName),
+        department: sanitizeInput(formData.department),
+        supervisor: formData.supervisor,
+        contactNumber: sanitizeInput(formData.contactNumber)
       };
 
       const response = await secureFetch(`${API_BASED_URL}api/register`, {
@@ -404,24 +412,53 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-2xl mx-auto"
-      >
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="px-8 py-6 bg-gradient-to-r from-[#003B4C] to-[#00B6BD]">
-            <h2 className="text-3xl font-bold text-white text-center">Create Your Account</h2>
-            <p className="mt-2 text-center text-gray-100">Join our research facility community</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-40" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e0f2fe' fill-opacity='0.3'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+      }}></div>
+      
+      <div className="relative py-8 px-4 sm:px-6 lg:px-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-4xl mx-auto"
+        >
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-[#1a3365] to-[#3b82f6] rounded-full mb-4 shadow-lg"
+            >
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </motion.div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Join IIT Ropar CRF</h1>
+            <p className="text-lg text-gray-600">Create your account to access our research facilities</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-6" noValidate>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-8 py-6 bg-gradient-to-r from-[#1a3365] to-[#3b82f6]">
+              <h2 className="text-2xl font-bold text-white text-center">Registration Form</h2>
+              <p className="mt-1 text-center text-blue-100">Fill in your details below</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-6" noValidate>
+            {/* Personal Information Section */}
+            <div className="bg-gray-50 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg className="w-5 h-5 text-[#3b82f6] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Personal Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Full Name</label>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                   <input
                     type="text"
                     id="fullName"
@@ -431,59 +468,70 @@ const Register = () => {
                     required
                     disabled={!!lockoutTime}
                     autoComplete="name"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                    placeholder="Enter your full name"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      disabled={!!lockoutTime}
-                      autoComplete="email"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
-                    />
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    disabled={!!lockoutTime}
+                    autoComplete="email"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                    placeholder="Enter your email address"
+                  />
+                  
+                  {/* OTP Section */}
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        disabled={otpSending || otpCooldownMs > 0 || !validateEmail(formData.email)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 ${otpSending || otpCooldownMs > 0 || !validateEmail(formData.email) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#2B4B8C] hover:bg-[#3b82f6] shadow-md hover:shadow-lg'}`}
+                      >
+                        {otpSending ? 'Sending...' : otpCooldownMs > 0 ? `Resend in ${Math.ceil(otpCooldownMs/1000)}s` : 'Send OTP'}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="Enter 6-digit OTP"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0,6))}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleVerifyOtp}
+                        disabled={otpVerifying || otp.length !== 6}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 ${otpVerifying || otp.length !== 6 ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg'}`}
+                      >
+                        {otpVerifying ? 'Verifying...' : 'Verify'}
+                      </button>
+                    </div>
+                    {emailVerified && (
+                      <div className="flex items-center text-green-600 text-sm">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Email verified successfully
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSendOtp}
-                      disabled={otpSending || otpCooldownMs > 0 || !validateEmail(formData.email)}
-                      className={`shrink-0 px-2 py-1 rounded-md text-xs sm:text-sm font-medium text-white ${otpSending || otpCooldownMs > 0 || !validateEmail(formData.email) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#003B4C] hover:bg-[#00B6BD]'} transition-colors`}
-                    >
-                      {otpSending ? 'Sending...' : otpCooldownMs > 0 ? `Resend in ${Math.ceil(otpCooldownMs/1000)}s` : 'Send OTP'}
-                    </button>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder="Enter 6-digit OTP"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0,6))}
-                      className="w-full sm:flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors px-3 py-2"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleVerifyOtp}
-                      disabled={otpVerifying || otp.length !== 6}
-                      className={`shrink-0 px-2 py-1 rounded-md text-xs sm:text-sm font-medium text-white ${otpVerifying || otp.length !== 6 ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} transition-colors`}
-                    >
-                      {otpVerifying ? 'Verifying...' : 'Verify'}
-                    </button>
-                  </div>
-                  {emailVerified && (
-                    <p className="text-green-600 text-sm mt-1">Email verified</p>
-                  )}
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                   <input
                     type="password"
                     id="password"
@@ -493,15 +541,21 @@ const Register = () => {
                     required
                     disabled={!!lockoutTime}
                     autoComplete="new-password"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                    placeholder="Create a strong password"
                   />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Must include uppercase, lowercase, number, and special character
-                  </p>
+                  <div className="mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-sm text-amber-800 font-medium mb-1">Password Requirements:</p>
+                    <ul className="text-xs text-amber-700 space-y-1">
+                      <li>• At least 8 characters long</li>
+                      <li>• Include uppercase and lowercase letters</li>
+                      <li>• Include numbers and special characters</li>
+                    </ul>
+                  </div>
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                   <input
                     type="password"
                     id="confirmPassword"
@@ -511,21 +565,31 @@ const Register = () => {
                     required
                     disabled={!!lockoutTime}
                     autoComplete="new-password"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                    placeholder="Confirm your password"
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-4">
+            {/* Account Information Section */}
+            <div className="bg-gray-50 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg className="w-5 h-5 text-[#3b82f6] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Account Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="userType" className="block text-sm font-medium text-gray-700">User Type</label>
+                  <label htmlFor="userType" className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
                   <select
                     id="userType"
                     name="userType"
                     value={formData.userType}
                     onChange={handleInputChange}
                     required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
                   >
                     <option value="">Select User Type</option>
                     <option value="Internal">Internal</option>
@@ -535,7 +599,7 @@ const Register = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700">Contact Number</label>
+                  <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-2">Contact Number</label>
                   <input
                     type="tel"
                     id="contactNumber"
@@ -544,12 +608,13 @@ const Register = () => {
                     onChange={handleInputChange}
                     disabled={!!lockoutTime}
                     autoComplete="tel"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                    placeholder="Enter your contact number"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700">Organization Name</label>
+                  <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 mb-2">Organization Name</label>
                   <input
                     type="text"
                     id="organizationName"
@@ -558,14 +623,15 @@ const Register = () => {
                     onChange={handleInputChange}
                     disabled={!!lockoutTime}
                     autoComplete="organization"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
+                    placeholder="Enter your organization name"
                   />
                 </div>
 
                 {formData.userType === "Internal" && (
                   <>
                     <div>
-                      <label htmlFor="department" className="block text-sm font-medium text-gray-700">Department</label>
+                      <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">Department</label>
                       <select
                         id="department"
                         name="department"
@@ -573,7 +639,7 @@ const Register = () => {
                         onChange={handleInputChange}
                         required
                         disabled={!!lockoutTime}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
                       >
                         <option value="">Select department</option>
                         {departments.map((dept, index) => (
@@ -583,7 +649,7 @@ const Register = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="supervisor" className="block text-sm font-medium text-gray-700">Supervisor</label>
+                      <label htmlFor="supervisor" className="block text-sm font-medium text-gray-700 mb-2">Supervisor</label>
                       <select
                         id="supervisor"
                         name="supervisor"
@@ -591,7 +657,7 @@ const Register = () => {
                         onChange={handleInputChange}
                         required
                         disabled={!!lockoutTime || !formData.department}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00B6BD] focus:ring-[#00B6BD] transition-colors duration-200"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-20 transition-all duration-200"
                       >
                         <option value="">Select supervisor</option>
                         {supervisors.map((sup) => (
@@ -604,30 +670,39 @@ const Register = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
+            {/* Document Upload Section */}
+            <div className="bg-gray-50 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg className="w-5 h-5 text-[#3b82f6] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Identity Verification
+              </h3>
               <div>
-                <label htmlFor="idProof" className="block text-sm font-medium text-gray-700">ID Proof</label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-[#00B6BD] transition-colors duration-200">
-                  <div className="space-y-1 text-center">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <div className="flex text-sm text-gray-600">
-                      <label htmlFor="idProof" className="relative cursor-pointer bg-white rounded-md font-medium text-[#00B6BD] hover:text-[#003B4C] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-[#00B6BD]">
-                        <span>Upload a file</span>
-                        <input
-                          type="file"
-                          id="idProof"
-                          name="idProof"
-                          onChange={handleFileChange}
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          disabled={!!lockoutTime}
-                          className="sr-only"
-                        />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
+                <label htmlFor="idProof" className="block text-sm font-medium text-gray-700 mb-3">Upload ID Proof Document</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#3b82f6] hover:bg-blue-50 transition-all duration-200">
+                  <div className="space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
                     </div>
-                    <p className="text-xs text-gray-500">PDF, JPG, PNG up to 5MB</p>
+                    <div>
+                      <label htmlFor="idProof" className="cursor-pointer">
+                        <span className="text-[#3b82f6] font-medium hover:text-[#2B4B8C] transition-colors">Click to upload</span>
+                        <span className="text-gray-600"> or drag and drop</span>
+                      </label>
+                      <input
+                        type="file"
+                        id="idProof"
+                        name="idProof"
+                        onChange={handleFileChange}
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        disabled={!!lockoutTime}
+                        className="sr-only"
+                      />
+                    </div>
+                    <p className="text-sm text-gray-500">PDF, JPG, PNG up to 5MB</p>
                   </div>
                 </div>
                 {uploadProgress > 0 && (
@@ -635,12 +710,12 @@ const Register = () => {
                     <div className="relative pt-1">
                       <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-200">
                         <div 
-                          className="transition-all duration-500 ease-out shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-[#00B6BD]"
+                          className="transition-all duration-500 ease-out shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-[#3b82f6]"
                           style={{ width: `${uploadProgress}%` }}
                         />
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-semibold inline-block text-[#00B6BD]">
+                        <span className="text-xs font-semibold inline-block text-[#3b82f6]">
                           {Math.round(uploadProgress)}%
                         </span>
                       </div>
@@ -692,28 +767,34 @@ const Register = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-end">
+            {/* Submit Button */}
+            <div className="flex items-center justify-center pt-6">
               <button
                 type="submit"
                 disabled={isLoading || !!lockoutTime || !emailVerified}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                className={`w-full max-w-md flex justify-center items-center py-4 px-8 border border-transparent rounded-xl shadow-lg text-lg font-semibold text-white transition-all duration-200 transform hover:scale-105 
                   ${isLoading || lockoutTime || !emailVerified
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-[#003B4C] hover:bg-[#00B6BD] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B6BD]'
-                  } transition-colors duration-200`}
+                    ? 'bg-gray-400 cursor-not-allowed transform-none' 
+                    : 'bg-gradient-to-r from-[#2B4B8C] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#60a5fa] focus:outline-none focus:ring-4 focus:ring-[#3b82f6] focus:ring-opacity-30'
+                  }`}
               >
                 {isLoading ? (
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                ) : null}
-                {isLoading ? "Registering..." : emailVerified ? "Register" : "Verify Email to Register"}
+                ) : (
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+                {isLoading ? "Creating Account..." : emailVerified ? "Create Account" : "Verify Email to Continue"}
               </button>
             </div>
           </form>
         </div>
       </motion.div>
+      </div>
     </div>
   );
 };

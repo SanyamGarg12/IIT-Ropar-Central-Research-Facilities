@@ -797,7 +797,7 @@ function BookingFacility({ authToken }) {
                                         <p className="text-sm text-gray-500 italic">Loading hours...</p>
                                       )}
                                       {superuserHours.length > 0 && superuserHours.filter(hour => hour.facility_id == facilityId).length === 0 && (
-                                        <p className="text-sm text-gray-500 italic">No hour allocation found for this facility</p>
+                                        <p className="text-sm text-gray-500 italic">No hour allocation found for selected facility</p>
                                       )}
                                     </div>
                                   </div>

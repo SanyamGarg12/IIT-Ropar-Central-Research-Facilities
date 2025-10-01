@@ -50,10 +50,31 @@ section {
 .rich-text-content ol {
   margin-left: 1.5rem;
   margin-bottom: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+.rich-text-content ul {
+  list-style-type: disc;
+}
+
+.rich-text-content ol {
+  list-style-type: decimal;
 }
 
 .rich-text-content li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  padding-left: 0.25rem;
+}
+
+.rich-text-content ul li {
+  list-style-type: disc;
+  margin-left: 0.5rem;
+}
+
+.rich-text-content ol li {
+  list-style-type: decimal;
+  margin-left: 0.5rem;
 }
 
 .rich-text-content a {
@@ -185,10 +206,31 @@ section {
 .rich-text-editor ol {
   margin-left: 1.5rem;
   margin-bottom: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+.rich-text-editor ul {
+  list-style-type: disc;
+}
+
+.rich-text-editor ol {
+  list-style-type: decimal;
 }
 
 .rich-text-editor li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  padding-left: 0.25rem;
+}
+
+.rich-text-editor ul li {
+  list-style-type: disc;
+  margin-left: 0.5rem;
+}
+
+.rich-text-editor ol li {
+  list-style-type: decimal;
+  margin-left: 0.5rem;
 }
 
 .rich-text-editor a {
