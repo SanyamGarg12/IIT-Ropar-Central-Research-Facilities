@@ -1,5 +1,4 @@
--- Create the database if it doesn't exist
-DROP DATABASE IF EXISTS iitrpr;
+drop database iitrpr;
 CREATE DATABASE iitrpr;
 
 -- Switch to the newly created database
@@ -1885,22 +1884,6 @@ CREATE TABLE Supervisor (
 );
 
 -- Create the SupervisorTransactions table
-CREATE TABLE SupervisorTransactions (
-    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
-    supervisor_id INT NOT NULL,
-    transaction_type ENUM('TOP_UP', 'BOOKING_APPROVAL', 'BOOKING_REFUND', 'SUPERUSER_BOOKING', 'SUPERUSER_ACTIVATION', 'SUPERUSER_REFUND') NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    balance_after DECIMAL(10,2) NOT NULL,
-    description TEXT,
-    booking_id INT NULL,
-    facility_name VARCHAR(255) NULL,
-    student_name VARCHAR(255) NULL,
-    admin_email VARCHAR(255) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (supervisor_id) REFERENCES Supervisor(id) ON DELETE CASCADE,
-    FOREIGN KEY (booking_id) REFERENCES BookingHistory(booking_id) ON DELETE SET NULL
-);
-
 -- Create the Publications table
 CREATE TABLE Publications (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2044,6 +2027,21 @@ CREATE TABLE BookingBifurcations (
     sample_count INT NOT NULL DEFAULT 1,
     FOREIGN KEY (booking_id) REFERENCES BookingHistory(booking_id) ON DELETE CASCADE,
     FOREIGN KEY (bifurcation_id) REFERENCES facility_bifurcations(id) ON DELETE CASCADE
+);
+CREATE TABLE SupervisorTransactions (
+    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+    supervisor_id INT NOT NULL,
+    transaction_type ENUM('TOP_UP', 'BOOKING_APPROVAL', 'BOOKING_REFUND', 'SUPERUSER_BOOKING', 'SUPERUSER_ACTIVATION', 'SUPERUSER_REFUND') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    balance_after DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    booking_id INT NULL,
+    facility_name VARCHAR(255) NULL,
+    student_name VARCHAR(255) NULL,
+    admin_email VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (supervisor_id) REFERENCES Supervisor(id) ON DELETE CASCADE,
+    FOREIGN KEY (booking_id) REFERENCES BookingHistory(booking_id) ON DELETE SET NULL
 );
 
 -- Create the forms table
